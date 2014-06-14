@@ -3,6 +3,7 @@ from utils import *
 from model import OneBird,Poisson
 from venture.venturemagics.ip_parallel import *
 import matplotlib.pylab as plt
+import sys,time
 
 def l2(cell1_ij,cell2_ij ):
     return ((cell1_ij[0] - cell2_ij[0])**2 + (cell1_ij[1] - cell2_ij[1])**2)**.5
@@ -57,18 +58,7 @@ def ind_to_ij(height,width,index,order='F'):
   grid = make_grid(height,width=width,order=order)
   return map(int,np.where(grid==index))
 
-def make_grid(height,width=None,top0=True,lst=None,order='F'):
-  width = height if width is None else width
-  l = np.array(range(width*height)) if lst is None else np.array(lst)
-  grid = l.reshape( (height, width), order=order)
-  if top0:
-    return grid
-  else:
-    grid_mat = np.zeros( shape=(height,width),dtype=int )
-    for i in range(width):
-      grid_mat[:,i] = grid[:,i][::-1]
-    return grid_mat
-      
+
 def cell_to_feature(height, width, state, features, feature_ind):
   cells = height * width
   y,d,i = state
@@ -84,14 +74,14 @@ def from_cell_dist(height,width,ripl,i,year,day):
     
 
 # basic tests for generative model one_bird
-Y, D = 1, 8
+Y, D = 2, 4
 years,days = range(Y),range(D)
 height,width = 4,4
 features,features_dict = genFeatures(height,width,years=years,days=days,order='F')
 num_features = len( features_dict[(0,0,0,0)] )
 hypers = [1,1]
 
-params = dict(name='w2',
+params = dict(name='w3',
               height = height,
               width = width,
               years = years,
@@ -113,25 +103,50 @@ h,rfc = ana.runFromConditional(5,runs=1)
 assert not(r is rfc)
 assert r.sample('hypers0')==hypers[0] and rfc.sample('hypers0')==hypers[0]
 
+# store observes from r
+params['name'] = 'store_obs'
+params['softmax_beta'] = 8
+uni = OneBird(mk_p_ripl(),params)
+uni.loadAssumes()
+
+uni.draw_bird_locations(years,days,plot=True)
+gtruth_bird_locations = uni.getBirdLocations(years,days)
+filename = uni.store_observes(years,days)
+
+# create new ripl with same assumes
+# params['softmax_beta'] = 1
+# params['name'] = 'store_obs_inf'
+# uni2 = OneBird(mk_p_ripl(),params)
+# uni2.loadAssumes()
+
+# uni2.draw_bird_locations(years,days,name=params['name']+'_before')
+# uni2.observe_from_file(filename = filename)
+# start = time.time()
+# uni2.ripl.infer('(mh default one 1)')
+# print 'elapsed: %s'%(time.time() - start)
+# uni2.draw_bird_locations(years,days,name=params['name']+'_after')
+
 
 
 # compare from-i and from-cell-dist
-plt.close('all')
-cells=(0,5,15)
-fig,ax = plt.subplots(len(cells),2)
+if int(sys.argv[1])==1:
+  cells=(0,5,15)
+  fig,ax = plt.subplots(len(cells),2)
 
 
-for count,cell in enumerate(cells):
-  state = (0,0,cell)
-  year,day,_ = state
-  grid_from_i = { hyper: cell_to_feature(height,width, state, features_dict,hyper) for hyper in range(num_features) }
-  simple, grid_from_cell_dist = from_cell_dist( height,width,r,cell,year,day )
-  ax[count,0].imshow(grid_from_i[0], cmap='copper',interpolation='none')
-  ax[count,0].set_title('From_i: %i, feat0'%cell)
-  ax[count,1].imshow(grid_from_cell_dist, cmap='copper',interpolation='none')
-  ax[count,1].set_title('f_cell_dist: %i'%cell)
+  for count,cell in enumerate(cells):
+    state = (0,0,cell)
+    year,day,_ = state
+    grid_from_i = { hyper: cell_to_feature(height,width, state, features_dict,hyper) 
+  for hyper in range(num_features) }
+    simple, grid_from_cell_dist = from_cell_dist( height,width,r,cell,year,day )
+    ax[count,0].imshow(grid_from_i[0], cmap='copper',interpolation='none')
+    ax[count,0].set_title('From_i: %i, feat0'%cell)
+    ax[count,1].imshow(grid_from_cell_dist, cmap='copper',interpolation='none')
+    ax[count,1].set_title('f_cell_dist: %i'%cell)
 
-fig.tight_layout()
-plt.show()
+    fig.tight_layout()
+
+    plt.show()
 
 # ripl tests

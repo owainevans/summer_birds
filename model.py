@@ -3,6 +3,7 @@ from utils import *
 from venture.unit import VentureUnit
 from venture.ripl.ripl import _strip_types
 from itertools import product
+import matplotlib.pylab as plt
 import cPickle as pickle
 num_features = 4
     
@@ -15,8 +16,7 @@ def day_features(features,width,y=0,d=0,summary=None):
 def loadFeatures(dataset, name, years, days, maxDay=None):
   
   features_file = "data/input/dataset%d/%s-features.csv" % (dataset, name)
-  print "Loading features from %s" % features_file
-  
+  print "Loading features from %s" % features_file  
   features = readFeatures(features_file, maxYear= max(years)+1, maxDay=maxDay)
   
   for (y, d, i, j) in features.keys():
@@ -38,13 +38,28 @@ def loadObservations(ripl, dataset, name, years, days):
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
 
 
-def drawBirdLocations(bird_locs,name,years,days,height,width):
+def drawBirdLocations(bird_locs,name,years,days,height,width,plot=None):
+  if plot:
+    fig,ax = plt.subplots(nrows=len(days),ncols=max(2,len(years)),sharex=True,sharey=True)
+    
     for y in years:
       path = 'bird_moves_%s/%d/' % (name, y)
       ensure(path)
+      bitmaps = []
       for d in days:
-        drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width)
+        drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width) )
 
+  if plot:
+      fig2,ax2 = plt.subplots(nrows=len(days),ncols=max(2,len(years)))
+      for y,d in product(years,days):
+        im = make_grid(height,width,lst=bird_locs[y][d], order='F')
+        ax2[d][y].imshow(im,cmap=plt.cm.Reds, interpolation='none',
+                         extent=[0,width,0,height])
+        ax2[d][y].set_title('Name: %s, y:%i, d:%i'%(namey,d))
+        ax2[d][y].set_xticks(range(width+1))
+        ax2[d][y].set_yticks(range(height+1))
+      fig2.tight_layout()
+  return fig2 if plot else None
 
 
 class OneBird(VentureUnit):
@@ -150,7 +165,7 @@ class OneBird(VentureUnit):
     ripl.assume('move2', """
       (mem (lambda (bird_id y d i)
         (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move) (array bird_id y d i)
+          (scope_include (quote move2) (array bird_id y d i)
             (categorical dist cell_array)))))""")
 
 
@@ -193,14 +208,11 @@ class OneBird(VentureUnit):
     ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds2 y d i) 0.0001)))')
 
   def store_observes(self,years=None,days=None):
-    if years is None:
-      years = self.years
-    if days is None:
-      days = self.days
+    if years is None: years = self.years
+    if days is None: days = self.days
   
-    # r = self.ripl
     # prod = product(years,days,range(self.cells))
-    # oc={ ydi: r.predict('(observe_birds2 %i %i %i)'%ydi) for ydi in prod}
+    # oc={ ydi: self.ripl.predict('(observe_birds2 %i %i %i)'%ydi) for ydi in prod}
 
     observed_counts={}
     for y in years:
@@ -216,17 +228,20 @@ class OneBird(VentureUnit):
     with open(filename,'w') as f:
       pickle.dump(observed_counts,f)
     print 'Stored observes in %s.'%filename
-
+    return filename
     
+
   def observe_from_file(self,filename=None):
     if filename is None:
       filename = self.observed_counts_filename
     assert isinstance(filename,str)
-    with open(filename,'w') as f:
+    with open(filename,'r') as f:
       self.observed_counts = pickle.load(f)
-    
-    assert (max(self.years),max(self.days)) in self.observed_counts
-    assert self.observed_counts[(0,0)]
+
+    years = range( max( [k[0] for k in self.observed_counts.keys()] ) )
+    days = range( max( [k[1] for k in self.observed_counts.keys()] ) )
+
+    assert len( self.observed_counts[(0,0)] ) == self.cells
     for y in years:
       for d in days:
         for i,count_i in enumerate(self.observed_counts[(y,d)]):
@@ -235,18 +250,15 @@ class OneBird(VentureUnit):
 
   def bird_to_pos(self,year,day,hist=False):
     l=[]
-    
     for bird_id in self.ripl.sample('bird_ids'):
       args = bird_id, year, day
       l.append(self.ripl.predict('(get_bird_pos2 %i %i %i)'%args))
                                                            
-
     all_bird_l = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
     assert all( np.array(all_bird_l)==np.array(l) )
 
 # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
 # np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
-
     if hist:
       hist,_ = np.histogram(l,bins=range(self.cells+1))
       assert len(hist)==self.cells
@@ -268,13 +280,14 @@ class OneBird(VentureUnit):
     return bird_locations
 
 
-  def draw_bird_locations(self,years,days):
-    assert isinstance(years,(list,tuple)) and isinstance(days,(list,tuple))
+  def draw_bird_locations(self,years,days,name=None,plot=None):
+    assert isinstance(years,(list,tuple))
+    assert isinstance(days,(list,tuple))
+    name = self.name if name is None else name
     bird_locs = self.getBirdLocations(years,days)
-    drawBirdLocations(bird_locs, self.name,
-                      years, days, self.height, self.width)
-
-    
+    bitmaps = drawBirdLocations(bird_locs, self.name, years, days,
+                                self.height, self.width, plot=plot)
+    return bitmaps
 
   def loadObserves(self, ripl = None):
     if ripl is None:

@@ -2,6 +2,7 @@ import venture.shortcuts as s
 import numpy as np
 from scipy import misc
 import os
+import matplotlib.pylab as plt
 
 def parseLine(line):
   return line.strip().split(',')
@@ -76,7 +77,7 @@ def ensure(path):
   if not os.path.exists(path):
     os.makedirs(path)
 
-def drawBirds(bird_locs, filename, width=None, height=None, **kwargs):
+def drawBirds(bird_locs, filename, width=None, height=None,  **kwargs):
   scale = 10
   
   bitmap = np.ndarray(shape=(width*scale, height*scale))
@@ -88,10 +89,13 @@ def drawBirds(bird_locs, filename, width=None, height=None, **kwargs):
       for y in range(height):
         for ys in range(scale):
           bitmap[x*scale+xs, y*scale+ys] = bird_locs[x * height + y]
-  
+          
   print "Saving images to %s" % filename
-  #plt.imshow(bitmap)
+
+
+  
   misc.imsave(filename, bitmap)
+  return bitmap
 
 def drawBirdMoves(bird_moves, path, cells=None, total_birds=None, years=None, days=None, **params):
   for y in years:
@@ -109,6 +113,19 @@ def drawBirdMoves(bird_moves, path, cells=None, total_birds=None, years=None, da
       ensure(p)
       filename = p + '/%02d.png' % (d+1)
       drawBirds(bird_locs, filename, **params)
+
+def make_grid(height,width=None,top0=True,lst=None,order='F'):
+  width = height if width is None else width
+  l = np.array(range(width*height)) if lst is None else np.array(lst)
+  grid = l.reshape( (height, width), order=order)
+  if top0:
+    return grid
+  else:
+    grid_mat = np.zeros( shape=(height,width),dtype=int )
+    for i in range(width):
+      grid_mat[:,i] = grid[:,i][::-1]
+    return grid_mat
+
 
 def testDrawBirdMoves(dataset):
   params = getParams(dataset)
