@@ -83,13 +83,13 @@ def from_cell_dist(height,width,ripl,i,year,day):
   return simplex,grid
     
 
-Y, D = 1, 20
+# basic tests for generative model one_bird
+Y, D = 1, 8
 years,days = range(Y),range(D)
-height,width = 5,5
+height,width = 4,4
 features,features_dict = genFeatures(height,width,years=years,days=days,order='F')
 num_features = len( features_dict[(0,0,0,0)] )
 hypers = [1,1]
-
 
 params = dict(name='w2',
               height = height,
@@ -112,10 +112,6 @@ h,rfc = ana.runFromConditional(5,runs=1)
 
 assert not(r is rfc)
 assert r.sample('hypers0')==hypers[0] and rfc.sample('hypers0')==hypers[0]
-
-
-
-
 
 
 

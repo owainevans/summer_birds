@@ -3,10 +3,9 @@ from utils import *
 from venture.unit import VentureUnit
 from venture.ripl.ripl import _strip_types
 from itertools import product
-
+import cPickle as pickle
 num_features = 4
     
-
 
 def day_features(features,width,y=0,d=0,summary=None):
   lst = [features[(y,d,i,j)] for (i,j) in product(range(cells),range(cells))]
@@ -77,7 +76,8 @@ class OneBird(VentureUnit):
     self.num_birds=params.get('num_birds',1)
 
     self.softmax_beta=params.get('softmax_beta',1)
-
+    self.observed_counts_filename = params.get('observed_counts_filename',None)
+    
     super(OneBird, self).__init__(ripl, params)
 
 
@@ -191,6 +191,46 @@ class OneBird(VentureUnit):
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 
     ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds2 y d i) 0.0001)))')
+
+  def store_observes(self,years=None,days=None):
+    if years is None:
+      years = self.years
+    if days is None:
+      days = self.days
+  
+    # r = self.ripl
+    # prod = product(years,days,range(self.cells))
+    # oc={ ydi: r.predict('(observe_birds2 %i %i %i)'%ydi) for ydi in prod}
+
+    observed_counts={}
+    for y in years:
+      for d in days:
+        counts  = []
+        for i in range(self.cells):
+          counts.append( self.ripl.predict('(observe_birds2 %i %i %i)'%(y,d,i)) )
+        observed_counts[(y,d)] = counts
+
+    path = 'synthetic/%s/'%self.name
+    ensure(path)
+    filename = path + 'observes.dat'
+    with open(filename,'w') as f:
+      pickle.dump(observed_counts,f)
+    print 'Stored observes in %s.'%filename
+
+    
+  def observe_from_file(self,filename=None):
+    if filename is None:
+      filename = self.observed_counts_filename
+    assert isinstance(filename,str)
+    with open(filename,'w') as f:
+      self.observed_counts = pickle.load(f)
+    
+    assert (max(self.years),max(self.days)) in self.observed_counts
+    assert self.observed_counts[(0,0)]
+    for y in years:
+      for d in days:
+        for i,count_i in enumerate(self.observed_counts[(y,d)]):
+          ripl.observe('(observe_birds2 %i %i %i)'%(y,d,i),count_i)
 
 
   def bird_to_pos(self,year,day,hist=False):
