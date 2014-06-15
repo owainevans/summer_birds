@@ -114,7 +114,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,
 
   # inference
   start = time.time()
-  uni_inf.ripl.infer(infer_prog)
+  infer_prog(uni_inf.ripl)
   print 'Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
   # posterior info
@@ -126,51 +126,63 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,
   return all_locs, figs
 
 
-# basic tests for generative model one_bird
+def mse(locs1,locs2,years,days):
+  all_days = product(years,days)
+  all_e = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
+  return np.mean(all_e)
 
 
-param_keys = ['height','width','years','days',
+params_keys = ['height','width','years','days',
               'features','num_features','num_birds',
               'learn_hypers','hypers',
               'softmax_beta','load_observes_file']
 
 
-Y, D = 1, 5
-years,days = range(Y),range(D)
-height,width = 4,4
-features,features_dict = genFeatures(height, width, years=years, days=days, order='F')
-num_features = len( features_dict[(0,0,0,0)] )
-learn_hypers = False
-hypers = [1,1]
-num_birds = 10
-softmax_beta = 1
-load_observes_file=False
 
-params = {k:eval(k,globals()) for k in param_keys}
-#test_unit_analytics_loading(params)
+def test_recon(mh_steps,test_hypers=False):
+  # model params for test of reconstruction
+  Y, D = 1, 8
+  years,days = range(Y),range(D)
+  height,width = 5,5
+  features,features_dict = genFeatures(height, width,years,days, order='F')
+  num_features = len( features_dict[(0,0,0,0)] )
+  learn_hypers, hypers = False,(1,1)
+  num_birds = 14
+  softmax_beta = 3
+  load_observes_file=False
 
-gtruth_params  = params.copy()
-gtruth_params['name'] = 'gtruth'
-gtruth_params['softmax_beta'] = 3
-
-infer_params = params.copy()
-infer_params['softmax_beta'] = 3
-infer_params['name'] = 'infer'
-
-infer_prog = '(mh default one 4000)'
-all_locs, all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog)
-
-def mse(locs1,locs2,years,days):
-  all_days = product(years,days)
-  all_e = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
+  params = dict(years=years, days = days, height=height, width=width,
+                features=features, num_features = num_features,
+                learn_hypers=learn_hypers, hypers = hypers,
+                num_birds = num_birds, softmax_beta = softmax_beta,
+                load_observes_file=load_observes_file)
+  assert set(params.keys()).issubset(params_keys)
   
-  return np.mean(all_e)
+  gtruth_params  = params.copy()
+  infer_params = params.copy()
+  gtruth_params['name'] = 'gtruth'
+  infer_params['name'] = 'infer'
+  
+  if test_hypers:
+    infer_params['learn_hypers'] = True
+    def infer_prog(ripl):
+        ripl.infer('(mh hypers one 10)')
+        ripl.infer('(mh move2 one %i)'%mh_steps)
+  else:
+    infer_prog=lambda r: r.infer('(mh move2 one %i)'%mh_steps)
 
-gt_locs,prior_locs,post_locs = all_locs
-mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
-print 'prior,post mses: %.2f %.2f'%(mse_gt(prior_locs),mse_gt(post_locs))
+  all_locs, all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog)
+  gt_locs,prior_locs,post_locs = all_locs
+  mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
+  print 'prior,post mses: %.2f %.2f'%(mse_gt(prior_locs),mse_gt(post_locs))
 
-gt,pri,post = figs
+  gt,pri,post = all_figs
+  return params, all_locs, all_figs
+
+
+
+
+
 
 # # compare from-i and from-cell-dist
 # if int(sys.argv[1])==1:
