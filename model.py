@@ -38,28 +38,30 @@ def loadObservations(ripl, dataset, name, years, days):
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
 
 
-def drawBirdLocations(bird_locs,name,years,days,height,width,plot=None):
-  if plot:
-    fig,ax = plt.subplots(nrows=len(days),ncols=max(2,len(years)),sharex=True,sharey=True)
-    
+# calls bird_locs twice, fixed Fortran order
+def drawBirdLocations(bird_locs,name,years,days,height,width,
+                      save=True,plot=None):
+  if save:
     for y in years:
       path = 'bird_moves_%s/%d/' % (name, y)
       ensure(path)
-      bitmaps = []
       for d in days:
-        drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width) )
+        drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width)
 
   if plot:
-      fig2,ax2 = plt.subplots(nrows=len(days),ncols=max(2,len(years)))
-      for y,d in product(years,days):
-        im = make_grid(height,width,lst=bird_locs[y][d], order='F')
-        ax2[d][y].imshow(im,cmap=plt.cm.Reds, interpolation='none',
-                         extent=[0,width,0,height])
-        ax2[d][y].set_title('Name: %s, y:%i, d:%i'%(namey,d))
-        ax2[d][y].set_xticks(range(width+1))
-        ax2[d][y].set_yticks(range(height+1))
-      fig2.tight_layout()
-  return fig2 if plot else None
+    nrows=len(days)
+    ncols=max(2,len(years))
+    fig,ax = plt.subplots(nrows,ncols,figsize=(6*ncols,2.5*nrows))
+    for y,d in product(years,days):
+      im = make_grid(height,width,lst=bird_locs[y][d], order='F')
+      ax[d][y].imshow(im,cmap=plt.cm.Reds, interpolation='none',
+                      extent=[0,width,0,height])
+      ax[d][y].set_title('%s- y:%i d:%i'%(name,y,d))
+      ax[d][y].set_xticks(range(width+1))
+      ax[d][y].set_yticks(range(height+1))
+    fig.tight_layout()
+
+  return fig if plot else None
 
 
 class OneBird(VentureUnit):
@@ -83,8 +85,8 @@ class OneBird(VentureUnit):
       self.features = loadFeatures(1, self.name, self.years, self.days)
       self.num_features = num_features
 
-    self.learnHypers = params['learnHypers']
-    if not self.learnHypers:
+    self.learn_hypers = params['learn_hypers']
+    if not self.learn_hypers:
       self.hypers = params['hypers']
       
     self.load_observes_file=params.get('load_observes_file',True)
@@ -126,7 +128,7 @@ class OneBird(VentureUnit):
         (if (not (is_pair lst)) (list)
           (pair (f (first lst)) (map f (rest lst))) ) )""")
 
-    if not self.learnHypers:
+    if not self.learn_hypers:
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k,  value_k)
     else:
@@ -280,13 +282,13 @@ class OneBird(VentureUnit):
     return bird_locations
 
 
-  def draw_bird_locations(self,years,days,name=None,plot=None):
+  def draw_bird_locations(self,years,days,name=None,plot=True,save=True):
     assert isinstance(years,(list,tuple))
     assert isinstance(days,(list,tuple))
     name = self.name if name is None else name
     bird_locs = self.getBirdLocations(years,days)
     bitmaps = drawBirdLocations(bird_locs, self.name, years, days,
-                                self.height, self.width, plot=plot)
+                                self.height, self.width, plot=plot,save=save)
     return bitmaps
 
   def loadObserves(self, ripl = None):
@@ -338,7 +340,7 @@ class Poisson(VentureUnit):
     self.years = params['years']
     self.days = params['days']
     self.hypers = params["hypers"]
-    self.learnHypers = True if isinstance(self.hypers[0],str) else False
+    self.learn_hypers = True if isinstance(self.hypers[0],str) else False
     self.ground = readReconstruction(params) if 'ground' in params else None
     self.maxDay = params.get('maxDay',None)
 
@@ -376,7 +378,7 @@ class Poisson(VentureUnit):
     #ripl.assume('num_features', num_features)
 
     
-    if not self.learnHypers:
+    if not self.learn_hypers:
       for k, b in enumerate(self.hypers):
         ripl.assume('hypers%d' % k,  b)
     else:

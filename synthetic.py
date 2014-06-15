@@ -30,7 +30,7 @@ def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
 def wind(cell1_ij,cell2_ij,year=0,day=0):
     return goal_direction( cell1_ij, cell2_ij, date_wind(year,day))
 
-    
+                        
 def genFeatures(height,width,years,days,order='F'):#feature_functions=None):
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
@@ -73,80 +73,124 @@ def from_cell_dist(height,width,ripl,i,year,day):
   return simplex,grid
     
 
+def test_unit_analytics_loading(params):
+  r = mk_p_ripl()
+  uni = OneBird(r,params)
+  uni.loadAssumes()
+  ana = uni.getAnalytics()
+  ana.updateQueryExps(['(move2 0 0 0 0)'])
+  h,rfc = ana.runFromConditional(100,runs=1)
+  assert r is uni.ripl
+  assert not(r is rfc)
+  assert h.averageValue('(move2 0 0 0 0)') > 0 
+  assert len(ana.parameters) == len(uni.parameters)
+
+  for ripl in (r,rfc):
+    assert ripl.sample('hypers0')==params['hypers'][0]
+    assert ripl.sample('(size cell_array)')==params['width']*params['height']
+    assert ana.parameters
+
+
+def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,
+                            save=False,plot=True):
+    
+  years,days = gtruth_params['years'],gtruth_params['days']
+  
+  def locs_fig(unit,name):      
+      locs = unit.getBirdLocations(years,days)
+      fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
+      return locs,fig
+    
+  uni = OneBird(mk_p_ripl(),gtruth_params)
+  uni.loadAssumes()
+  gtruth_locs,gtruth_fig = locs_fig(uni,gtruth_params['name'])
+  filename = uni.store_observes(years,days)
+
+  # make inference model
+  uni_inf = OneBird(mk_p_ripl(),infer_params)
+  uni_inf.loadAssumes()
+  prior_locs,prior_fig = locs_fig(uni_inf,infer_params['name']+'_prior')
+  uni_inf.observe_from_file(filename = filename)
+
+  # inference
+  start = time.time()
+  uni_inf.ripl.infer(infer_prog)
+  print 'Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
+
+  # posterior info
+  posterior_locs,posterior_fig = locs_fig(uni_inf,infer_params['name']+'_post')
+
+  all_locs = gtruth_locs, prior_locs, posterior_locs
+  figs = gtruth_fig, prior_fig, posterior_fig
+
+  return all_locs, figs
+
+
 # basic tests for generative model one_bird
-Y, D = 2, 4
+
+
+param_keys = ['height','width','years','days',
+              'features','num_features','num_birds',
+              'learn_hypers','hypers',
+              'softmax_beta','load_observes_file']
+
+
+Y, D = 1, 5
 years,days = range(Y),range(D)
 height,width = 4,4
-features,features_dict = genFeatures(height,width,years=years,days=days,order='F')
+features,features_dict = genFeatures(height, width, years=years, days=days, order='F')
 num_features = len( features_dict[(0,0,0,0)] )
+learn_hypers = False
 hypers = [1,1]
+num_birds = 10
+softmax_beta = 1
+load_observes_file=False
 
-params = dict(name='w3',
-              height = height,
-              width = width,
-              years = years,
-              days = days,
-              features = features,
-              num_features = num_features,
-              learnHypers=False,
-              hypers = hypers,
-              num_birds = 20,
-              softmax_beta = 5,
-              load_observes_file=False)
+params = {k:eval(k,globals()) for k in param_keys}
+#test_unit_analytics_loading(params)
 
-r = mk_p_ripl()
-uni = OneBird(r,params)
-uni.loadAssumes()
-ana = uni.getAnalytics()
-h,rfc = ana.runFromConditional(5,runs=1)
+gtruth_params  = params.copy()
+gtruth_params['name'] = 'gtruth'
+gtruth_params['softmax_beta'] = 3
 
-assert not(r is rfc)
-assert r.sample('hypers0')==hypers[0] and rfc.sample('hypers0')==hypers[0]
+infer_params = params.copy()
+infer_params['softmax_beta'] = 3
+infer_params['name'] = 'infer'
 
-# store observes from r
-params['name'] = 'store_obs'
-params['softmax_beta'] = 8
-uni = OneBird(mk_p_ripl(),params)
-uni.loadAssumes()
+infer_prog = '(mh default one 4000)'
+all_locs, all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog)
 
-uni.draw_bird_locations(years,days,plot=True)
-gtruth_bird_locations = uni.getBirdLocations(years,days)
-filename = uni.store_observes(years,days)
+def mse(locs1,locs2,years,days):
+  all_days = product(years,days)
+  all_e = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
+  
+  return np.mean(all_e)
 
-# create new ripl with same assumes
-# params['softmax_beta'] = 1
-# params['name'] = 'store_obs_inf'
-# uni2 = OneBird(mk_p_ripl(),params)
-# uni2.loadAssumes()
+gt_locs,prior_locs,post_locs = all_locs
+mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
+print 'prior,post mses: %.2f %.2f'%(mse_gt(prior_locs),mse_gt(post_locs))
 
-# uni2.draw_bird_locations(years,days,name=params['name']+'_before')
-# uni2.observe_from_file(filename = filename)
-# start = time.time()
-# uni2.ripl.infer('(mh default one 1)')
-# print 'elapsed: %s'%(time.time() - start)
-# uni2.draw_bird_locations(years,days,name=params['name']+'_after')
+gt,pri,post = figs
+
+# # compare from-i and from-cell-dist
+# if int(sys.argv[1])==1:
+#   cells=(0,5,15)
+#   fig,ax = plt.subplots(len(cells),2)
 
 
+#   for count,cell in enumerate(cells):
+#     state = (0,0,cell)
+#     year,day,_ = state
+#     grid_from_i = { hyper: cell_to_feature(height,width, state, features_dict,hyper) 
+#   for hyper in range(num_features) }
+#     simple, grid_from_cell_dist = from_cell_dist( height,width,r,cell,year,day )
+#     ax[count,0].imshow(grid_from_i[0], cmap='copper',interpolation='none')
+#     ax[count,0].set_title('From_i: %i, feat0'%cell)
+#     ax[count,1].imshow(grid_from_cell_dist, cmap='copper',interpolation='none')
+#     ax[count,1].set_title('f_cell_dist: %i'%cell)
 
-# compare from-i and from-cell-dist
-if int(sys.argv[1])==1:
-  cells=(0,5,15)
-  fig,ax = plt.subplots(len(cells),2)
+#     fig.tight_layout()
 
+#     plt.show()
 
-  for count,cell in enumerate(cells):
-    state = (0,0,cell)
-    year,day,_ = state
-    grid_from_i = { hyper: cell_to_feature(height,width, state, features_dict,hyper) 
-  for hyper in range(num_features) }
-    simple, grid_from_cell_dist = from_cell_dist( height,width,r,cell,year,day )
-    ax[count,0].imshow(grid_from_i[0], cmap='copper',interpolation='none')
-    ax[count,0].set_title('From_i: %i, feat0'%cell)
-    ax[count,1].imshow(grid_from_cell_dist, cmap='copper',interpolation='none')
-    ax[count,1].set_title('f_cell_dist: %i'%cell)
-
-    fig.tight_layout()
-
-    plt.show()
-
-# ripl tests
+# # ripl tests
