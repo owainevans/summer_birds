@@ -50,15 +50,16 @@ def drawBirdLocations(bird_locs,name,years,days,height,width,
 
   if plot:
     nrows=len(days)
-    ncols=max(2,len(years))
+    ncols=len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
     for y,d in product(years,days):
-      im = make_grid(height,width,lst=bird_locs[y][d], order='F')
-      ax[d][y].imshow(im,cmap=plt.cm.Reds, interpolation='none',
+      im = make_grid(height, width, lst=bird_locs[y][d], order='F')
+      ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
+      ax_dy.imshow(im,cmap=plt.cm.Reds, interpolation='none',
                       extent=[0,width,0,height])
-      ax[d][y].set_title('%s- y:%i d:%i'%(name,y,d))
-      ax[d][y].set_xticks(range(width+1))
-      ax[d][y].set_yticks(range(height+1))
+      ax_dy.set_title('%s- y:%i d:%i'%(name,y,d))
+      ax_dy.set_xticks(range(width+1))
+      ax_dy.set_yticks(range(height+1))
     fig.tight_layout()
 
   return fig if plot else None
@@ -209,6 +210,7 @@ class OneBird(VentureUnit):
         (size (filter
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 
+## note that count_22 seems to work faster. haven't looked at whether it harms inference. doesn't obviously do so
     ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
 
   def store_observes(self,years=None,days=None):
