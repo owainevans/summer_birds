@@ -244,7 +244,7 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   gt,pri,post = all_figs
 
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
-  mses = [ mse_gt(prior_locs),mse_gt(post_locs) ]
+  mses = [ (mse_gt(prior_locs),mse_gt(post_locs) ) ]
   print 'prior,post mses: %.2f %.2f'%mses[0]
 
   if test_hypers:
