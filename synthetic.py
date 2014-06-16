@@ -204,13 +204,13 @@ def smooth_inf(unit,steps_iterations,filename=None):
     
 def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
   # model params
-  Y, D = 1, 4
+  Y, D = 1, 8
   years,days = range(Y),range(D)
   height,width = 4,4
   features,features_dict = genFeatures(height, width, years, days, order='F')
   num_features = len( features_dict[(0,0,0,0)] )
   learn_hypers, hypers = False,(1,1)
-  num_birds = 15
+  num_birds = 30
   softmax_beta = 2
   load_observes_file=False
 
