@@ -51,7 +51,7 @@ def drawBirdLocations(bird_locs,name,years,days,height,width,
   if plot:
     nrows=len(days)
     ncols=max(2,len(years))
-    fig,ax = plt.subplots(nrows,ncols,figsize=(6*ncols,2.5*nrows))
+    fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
     for y,d in product(years,days):
       im = make_grid(height,width,lst=bird_locs[y][d], order='F')
       ax[d][y].imshow(im,cmap=plt.cm.Reds, interpolation='none',
@@ -130,10 +130,10 @@ class OneBird(VentureUnit):
 
     if not self.learn_hypers:
       for k, value_k in enumerate(self.hypers):
-        ripl.assume('hypers%d' % k,  value_k)
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
     else:
+      ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
       for k in range(self.num_features):
-        ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %d (* scale (normal 0 10)))' % k)
 
     
@@ -164,10 +164,12 @@ class OneBird(VentureUnit):
           (scope_include (quote move) (array y d)
             (categorical dist cell_array))))""")
 
+# since we used a day, this is only going work for single year (ok for now)
+# we'd need to encode y,d pairs as single int o/w
     ripl.assume('move2', """
       (mem (lambda (bird_id y d i)
         (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move2) (array bird_id y d i)
+          (scope_include (quote move2) d
             (categorical dist cell_array)))))""")
 
 
@@ -233,21 +235,22 @@ class OneBird(VentureUnit):
     return filename
     
 
-  def observe_from_file(self,filename=None):
+  def observe_from_file(self,years_range,days_range,filename=None):
     if filename is None:
       filename = self.observed_counts_filename
     assert isinstance(filename,str)
     with open(filename,'r') as f:
       self.observed_counts = pickle.load(f)
 
-    years = range( max( [k[0] for k in self.observed_counts.keys()] ) )
-    days = range( max( [k[1] for k in self.observed_counts.keys()] ) )
+    #years = range( max( [k[0] for k in self.observed_counts.keys()] ) )
+    #days = range( max( [k[1] for k in self.observed_counts.keys()] ) )
 
     assert len( self.observed_counts[(0,0)] ) == self.cells
-    for y in years:
-      for d in days:
+    
+    for y in years_range:
+      for d in days_range:
         for i,count_i in enumerate(self.observed_counts[(y,d)]):
-          ripl.observe('(observe_birds2 %i %i %i)'%(y,d,i),count_i)
+          self.ripl.observe('(observe_birds2 %i %i %i)'%(y,d,i),count_i)
 
 
   def bird_to_pos(self,year,day,hist=False):
