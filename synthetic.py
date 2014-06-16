@@ -244,14 +244,17 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   gt,pri,post = all_figs
 
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
-  print 'prior,post mses: %.2f %.2f'%(mse_gt(prior_locs),mse_gt(post_locs))
+  mses = [ mse_gt(prior_locs),mse_gt(post_locs) ]
+  print 'prior,post mses: %.2f %.2f'%mses[0]
 
   if test_hypers:
     mse_hypers_gt = lambda unit_obj: compare_hypers(gtruth_unit,unit_obj)
-    print 'prior,post hypers mses: %.2f %.2f'%(mse_hypers_gt(fresh_unit),mse_hypers_gt(inf_unit))
+    mses_hypers = mse_hypers_gt(fresh_unit),mse_hypers_gt(inf_unit)
+    mses.append(mses_hypers)
+    print 'prior,post hypers mses: %.2f %.2f'%(mses[-1])
 
     
-  return unit_objects,params, all_locs, all_figs
+  return unit_objects,params, all_locs, all_figs, mses
 
 
 
