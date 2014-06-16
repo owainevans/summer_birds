@@ -209,7 +209,7 @@ class OneBird(VentureUnit):
         (size (filter
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 
-    ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds2 y d i) 0.0001)))')
+    ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
 
   def store_observes(self,years=None,days=None):
     if years is None: years = self.years
@@ -250,6 +250,7 @@ class OneBird(VentureUnit):
     for y in years_range:
       for d in days_range:
         for i,count_i in enumerate(self.observed_counts[(y,d)]):
+          #print '\n obs from file. y,d,i,count_i',y,d,i,count_i
           self.ripl.observe('(observe_birds2 %i %i %i)'%(y,d,i),count_i)
 
 

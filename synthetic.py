@@ -141,8 +141,8 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
 
 def mse(locs1,locs2,years,days):
   all_days = product(years,days)
-  all_e = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
-  return np.mean(all_e)
+  all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
+  return np.mean(all_error)
 
 def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
@@ -165,19 +165,20 @@ def filter_inf(unit,steps_iterations,filename=None,record_prog=None):
                                                          
   def basic_inf(ripl,year,day):
     for iteration in range(iterations):
+      latents = '(mh move2 %i %i)'%( day, steps)
       ripl.infer('(mh hypers one 10)')
-      ripl.infer('(mh move2 %i %i)'%( day, steps))
-      print 'iter: %i, inf_str:%s'%(iteration,
-                                    '(mh move2 %i_%i %i)'%(year, day, steps))
-
+      ripl.infer(latents)
+      print 'iter: %i, inf_str:%s'%(iteration,latents)
+  
   def record(unit):  return get_hypers(unit.ripl, unit.num_features)
 
   records = {}
   for y in unit.years:
     for d in unit.days:
       unit.observe_from_file([y],[d],filename)
-      print 'observes:',unit.ripl.list_directives()[-1]
-      basic_inf(unit.ripl, y, d)
+
+      if d>0:
+        basic_inf(unit.ripl, y, d-1)
       
       if record_prog:
         records[(y,d)] = record_prog(unit)
@@ -194,7 +195,7 @@ def smooth_inf(unit,steps_iterations,filename=None):
   # observe all data
   unit.observe_from_file(unit.years, unit.days, filename=filename)
     
-  for _ in range(iterations):
+  for iteration in range(iterations):
     unit.ripl.infer('(mh hypers one 10)')
     unit.ripl.infer('(mh move2 one %i)'%steps)      
   return unit
