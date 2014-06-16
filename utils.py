@@ -114,6 +114,7 @@ def drawBirdMoves(bird_moves, path, cells=None, total_birds=None, years=None, da
       filename = p + '/%02d.png' % (d+1)
       drawBirds(bird_locs, filename, **params)
 
+
 def make_grid(height,width=None,top0=True,lst=None,order='F'):
   width = height if width is None else width
   l = np.array(range(width*height)) if lst is None else np.array(lst)

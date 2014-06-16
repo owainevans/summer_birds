@@ -7,14 +7,11 @@ import matplotlib.pylab as plt
 import cPickle as pickle
 num_features = 4
     
-
 def day_features(features,width,y=0,d=0,summary=None):
   lst = [features[(y,d,i,j)] for (i,j) in product(range(cells),range(cells))]
   return lst
 
-
-def loadFeatures(dataset, name, years, days, maxDay=None):
-  
+def loadFeatures(dataset, name, years, days, maxDay=None):  
   features_file = "data/input/dataset%d/%s-features.csv" % (dataset, name)
   print "Loading features from %s" % features_file  
   features = readFeatures(features_file, maxYear= max(years)+1, maxDay=maxDay)
@@ -38,8 +35,30 @@ def loadObservations(ripl, dataset, name, years, days):
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
 
 
+def store_observes(unit,years=None,days=None):
+  if years is None: years = unit.years
+  if days is None: days = unit.days
+
+  observed_counts={}
+  for y in years:
+    for d in days:
+      counts  = []
+      for i in range(unit.cells):
+        counts.append( unit.ripl.predict('(observe_birds2 %i %i %i)'%(y,d,i)) )
+      observed_counts[(y,d)] = counts
+
+  path = 'synthetic/%s/'%unit.name
+  ensure(path)
+  filename = path + 'observes.dat'
+  with open(filename,'w') as f:
+    pickle.dump(observed_counts,f)
+  print 'Stored observes in %s.'%filename
+  return filename
+
+
+        
 # calls bird_locs twice, fixed Fortran order
-def drawBirdLocations(bird_locs,name,years,days,height,width,
+def drawBirdLocations(bird_locs, name, years, days, height, width,
                       save=True,plot=None):
   if save:
     for y in years:
@@ -63,6 +82,7 @@ def drawBirdLocations(bird_locs,name,years,days,height,width,
     fig.tight_layout()
 
   return fig if plot else None
+
 
 
 class OneBird(VentureUnit):
@@ -213,13 +233,13 @@ class OneBird(VentureUnit):
 ## note that count_22 seems to work faster. haven't looked at whether it harms inference. doesn't obviously do so
     ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
 
+  
+
   def store_observes(self,years=None,days=None):
+    
     if years is None: years = self.years
     if days is None: days = self.days
   
-    # prod = product(years,days,range(self.cells))
-    # oc={ ydi: self.ripl.predict('(observe_birds2 %i %i %i)'%ydi) for ydi in prod}
-
     observed_counts={}
     for y in years:
       for d in days:
@@ -339,14 +359,18 @@ class Poisson(VentureUnit):
     self.name = params['name']
     self.width = params['width']
     self.height = params['height']
-    self.cells = params['cells']
+    self.cells = self.width * self.height
+    assert isinstance(self.cells,int) and self.cells > 1
     
     self.dataset = params['dataset']
-    self.total_birds = params['total_birds']
+    self.num_birds = params['num_birds']
     self.years = params['years']
     self.days = params['days']
     self.hypers = params["hypers"]
-    self.learn_hypers = True if isinstance(self.hypers[0],str) else False
+    self.hypers_prior = params.get('hypers_prior',None)
+    self.learn_hypers = params.get('learn_hypers',None)
+    assert not(self.learn_hypers and not(hypers_prior))
+    
     self.ground = readReconstruction(params) if 'ground' in params else None
     self.maxDay = params.get('maxDay',None)
 
@@ -358,11 +382,11 @@ class Poisson(VentureUnit):
                                    maxDay=self.maxDay)
       self.num_features = num_features
       
+    self.softmax_beta=params.get('softmax_beta',1)
     self.load_observes_file=params.get('load_observes_file',True)
 
     val_features = self.features['value']
     self.parsedFeatures = {k:_strip_types(v) for k,v in val_features.items() }
-
 
     super(Poisson, self).__init__(ripl, params)
 
@@ -371,6 +395,14 @@ class Poisson(VentureUnit):
     'Input *feat in range(3) (default=wind), return all values i,j for fixed i'
     return [self.parsedFeatures[(y,d,i,j)][feat] for j in range(100)] 
 
+  def makeAssumes(self):
+    self.loadAssumes(self)
+  
+  def makeObserves(self):
+    if self.load_observes_file:
+      self.loadObserves(ripl=self)
+    else:
+      pass
 
   def loadAssumes(self, ripl = None):
     if ripl is None:
@@ -378,10 +410,8 @@ class Poisson(VentureUnit):
     
     print "Loading assumes"
     
-    ripl.assume('total_birds', self.total_birds)
+    ripl.assume('num_birds', self.num_birds)
     ripl.assume('cells', self.cells)
-
-    #ripl.assume('num_features', num_features)
 
     
     if not self.learn_hypers:
@@ -442,7 +472,7 @@ class Poisson(VentureUnit):
                   
     ripl.assume('count_birds', """
       (mem (lambda (y d i)
-        (if (= d 0) (if (= i 0) total_birds 0)""" +
+        (if (= d 0) (if (= i 0) num_birds 0)""" +
           fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', self.cells) + ")))")
     
     # bird_movements_loc
@@ -584,7 +614,6 @@ class Poisson(VentureUnit):
 
   def computeScoreDay(self, d):
     bird_moves = self.ripl.sample('(get_birds_moving3 %d)' % d)
-    
     score = 0
     
     for y in self.years:
@@ -596,13 +625,21 @@ class Poisson(VentureUnit):
   
   def computeScore(self):
     infer_bird_moves = self.getBirdMoves()
-
     score = 0
     
     for key in infer_bird_moves:
       score += (infer_bird_moves[key] - self.ground[key]) ** 2
 
     return score
+
+
+
+
+
+
+
+
+
 
 
 

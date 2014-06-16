@@ -8,8 +8,8 @@ from model import Poisson, num_features
 def makeModel(dataset=2, D=6, Y=1, learnHypers=True, hyperPrior='(normal 0 20)'):
   width,height = 10,10
   cells = width * height
-  total_birds = 1000 if dataset == 2 else 1000000
-  name = "%dx%dx%d-train" % (width, height, total_birds)
+  num_birds = 1000 if dataset == 2 else 1000000
+  name = "%dx%dx%d-train" % (width, height, num_birds)
   runs = 1
   hypers = [5, 10, 10, 10] if not learnHypers else [hyperPrior]*4
 
@@ -19,7 +19,7 @@ def makeModel(dataset=2, D=6, Y=1, learnHypers=True, hyperPrior='(normal 0 20)')
   "height":height,
   "cells":cells,
   "dataset":dataset,
-  "total_birds":total_birds,
+  "num_birds":num_birds,
   "years":range(Y),
   "days":[],
   "hypers":hypers,
@@ -243,7 +243,7 @@ def sweep(r, *args):
 # transitions=500, iterations=4
 
 #  Starting run
-# params: {'venture_random_seed': 0, 'name': '10x10x1000-train', 'hypers': ['(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)'], 'cells': 100, 'days': [], 'years': [0], 'height': 10, 'width': 10, 'maxDay': 8, 'dataset': 2, 'total_birds': 1000} 
+# params: {'venture_random_seed': 0, 'name': '10x10x1000-train', 'hypers': ['(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)'], 'cells': 100, 'days': [], 'years': [0], 'height': 10, 'width': 10, 'maxDay': 8, 'dataset': 2, 'num_birds': 1000} 
 
 # Loading assumes
 
