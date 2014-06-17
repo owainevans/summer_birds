@@ -111,6 +111,12 @@ def run(model,iterations=1, transitions=(100,50,50), baseDirectory='',slice_hype
   return logs, model
 
 
+def getAnalytics(self,mripl=None):
+  if mripl is None:
+    return Analytics(*self.analyticsArgs, **self.analyticsKwargs)
+  else:
+    return Analytics(mripl,**self.analyticsKwargs)
+
 
 def posteriorSamples(model, slice_hypers=False, runs=10, baseDirectory=None, iterations=5, transitions=1000):
   

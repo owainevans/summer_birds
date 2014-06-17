@@ -1,7 +1,8 @@
 from itertools import product
 from features_utils import genFeatures,from_cell_dist
 from model import OneBird,Poisson
-from venture.venturemagics.ip_parallel import mk_p_ripl
+from venture.venturemagics.ip_parallel import mk_p_ripl,MRipl
+from venture.unit import Analytics,display_directives
 import matplotlib.pylab as plt
 import numpy as np
 import sys,time
@@ -70,6 +71,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   
 
 def mse(locs1,locs2,years,days):
+  'MSE for bird_locations, output of onebird method'
   all_days = product(years,days)
   all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
   return np.mean(all_error)
@@ -78,18 +80,31 @@ def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
 
 def compare_hypers(gtruth_unit,inferred_unit):
-  def mse(hypers1,hypers2):
-    return np.mean((hypers1-hypers2)**2)
+  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
     
   get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
   
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
 
+def ana_test(mripl=False):
+    v = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
+    v.assume('x','(normal 0 100)')
+    observes = [('(normal x 10)',val) for val in [10,10,10,10,10,30,20,30,30,40,34,50,50,45,50,50] ]+[('(normal x .1)',30)]
+
+    ana = Analytics(v,mutateRipl=True )
+    hists = []
+    
+    for i,obs in enumerate(observes):
+        ana.updateObserves( [ obs ] )
+        h,_ = ana.runFromConditional( 40, runs=1)
+        print i,' x: ', v.sample('x')
+        hists.append( h )
+    
+    return v,ana,hists
 
 
-
-def filter_inf(unit,steps_iterations,filename=None,record_prog=None):
+def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
   print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
