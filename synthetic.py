@@ -76,8 +76,10 @@ def mse(locs1,locs2,years,days):
   all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
   return np.mean(all_error)
 
+
 def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+
 
 def compare_hypers(gtruth_unit,inferred_unit):
   def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
@@ -85,6 +87,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
   get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
   
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
+
 
 
 def ana_test(mripl=False):
@@ -102,6 +105,41 @@ def ana_test(mripl=False):
         hists.append( h )
     
     return v,ana,hists
+
+
+
+
+def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None):
+  
+  steps,iterations = steps_iterations  
+  args = unit.name, steps, iterations
+  print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
+                                                         
+  def basic_inf(ripl,year,day):
+    for iteration in range(iterations):
+      latents = '(mh move2 %i %i)'%( day, steps)
+      hypers = '(mh hypers one 10)'
+      inf = '(cycle ( %s %s) 1)'%(latents,hypers)
+      # runs in the mripl case?
+      h,_ = ana.runFromConditional( infer = inf )
+      print 'iter: %i, inf_str:%s'%(iteration,latents)
+      return h
+
+  hists = []
+  for y in unit.years:
+    for d in unit.days:
+      obs_yd = unit.observe_from_file([y],[d],filename)
+      ana.updateObserves( [obs_yd] )
+      [ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
+
+      if d>0:
+        hists.append( basic_inf(ana,y,d) )
+      
+    
+  return ana, hists
+
+
+
 
 
 def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
