@@ -55,7 +55,7 @@ def readObservations(filename):
   return years
 
 def readReconstruction(params):
-  filename = "data/ground/dataset%d/10x10x%d-reconstruction-ground.csv" % (params["dataset"], params["total_birds"])
+  filename = "data/ground/dataset%d/10x10x%d-reconstruction-ground.csv" % (params["dataset"], params["num_birds"])
   csv = loadCSV(filename)
   
   bird_moves = {}
@@ -66,7 +66,7 @@ def readReconstruction(params):
   return bird_moves
 
 def writeReconstruction(params, bird_moves):
-  filename = "data/output/dataset%d/10x10x%d-reconstruction-ground.csv" % (params["dataset"], params["total_birds"])
+  filename = "data/output/dataset%d/10x10x%d-reconstruction-ground.csv" % (params["dataset"], params["num_birds"])
   
   with open(filename, 'w') as f:
     for key, value in sorted(bird_moves.items()):
@@ -97,10 +97,10 @@ def drawBirds(bird_locs, filename, width=None, height=None,  **kwargs):
   misc.imsave(filename, bitmap)
   return bitmap
 
-def drawBirdMoves(bird_moves, path, cells=None, total_birds=None, years=None, days=None, **params):
+def drawBirdMoves(bird_moves, path, cells=None, num_birds=None, years=None, days=None, **params):
   for y in years:
     bird_locs = [0] * cells
-    bird_locs[0] = total_birds
+    bird_locs[0] = num_birds
     
     for d in days[:-1]:
       for i in range(cells):
@@ -137,14 +137,14 @@ def getParams(dataset):
 
   if dataset == 1:
     params['width'] = params['height'] = 4
-    params['total_birds'] = 1
+    params['num_birds'] = 1
     params['name'] = 'onebird'
     params['years'] = range(30)
     params['days'] = range(20)
   else:
     params['width'] = params['height'] = 10
-    params['total_birds'] = 1000 if dataset == 2 else 1000000
-    params['name'] = "%dx%dx%d-train" % (params['width'], params['height'], params['total_birds'])
+    params['num_birds'] = 1000 if dataset == 2 else 1000000
+    params['name'] = "%dx%dx%d-train" % (params['width'], params['height'], params['num_birds'])
     params['years'] = range(3)
     params['days'] = range(20)
     

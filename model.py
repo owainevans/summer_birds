@@ -44,7 +44,7 @@ def store_observes(unit,years=None,days=None):
     for d in days:
       counts  = []
       for i in range(unit.cells):
-        counts.append( unit.ripl.predict('(observe_birds2 %i %i %i)'%(y,d,i)) )
+        counts.append( unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i)) )
       observed_counts[(y,d)] = counts
 
   path = 'synthetic/%s/'%unit.name
@@ -54,6 +54,24 @@ def store_observes(unit,years=None,days=None):
     pickle.dump(observed_counts,f)
   print 'Stored observes in %s.'%filename
   return filename
+
+
+def observe_from_file(unit,years_range,days_range,filename=None):
+  if filename is None:
+    filename = unit.observed_counts_filename
+  assert isinstance(filename,str)
+  with open(filename,'r') as f:
+    unit.observed_counts = pickle.load(f)
+
+  assert len( unit.observed_counts[(0,0)] ) == unit.cells
+
+  for y in years_range:
+    for d in days_range:
+      for i,count_i in enumerate(unit.observed_counts[(y,d)]):
+        #print '\n obs from file. y,d,i,count_i',y,d,i,count_i
+        unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i),count_i)
+
+
 
 
         
@@ -204,7 +222,7 @@ class OneBird(VentureUnit):
       (lambda (y d i)
         (if (= (get_bird_pos y d) i) 1 0))""")
 
-    ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds y d i) 0.0001)))')
+    ripl.assume('observe_birds_old', '(lambda (y d i) (poisson (+ (count_birds y d i) 0.0001)))')
 
 # multi-bird version
     ripl.assume('get_bird_pos2', """
@@ -231,49 +249,16 @@ class OneBird(VentureUnit):
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 
 ## note that count_22 seems to work faster. haven't looked at whether it harms inference. doesn't obviously do so
-    ripl.assume('observe_birds2', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
+    ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
 
   
 
   def store_observes(self,years=None,days=None):
-    
-    if years is None: years = self.years
-    if days is None: days = self.days
-  
-    observed_counts={}
-    for y in years:
-      for d in days:
-        counts  = []
-        for i in range(self.cells):
-          counts.append( self.ripl.predict('(observe_birds2 %i %i %i)'%(y,d,i)) )
-        observed_counts[(y,d)] = counts
-
-    path = 'synthetic/%s/'%self.name
-    ensure(path)
-    filename = path + 'observes.dat'
-    with open(filename,'w') as f:
-      pickle.dump(observed_counts,f)
-    print 'Stored observes in %s.'%filename
-    return filename
+    return store_observes(self,years,days)
     
 
   def observe_from_file(self,years_range,days_range,filename=None):
-    if filename is None:
-      filename = self.observed_counts_filename
-    assert isinstance(filename,str)
-    with open(filename,'r') as f:
-      self.observed_counts = pickle.load(f)
-
-    #years = range( max( [k[0] for k in self.observed_counts.keys()] ) )
-    #days = range( max( [k[1] for k in self.observed_counts.keys()] ) )
-
-    assert len( self.observed_counts[(0,0)] ) == self.cells
-    
-    for y in years_range:
-      for d in days_range:
-        for i,count_i in enumerate(self.observed_counts[(y,d)]):
-          #print '\n obs from file. y,d,i,count_i',y,d,i,count_i
-          self.ripl.observe('(observe_birds2 %i %i %i)'%(y,d,i),count_i)
+    return observe_from_file(self,years_range,days_range,filename)
 
 
   def bird_to_pos(self,year,day,hist=False):
@@ -317,6 +302,7 @@ class OneBird(VentureUnit):
                                 self.height, self.width, plot=plot,save=save)
     return bitmaps
 
+    
   def loadObserves(self, ripl = None):
     if ripl is None:
       ripl = self.ripl
@@ -366,8 +352,12 @@ class Poisson(VentureUnit):
     self.num_birds = params['num_birds']
     self.years = params['years']
     self.days = params['days']
+
     self.hypers = params["hypers"]
     self.hypers_prior = params.get('hypers_prior',None)
+    if self.hypers_prior:
+      assert isinstance(self.hypers_prior[0],str)
+      
     self.learn_hypers = params.get('learn_hypers',None)
     assert not(self.learn_hypers and not(hypers_prior))
     
@@ -391,13 +381,20 @@ class Poisson(VentureUnit):
     super(Poisson, self).__init__(ripl, params)
 
 
+
+
   def feat_i(y,d,i,feat=2):
     'Input *feat in range(3) (default=wind), return all values i,j for fixed i'
     return [self.parsedFeatures[(y,d,i,j)][feat] for j in range(100)] 
 
+
+# Unit overriden methods
   def makeAssumes(self):
     self.loadAssumes(self)
-  
+# assumes are stored but not loaded onto ripl (need to run loadAssumes with no args for that)
+# if *getAnalytics* method is called on unit object, Analytics obj will have these *assumes*
+# as its self.assumes method. 
+
   def makeObserves(self):
     if self.load_observes_file:
       self.loadObserves(ripl=self)
@@ -407,8 +404,7 @@ class Poisson(VentureUnit):
   def loadAssumes(self, ripl = None):
     if ripl is None:
       ripl = self.ripl
-    
-    print "Loading assumes"
+      print "Loading assumes on self.ripl"
     
     ripl.assume('num_birds', self.num_birds)
     ripl.assume('cells', self.cells)
@@ -418,9 +414,8 @@ class Poisson(VentureUnit):
       for k, b in enumerate(self.hypers):
         ripl.assume('hypers%d' % k,  b)
     else:
-      for k, prior in enumerate(self.hypers):
-        ripl.assume('hypers%d' % k,'(scope_include (quote hypers) 0 %s )'%prior)
-        #ripl.assume('hypers%d' % k,'(scope_include (quote hypers) %d %s )'%(k,prior) )
+      for k, prior in enumerate(self.hypers_prior):
+        ripl.assume('hypers%d' % k,'(scope_include (quote hypers) %i %s )'%(k,prior) )
 
     ripl.assume('features', self.features)
 
@@ -476,10 +471,10 @@ class Poisson(VentureUnit):
           fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', self.cells) + ")))")
     
     # bird_movements_loc
-    # if no birds at i, no movement to any j from i
-    # normalize is normalizing constant for probms from i
-    # n is product of count at position i * normed probility of i to j
-    # return lambda that takes j and return poisson of this n
+    # if zero birds at i, no movement to any j from i
+    # *normalize* is normalizing constant for probms from i
+    # n = birdcount_i * normed prob (i,j)
+    # return: (lambda (j) (poisson n) )
   
     ripl.assume('bird_movements_loc', """
       (mem (lambda (y d i)
