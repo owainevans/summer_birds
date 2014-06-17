@@ -31,7 +31,7 @@ def test_unit_analytics_loading(params):
 
 
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
-                            save=False,plot=True):
+                            save=False,plot=True,analytics_infer=False):
     
   years,days = gtruth_params['years'],gtruth_params['days']
   
@@ -48,12 +48,21 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   # make inference model
   uni_inf = OneBird(mk_p_ripl(),infer_params)
   uni_inf.loadAssumes()
+  if analytics_infer:
+    ana = uni_inf.getAnalytics(mripl=None)
+    
+  
   prior_locs,prior_fig = locs_fig(uni_inf,infer_params['name']+'_prior')
 
   # observe and infer (currently we pass in the whole unit object)
   start = time.time()
-  infer_prog(uni_inf, steps_iterations, filename)
+  if analytics_infer:
+    ana_filter_inf(uni_inf,ana,steps_iterations,filename)
+  else:
+    infer_prog(uni_inf, steps_iterations, filename)
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
+
+  
 
   # posterior info
   posterior_locs,posterior_fig = locs_fig(uni_inf,infer_params['name']+'_post')
@@ -66,6 +75,8 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   all_locs = gtruth_locs, prior_locs, posterior_locs
   figs = gtruth_fig, prior_fig, posterior_fig
 
+  if analytics_infer:
+    unit_objects = list(unit_objects[:]) + ana 
   return unit_objects,all_locs, figs
 
   
@@ -97,49 +108,52 @@ def ana_test(mripl=False):
 
     ana = Analytics(v,mutateRipl=True )
     hists = []
-    
+    vv = ana.ripl if not mripl else ana.mripl
+
     for i,obs in enumerate(observes):
         ana.updateObserves( [ obs ] )
-        h,_ = ana.runFromConditional( 40, runs=1)
-        print i,' x: ', v.sample('x')
+        h,_ = ana.runFromConditional( 40, runs=1)        
+        print i,' x: ', vv.sample('x')
         hists.append( h )
     
-    return v,ana,hists
-
-
+    return vv,ana,hists
 
 
 def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None):
   
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
-  print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
+  print 'ana filter_inf. Name: %s, Steps:%i, iterations:%i'%args
                                                          
   def basic_inf(ripl,year,day):
     for iteration in range(iterations):
       latents = '(mh move2 %i %i)'%( day, steps)
       hypers = '(mh hypers one 10)'
-      inf = '(cycle ( %s %s) 1)'%(latents,hypers)
-      # runs in the mripl case?
-      h,_ = ana.runFromConditional( infer = inf )
+      inf_prog = '(cycle ( %s %s) 1)'%(latents,hypers)
+
+      runs = 1 if not ana.mripl else ana.mripl.no_ripls
+      h,_ = ana.runFromConditional( runs=runs, infer = inf_prog )
+      
       print 'iter: %i, inf_str:%s'%(iteration,latents)
       return h
 
   hists = []
   for y in unit.years:
     for d in unit.days:
-      obs_yd = unit.observe_from_file([y],[d],filename)
-      ana.updateObserves( [obs_yd] )
-      [ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
-
-      if d>0:
-        hists.append( basic_inf(ana,y,d) )
-      
+      observes_yd = unit.observe_from_file([y],[d],filename)
+      ana.updateObserves( observes_yd )
+      #[ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
+      if d>0:  hists.append( basic_inf(ana,y,d)  )
     
   return ana, hists
 
 
-
+def test_ana_inf(mripl=None):
+  params = get_onebird_params()
+  unit = OneBird(mk_p_ripl(),params)
+  unit.loadAssumes()
+  ana = unit.getAnalytics(mripl=mripl)
+  return unit,ana
 
 
 def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
@@ -185,9 +199,9 @@ def smooth_inf(unit,steps_iterations,filename=None):
   return unit
 
 
-    
-def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
-  # model params
+
+def get_onebird_params():
+  name = 'default'
   Y, D = 1, 8
   years,days = range(Y),range(D)
   height,width = 4,4
@@ -198,11 +212,18 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   softmax_beta = 2
   load_observes_file=False
 
-  params = dict(years=years, days = days, height=height, width=width,
+  params = dict(name = name,
+                years=years, days = days, height=height, width=width,
                 features=features, num_features = num_features,
                 learn_hypers=learn_hypers, hypers = hypers,
                 num_birds = num_birds, softmax_beta = softmax_beta,
                 load_observes_file=load_observes_file)
+
+  return params
+
+    
+def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
+  params = get_onebird_params()
   assert set(params.keys()).issubset(params_keys)
 
   # copy and specialize params for gtruth and inference
@@ -212,9 +233,8 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   infer_params['name'] = 'infer'
 
   # define inference program
-  if test_hypers:
-    infer_params['learn_hypers'] = True
-    
+  if test_hypers: infer_params['learn_hypers'] = True
+  
   infer_prog = filter_inf if use_mh_filter else smooth_inf
   
   # do inference using OneBird class                                                  

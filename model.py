@@ -64,11 +64,17 @@ def observe_from_file(unit,years_range,days_range,filename=None):
 
   assert len( unit.observed_counts[(0,0)] ) == unit.cells
 
+  observes = []
+  
   for y in years_range:
     for d in days_range:
-      for i,count_i in enumerate(unit.observed_counts[(y,d)]):
-        #print '\n obs from file. y,d,i,count_i',y,d,i,count_i
-        unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i),count_i)
+      for i,bird_count_i in enumerate(unit.observed_counts[(y,d)]):
+        
+        obs_tuple = ('(observe_birds %i %i %i)'%(y,d,i), bird_count_i )
+        unit.ripl.observe( obs_tuple )
+        observes.append( obs_tuple)
+
+  return observes
 
 
 
