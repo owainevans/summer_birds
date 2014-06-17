@@ -17,7 +17,7 @@ def loadFeatures(dataset, name, years, days, maxDay=None):
   features = readFeatures(features_file, maxYear= max(years)+1, maxDay=maxDay)
   
   for (y, d, i, j) in features.keys():
-    if y not in years:# or d not in days:
+    if y not in years:
       del features[(y, d, i, j)]
   
   return toVenture(features)
@@ -31,7 +31,6 @@ def loadObservations(ripl, dataset, name, years, days):
     for (d, ns) in observations[y]:
       if d not in days: continue
       for i, n in enumerate(ns):
-        #print y, d, i
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
 
 
@@ -303,6 +302,7 @@ class OneBird(VentureUnit):
     return bitmaps
 
     
+# loadObserves for onebird dataset (prepare for pgibbs inference)
   def loadObserves(self, ripl = None):
     if ripl is None:
       ripl = self.ripl
@@ -359,7 +359,7 @@ class Poisson(VentureUnit):
       assert isinstance(self.hypers_prior[0],str)
       
     self.learn_hypers = params.get('learn_hypers',None)
-    assert not(self.learn_hypers and not(hypers_prior))
+    assert not(self.learn_hypers and not(self.hypers_prior))
     
     self.ground = readReconstruction(params) if 'ground' in params else None
     self.maxDay = params.get('maxDay',None)
@@ -388,18 +388,27 @@ class Poisson(VentureUnit):
     return [self.parsedFeatures[(y,d,i,j)][feat] for j in range(100)] 
 
 
+# UNIT OVERRIDE METHODS
+  def makeObserves(self):
+    if self.load_observes_file:
+      self.loadObserves(ripl=self)
+    else:
+      pass
+
+  def loadObserves(self, ripl = None):
+    if ripl is None:
+      ripl = self.ripl
+    
+    print "Loading observations"
+    loadObservations(ripl, self.dataset, self.name, self.years, self.days)
+
+
 # Unit overriden methods
   def makeAssumes(self):
     self.loadAssumes(self)
 # assumes are stored but not loaded onto ripl (need to run loadAssumes with no args for that)
 # if *getAnalytics* method is called on unit object, Analytics obj will have these *assumes*
 # as its self.assumes method. 
-
-  def makeObserves(self):
-    if self.load_observes_file:
-      self.loadObserves(ripl=self)
-    else:
-      pass
 
   def loadAssumes(self, ripl = None):
     if ripl is None:
@@ -470,6 +479,7 @@ class Poisson(VentureUnit):
         (if (= d 0) (if (= i 0) num_birds 0)""" +
           fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', self.cells) + ")))")
     
+
     # bird_movements_loc
     # if zero birds at i, no movement to any j from i
     # *normalize* is normalizing constant for probms from i
@@ -488,8 +498,6 @@ class Poisson(VentureUnit):
                     (poisson n))))))))))""")
 
     
-
-## ADD REPEAT AND FILTER
     # ripl.assume('multinomial_mem', """
     #   (lambda (trials simplex)
     #       (let ( (draws (repeat (lambda() (categorical simplex) ) ) ) )
@@ -523,13 +531,7 @@ class Poisson(VentureUnit):
     ripl.assume('get_birds_moving2', '(lambda (y d) %s)' % fold('array', '(get_birds_moving1 y d __i)', '__i', self.cells))
     ripl.assume('get_birds_moving3', '(lambda (d) %s)' % fold('array', '(get_birds_moving2 __y d)', '__y', len(self.years)))
     ripl.assume('get_birds_moving4', '(lambda () %s)' % fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1))
-  
-  def loadObserves(self, ripl = None):
-    if ripl is None:
-      ripl = self.ripl
-    
-    print "Loading observations"
-    loadObservations(ripl, self.dataset, self.name, self.years, self.days)
+
   
   def loadModel(self, ripl = None):
     if ripl is None:
@@ -537,18 +539,12 @@ class Poisson(VentureUnit):
     self.loadAssumes(ripl)
     self.loadObserves(ripl)
   
-  def makeAssumes(self):
-    self.loadAssumes(ripl=self)
-  
-  def makeObserves(self):
-    self.loadObserves(ripl=self)
-  
   def updateObserves(self, d):
     self.days.append(d)
     #if d > 0: self.ripl.forget('bird_moves')
-    
     loadObservations(self.ripl, self.dataset, self.name, self.years, [d])
-    self.ripl.infer('(incorporate)')
+    #self.ripl.infer('(incorporate)')
+    
     #self.ripl.predict(fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1), label='bird_moves')
   
   def getBirdLocations(self, years=None, days=None):

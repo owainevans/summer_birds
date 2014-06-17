@@ -73,9 +73,11 @@ def writeReconstruction(params, bird_moves):
       f.write(','.join(map(str, [k+1 for k  in key] + [value])))
       f.write('\n')
 
+
 def ensure(path):
   if not os.path.exists(path):
     os.makedirs(path)
+
 
 def drawBirds(bird_locs, filename, width=None, height=None,  **kwargs):
   scale = 10
