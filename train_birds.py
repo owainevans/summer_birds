@@ -58,7 +58,7 @@ def writeLog(day,data,baseDirectory):
         
 
 
-def run(model,iterations=1, transitions=(100,50,50), baseDirectory='',slice_hypers=False):
+def run(model,iterations=1, transitions=(100,50,50), baseDirectory=''):
   day1,day2 = transitions[1],transitions[2]
   transitions = transitions[0]
 
@@ -81,7 +81,7 @@ def run(model,iterations=1, transitions=(100,50,50), baseDirectory='',slice_hype
     
   for d in range(1,D):
     print "\nDay %d" % d
-    model.updateObserves(d)  # self.days.append(d)
+    model.updateObserves(d)  # model.days.append(d)
     logs.append( log(t,d,0,transitions,model,baseDirectory) )
     
     for i in range(iterations): # iterate inference (could reduce from 5)
@@ -111,11 +111,6 @@ def run(model,iterations=1, transitions=(100,50,50), baseDirectory='',slice_hype
   return logs, model
 
 
-def getAnalytics(self,mripl=None):
-  if mripl is None:
-    return Analytics(*self.analyticsArgs, **self.analyticsKwargs)
-  else:
-    return Analytics(mripl,**self.analyticsKwargs)
 
 
 def posteriorSamples(model, slice_hypers=False, runs=10, baseDirectory=None, iterations=5, transitions=1000):

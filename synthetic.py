@@ -148,12 +148,42 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None):
   return ana, hists
 
 
-def test_ana_inf(mripl=None):
+def test_ana_inf(mripl=False):
   params = get_onebird_params()
+  params['learn_hypers'] = True
+  
   unit = OneBird(mk_p_ripl(),params)
   unit.loadAssumes()
-  ana = unit.getAnalytics(mripl=mripl)
+
+  ripl_mripl = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
+  ana = unit.getAnalytics(ripl_mripl,mutateRipl=True)
+  
+  ana_ripl = ana.ripl if not mripl else ana.mripl
+  assert len(unit.assumes) == len(ana.assumes)
+  hypers0_prior = ana_ripl.sample('hypers0')
+
+  runs = 1 if not mripl else 2
+  h,_ = ana.runFromConditional(10,runs=runs)
+  assert 'hypers0' in h.nameToSeries.keys()
+  assert hypers0_prior != ana_ripl.sample('hypers0')
+  
+  ana.updateObserves([ ('(normal hypers0 1)','1') ] )
+  assert len(ana.observes) == 1
+  assert ana_ripl.list_directives()[-1]['instruction'] == 'observe'
+  h,_ = ana.runFromConditional(40,runs=runs)
+  hypers0_1 =  ana_ripl.sample('hypers0')
+  assert hypers0_prior != hypers0_1
+  print 'should be close to 1:,', ana_ripl.sample('hypers0')
+
+  ana.updateObserves([ ('(normal hypers0 .5)','1') ] )
+  assert len(ana.observes) == 2
+  assert ana_ripl.list_directives()[-1]['instruction'] == 'observe'
+  h,_ = ana.runFromConditional(40,runs=runs)
+  assert hypers0_1 != ana_ripl.sample('hypers0')
+  print 'should be closer to 1:,', ana_ripl.sample('hypers0')
+
   return unit,ana
+
 
 
 def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
@@ -202,13 +232,13 @@ def smooth_inf(unit,steps_iterations,filename=None):
 
 def get_onebird_params():
   name = 'default'
-  Y, D = 1, 8
+  Y, D = 1, 4
   years,days = range(Y),range(D)
   height,width = 4,4
   features,features_dict = genFeatures(height, width, years, days, order='F')
   num_features = len( features_dict[(0,0,0,0)] )
   learn_hypers, hypers = False,(1,1)
-  num_birds = 30
+  num_birds = 5
   softmax_beta = 2
   load_observes_file=False
 
@@ -224,7 +254,7 @@ def get_onebird_params():
     
 def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
   params = get_onebird_params()
-  assert set(params.keys()).issubset(params_keys)
+  assert set(params_keys).issubset( set(params.keys()) )
 
   # copy and specialize params for gtruth and inference
   gtruth_params  = params.copy()
