@@ -63,7 +63,6 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
   
-
   # posterior info
   posterior_locs,posterior_fig = locs_fig(uni_inf,infer_params['name']+'_post')
 
@@ -88,8 +87,10 @@ def mse(locs1,locs2,years,days):
   return np.mean(all_error)
 
 
+
 def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+
 
 
 def compare_hypers(gtruth_unit,inferred_unit):
@@ -98,6 +99,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
   get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
   
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
+
 
 
 
@@ -119,33 +121,48 @@ def ana_test(mripl=False):
     return vv,ana,hists
 
 
-def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None):
+
+def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, verbose=False):
+  '''Incremental inference on Analytics object. General pattern: loop over observes,
+     add a set of them to Unit and Analytics objects [also add query expressions],
+     then run Analytics inference.
+     Here we specialize the observes and infers to Birds model.'''
   
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
   print 'ana filter_inf. Name: %s, Steps:%i, iterations:%i'%args
                                                          
-  def basic_inf(ripl,year,day):
+
+  def analytics_infer(ripl,year,day):
+
+    hists = []
+    
     for iteration in range(iterations):
-      latents = '(mh move2 %i %i)'%( day, steps)
+      # block:day-1, as observe on day calls *move2* for day-1
+      latents = '(mh move2 %i %i)'%( day-1, steps)
       hypers = '(mh hypers one 10)'
       inf_prog = '(cycle ( %s %s) 1)'%(latents,hypers)
 
       runs = 1 if not ana.mripl else ana.mripl.no_ripls
-      h,_ = ana.runFromConditional( runs=runs, infer = inf_prog )
-      
-      print 'iter: %i, inf_str:%s'%(iteration,latents)
-      return h
+      h,_ = ana.runFromConditional(1, runs=runs, infer = inf_prog )
+      hists.append(h)
+      if verbose: print 'iter: %i, inf_str:%s'%(iteration,latents)
 
-  hists = []
+    return hists
+
+
+  all_hists = []
   for y in unit.years:
     for d in unit.days:
       observes_yd = unit.observe_from_file([y],[d],filename)
       ana.updateObserves( observes_yd )
+      
+      if verbose: print 'ana.observes[-1]:', ana.observes[-1]
+      
       #[ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
-      if d>0:  hists.append( basic_inf(ana,y,d)  )
+      if d>0:  all_hists.extend( analytics_infer(ana,y,d)  )
     
-  return ana, hists
+  return ana, all_hists
 
 
 def test_ana_inf(mripl=False):
@@ -162,11 +179,13 @@ def test_ana_inf(mripl=False):
   assert len(unit.assumes) == len(ana.assumes)
   hypers0_prior = ana_ripl.sample('hypers0')
 
+  # test RFC with no observes
   runs = 1 if not mripl else 2
   h,_ = ana.runFromConditional(10,runs=runs)
   assert 'hypers0' in h.nameToSeries.keys()
   assert hypers0_prior != ana_ripl.sample('hypers0')
-  
+
+  # test RFC with one observe
   ana.updateObserves([ ('(normal hypers0 1)','1') ] )
   assert len(ana.observes) == 1
   assert ana_ripl.list_directives()[-1]['instruction'] == 'observe'
@@ -175,6 +194,7 @@ def test_ana_inf(mripl=False):
   assert hypers0_prior != hypers0_1
   print 'should be close to 1:,', ana_ripl.sample('hypers0')
 
+  # test RFC with second observe
   ana.updateObserves([ ('(normal hypers0 .5)','1') ] )
   assert len(ana.observes) == 2
   assert ana_ripl.list_directives()[-1]['instruction'] == 'observe'
@@ -182,7 +202,24 @@ def test_ana_inf(mripl=False):
   assert hypers0_1 != ana_ripl.sample('hypers0')
   print 'should be closer to 1:,', ana_ripl.sample('hypers0')
 
-  return unit,ana
+  # create gtruth object and run incremental inference
+  gt_params = params.copy()
+  gt_params['learn_hypers'] = False
+  gt_unit = OneBird(mk_p_ripl(),params)
+  gt_unit.loadAssumes()
+  filename = gt_unit.store_observes(gt_unit.years,gt_unit.days)
+
+  inf_params = params.copy()
+  inf_unit = OneBird(mk_p_ripl(),inf_params)
+  inf_unit.loadAssumes()
+  inf_ana = inf_unit.getAnalytics(ripl_mripl,mutateRipl=True)
+
+  # analytics will only record every entire run on inf_prog
+  # so we do lots of iteraions with small number of mh transitions
+  steps_iterations = (2,20)
+  _,hists = ana_filter_inf(inf_unit, inf_ana, steps_iterations, filename,verbose=True)
+  
+  return unit,ana, inf_unit, inf_ana, hists
 
 
 
