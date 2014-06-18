@@ -18,11 +18,11 @@ def mse(locs1,locs2,years,days):
   all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
   return np.mean(all_error)
 
-
 def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
 
 def compare_hypers(gtruth_unit,inferred_unit):
+  'Compare hypers across two different Birds unit objects'
   def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
     
   get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
@@ -208,11 +208,12 @@ def get_onebird_params(params_name='easy_hypers'):
     features,features_dict = genFeatures(height, width, years, days,
                                          order='F',functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
-    learn_hypers, hypers = False, (5, -3, -3, -3)
+    learn_hypers, hypers = False, [1,0,0,0][:num_features]
     num_birds = 8
-    softmax_beta = 1
+    softmax_beta = 10
     load_observes_file=False
 
+    
     params = dict(name = name,
                   years=years, days = days, height=height, width=width,
                   features=features, num_features = num_features,
@@ -270,14 +271,16 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   infer_prog = filter_inf if use_mh_filter else smooth_inf
   
   # do inference using OneBird class                                                  
-  unit_objects, all_locs, all_figs = onebird_synthetic_infer(gtruth_params, infer_params, infer_prog,
-                                                             steps_iterations, plot=plot)
+  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations, plot=plot)
 
-                                                  
   # unpack results                                                  
   gtruth_unit, fresh_unit, inf_unit = unit_objects
   gt_locs,prior_locs,post_locs = all_locs
   gt,pri,post = all_figs
+
+# TESTER
+  plot_from_cell_dist(gtruth_params,gtruth_unit.ripl,(0,1,2,3,4,5),year=0,day=0,order='F')
+
 
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
   mses = [ (mse_gt(prior_locs),mse_gt(post_locs) ) ]
@@ -366,23 +369,29 @@ def test_ana_inf(mripl=False):
 
 
 
-def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F'):
+def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True):
 
   height,width =params['height'],params['width']
-  fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
 
+  fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
+  ims = []
   for count,cell in enumerate(cells):
     simplex, grid_from_cell_dist = from_cell_dist( height,width,ripl,cell,year,day,order=order)
-    ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none')
-    ax[count].set_title('f_cell_dist: %i'%cell)
-  fig.tight_layout()
-
-# def plot_all_features_from_cell(params,ripl,cells,year=0,day=0,order='F'):
-#   height,width,num_features =params['height'],params['width'],params['num_features']
-#   fig,ax = plt.subplots(num_features,1,figsize=(5,2.5*num_features)
-#   for feature_ind in range(num_features):
+    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none') 
+    ax[count].set_title('P(i,j),i=%i'%cell)
+    #cbar = plt.colorbar(im)
+  fig.tight_layout()  
+  fig.subplots_adjust(right=0.8)
+  cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+  fig.colorbar(im, cax=cbar_ax)
   
-#     state = (0,0,cell)
-#     year,day,_ = state
-#     grid_from_i = { hyper: cell_to_feature(height,width, state, features_dict,hyper) 
+## ALT that might work better
+# for ax in axes.flat:
+#     im = ax.imshow(np.random.random((10,10)), vmin=0, vmax=1)
+
+# cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+# plt.colorbar(im, cax=cax, **kw)
+  
+
+
 

@@ -8,8 +8,11 @@ def l2(cell1_ij,cell2_ij ):
     return ((cell1_ij[0] - cell2_ij[0])**2 + (cell1_ij[1] - cell2_ij[1])**2)**.5
 
 def within_d(cell1_ij, cell2_ij, d=2):
-  return 1 if l2(cell1_ij, cell2_ij) <= d else -3
+  return 1 if l2(cell1_ij, cell2_ij) <= d else 0
 
+def one_step(cell1_ij, cell2_ij):
+  return 1 if l2(cell1_ij, cell2_ij) == 1 else 0
+  
 def uniform_feature(cell1_ij, cell2_ij): return 1
 
 def distance(cell1_ij, cell2_ij):
@@ -18,7 +21,7 @@ def distance(cell1_ij, cell2_ij):
 
 def avoid_cells(cell1_ij, cell2_ij, avoided_cells):
   'Avoided cells get -1. Other cells are "goal" cells.'
-  return -1 if list(cell2_ij) in map(list,avoided_cells) else 1
+  return 0 if list(cell2_ij) in map(list,avoided_cells) else 1
 
 def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
   dx = cell2_ij[1]-cell1_ij[1] # flip this round
@@ -41,10 +44,13 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
   
   diagonal = [(i,i) for i in range(min(height,width))]
   color_diag = lambda c1,c2: avoid_cells(c1,c2,diagonal)
+
+  diagonal2 = [(1,0),(2,0) ]
+  color_diag2 = lambda c1,c2: avoid_cells(c1,c2,diagonal2)
   
   #feature_functions = (goal_direction,within_d,color_diag)
   if functions=='easy':
-      feature_functions = (lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
+      feature_functions =  (one_step,color_diag)#,lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
   else:
       feature_functions = (distance,color_diag)
 
@@ -56,6 +62,7 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
     
     # feature func should take years/days also for wind
     for f in feature_functions:
+    
       feature_dict[(y,d,cell1,cell2)].append( f(cell1_ij, cell2_ij) )
 
   return toVenture(feature_dict),feature_dict
@@ -75,6 +82,7 @@ def cell_to_feature(height, width, state, features, feature_ind):
   
 
 def from_cell_dist(height,width,ripl,i,year,day,order='F'):
+  
   simplex =ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,i))
   p_dist = simplex / np.sum(simplex)
   grid = make_grid(height,width,lst=p_dist,order=order)
