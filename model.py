@@ -5,6 +5,7 @@ from venture.ripl.ripl import _strip_types
 from itertools import product
 import matplotlib.pylab as plt
 import cPickle as pickle
+import numpy as np
 num_features = 4
     
 def day_features(features,width,y=0,d=0,summary=None):
@@ -46,7 +47,7 @@ def store_observes(unit,years=None,days=None):
         counts.append( unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i)) )
       observed_counts[(y,d)] = counts
 
-  path = 'synthetic/%s/'%unit.name
+  path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9)))
   ensure(path)
   filename = path + 'observes.dat'
   with open(filename,'w') as f:

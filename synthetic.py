@@ -228,7 +228,10 @@ def get_onebird_params(params_name='easy_hypers'):
 # but if we get the hypers, we can 
 # assert about relative size.
 
-# problem is that inference still looks really hard!
+# main thing: get this working for some set of params
+# get this parallized, probably using mripl. this 
+# means saving files in different directories (and 
+# maybe paying some attention to seeds). 
 
 def test_easy_hypers_onebird():
   easy_params = get_params('easy')
