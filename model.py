@@ -176,9 +176,9 @@ class OneBird(VentureUnit):
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
     else:
-      ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
+      ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 .5))')
       for k in range(self.num_features):
-        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %d (* scale (normal 0 10)))' % k)
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %d (* scale (normal 0 15) ))' % k)
 
     
     ripl.assume('features', self.features)

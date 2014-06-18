@@ -12,27 +12,29 @@ params_keys = ['height','width','years','days',
               'learn_hypers','hypers',
               'softmax_beta','load_observes_file']
 
-def test_unit_analytics_loading(params):
-  r = mk_p_ripl()
-  uni = OneBird(r,params)
-  uni.loadAssumes()
-  ana = uni.getAnalytics()
-  ana.updateQueryExps(['(move2 0 0 0 0)'])
-  h,rfc = ana.runFromConditional(100,runs=1)
-  assert r is uni.ripl
-  assert not(r is rfc)
-  assert h.averageValue('(move2 0 0 0 0)') > 0 
-  assert len(ana.parameters) == len(uni.parameters)
+def mse(locs1,locs2,years,days):
+  'MSE for bird_locations, output of onebird method'
+  all_days = product(years,days)
+  all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
+  return np.mean(all_error)
 
-  for ripl in (r,rfc):
-    assert ripl.sample('hypers0')==params['hypers'][0]
-    assert ripl.sample('(size cell_array)')==params['width']*params['height']
-    assert ana.parameters
+
+def get_hypers(ripl,num_features):
+  return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+
+def compare_hypers(gtruth_unit,inferred_unit):
+  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
+    
+  get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
+  
+  return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
+
+
 
 
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
                             save=False,plot=True,analytics_infer=False):
-    
+  '''Generate OneBird data from prior, save to file, do inference on data'''
   years,days = gtruth_params['years'],gtruth_params['days']
   
   def locs_fig(unit,name):      
@@ -80,30 +82,60 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
 
   
 
-def mse(locs1,locs2,years,days):
-  'MSE for bird_locations, output of onebird method'
-  all_days = product(years,days)
-  all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
-  return np.mean(all_error)
 
 
 
-def get_hypers(ripl,num_features):
-  return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
 
 
 
-def compare_hypers(gtruth_unit,inferred_unit):
-  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
-    
-  get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
+
+
+
+
+
+def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
+  steps,iterations = steps_iterations  
+  args = unit.name, steps, iterations
+  print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
+                                                         
+  def basic_inf(ripl,year,day):
+    for iteration in range(iterations):
+      latents = '(mh move2 %i %i)'%( day, steps)
+      ripl.infer('(mh hypers one 10)')
+      ripl.infer(latents)
+      print 'iter: %i, inf_str:%s'%(iteration,latents)
   
-  return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
+  def record(unit):  return get_hypers(unit.ripl, unit.num_features)
+
+  records = {}
+  for y in unit.years:
+    for d in unit.days:
+      unit.observe_from_file([y],[d],filename)
+
+      if d>0:
+        basic_inf(unit.ripl, y, d-1)
+      
+      if record_prog:
+        records[(y,d)] = record_prog(unit)
+      else:
+        records[(y,d)] = record(unit)
+  return unit
 
 
+def smooth_inf(unit,steps_iterations,filename=None):
+  steps,iterations = steps_iterations  
+  args = unit.name, steps, iterations
+  print 'smooth_inf. Name: %s, Steps:%i, iterations:%i'%args
 
+  # observe all data
+  unit.observe_from_file(unit.years, unit.days, filename=filename)
+    
+  for iteration in range(iterations):
+    unit.ripl.infer('(mh hypers one 10)')
+    unit.ripl.infer('(mh move2 one %i)'%steps)      
+  return unit
 
-def ana_test(mripl=False):
+def basic_ana_test(mripl=False):
     v = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
     v.assume('x','(normal 0 100)')
     observes = [('(normal x 10)',val) for val in [10,10,10,10,10,30,20,30,30,40,34,50,50,45,50,50] ]+[('(normal x .1)',30)]
@@ -165,7 +197,101 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
   return ana, all_hists
 
 
+def get_onebird_params(params_name='easy_hypers'):
+
+  if params_name == 'easy_hypers':
+    name = 'easy_hypers'
+    Y, D = 1, 4
+    years,days = range(Y),range(D)
+    height,width = 4,4
+    functions = 'easy'
+    features,features_dict = genFeatures(height, width, years, days,
+                                         order='F',functions=functions)
+    num_features = len( features_dict[(0,0,0,0)] )
+    learn_hypers, hypers = False, (5, -10, -10)
+    num_birds = 8
+    softmax_beta = 1
+    load_observes_file=False
+
+    params = dict(name = name,
+                  years=years, days = days, height=height, width=width,
+                  features=features, num_features = num_features,
+                  learn_hypers=learn_hypers, hypers = hypers,
+                  num_birds = num_birds, softmax_beta = softmax_beta,
+                  load_observes_file=load_observes_file)
+
+  return params
+
+
+def test_easy_hypers_onebird():
+  easy_params = get_params('easy')
+  out = test_recon( (10,4), test_hypers=True, plot=True, use_mh_filter = True)
+  unit_objects, params, all_locs, all_figs, mses = out
+
+  gtruth_unit =  unit_objects[0]
+  assert isinstance(gtruth_unit,OneBird)
+  assert not gtruth_unit.learn_hypers
+  assert gtruth_unit.hypers == easy_params['hypers']
+  
+  latent_mse_prior, latent_mse_post = mses[0]
+  assert k  > latent_mse_prior > latent_mse_post
+  assert .1 < latent_mse_post < 0.6
+
+  hypers_mse_prior, hypers_mse_post = mses[1]
+  assert latent_mse_prior > latent_mse_post
+
+
+
+
+    
+def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
+  params = get_onebird_params()
+  assert set(params_keys).issubset( set(params.keys()) )
+
+  # copy and specialize params for gtruth and inference
+  gtruth_params  = params.copy()
+  infer_params = params.copy()
+  gtruth_params['name'] = 'gtruth'
+  infer_params['name'] = 'infer'
+
+  # define inference program
+  if test_hypers: infer_params['learn_hypers'] = True
+  
+  infer_prog = filter_inf if use_mh_filter else smooth_inf
+  
+  # do inference using OneBird class                                                  
+  unit_objects, all_locs, all_figs = onebird_synthetic_infer(gtruth_params, infer_params, infer_prog,
+                                                             steps_iterations, plot=plot)
+
+                                                  
+  # unpack results                                                  
+  gtruth_unit, fresh_unit, inf_unit = unit_objects
+  gt_locs,prior_locs,post_locs = all_locs
+  gt,pri,post = all_figs
+
+  mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
+  mses = [ (mse_gt(prior_locs),mse_gt(post_locs) ) ]
+  print 'prior,post mses: %.2f %.2f'%mses[0]
+
+  if test_hypers:
+    mse_hypers_gt = lambda unit_obj: compare_hypers(gtruth_unit,unit_obj)
+    mses_hypers = mse_hypers_gt(fresh_unit),mse_hypers_gt(inf_unit)
+    mses.append(mses_hypers)
+    
+    print '\n---\n gt_hypers, fresh_prior_hypers, post_hypers:'
+    all_hypers= [get_hypers(unit.ripl,params['num_features']) for unit in unit_objects]
+    print all_hypers
+
+    print '\nprior,post hypers mses: %.2f %.2f'%(mses[-1])
+  else:
+    all_hypers = None
+    
+  return unit_objects,params, all_locs, all_figs, mses, all_hypers
+
+
+
 def test_ana_inf(mripl=False):
+  'Series of tests for inference on analytics object for OneBird'
   params = get_onebird_params()
   params['learn_hypers'] = True
   
@@ -205,7 +331,7 @@ def test_ana_inf(mripl=False):
   # create gtruth object and run incremental inference
   gt_params = params.copy()
   gt_params['learn_hypers'] = False
-  gt_unit = OneBird(mk_p_ripl(),params)
+  gt_unit = OneBird(mk_p_ripl(),gt_params)
   gt_unit.loadAssumes()
   filename = gt_unit.store_observes(gt_unit.years,gt_unit.days)
 
@@ -214,145 +340,20 @@ def test_ana_inf(mripl=False):
   inf_unit.loadAssumes()
   inf_ana = inf_unit.getAnalytics(ripl_mripl,mutateRipl=True)
 
+  # prior for inference doesn't know hypers
+  h,inf_ana_ripl = inf_ana.runFromConditional(1,runs=1)
+  hypers0_prior= h.nameToSeries['hypers0'][0].values[-1]
+  hypers0_gt = gt_unit.hypers[0]
+  assert np.abs(hypers0_prior - hypers0_gt) > .2
+
   # analytics will only record every entire run on inf_prog
   # so we do lots of iteraions with small number of mh transitions
-  steps_iterations = (2,20)
-  _,hists = ana_filter_inf(inf_unit, inf_ana, steps_iterations, filename,verbose=True)
+  steps_iterations = (2,4)
+  _,hists = ana_filter_inf(inf_unit, inf_ana, steps_iterations, filename, verbose=True)
   
   return unit,ana, inf_unit, inf_ana, hists
 
 
-
-def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
-  steps,iterations = steps_iterations  
-  args = unit.name, steps, iterations
-  print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
-                                                         
-  def basic_inf(ripl,year,day):
-    for iteration in range(iterations):
-      latents = '(mh move2 %i %i)'%( day, steps)
-      ripl.infer('(mh hypers one 10)')
-      ripl.infer(latents)
-      print 'iter: %i, inf_str:%s'%(iteration,latents)
-  
-  def record(unit):  return get_hypers(unit.ripl, unit.num_features)
-
-  records = {}
-  for y in unit.years:
-    for d in unit.days:
-      unit.observe_from_file([y],[d],filename)
-
-      if d>0:
-        basic_inf(unit.ripl, y, d-1)
-      
-      if record_prog:
-        records[(y,d)] = record_prog(unit)
-      else:
-        records[(y,d)] = record(unit)
-  return unit
-
-
-def smooth_inf(unit,steps_iterations,filename=None):
-  steps,iterations = steps_iterations  
-  args = unit.name, steps, iterations
-  print 'smooth_inf. Name: %s, Steps:%i, iterations:%i'%args
-
-  # observe all data
-  unit.observe_from_file(unit.years, unit.days, filename=filename)
-    
-  for iteration in range(iterations):
-    unit.ripl.infer('(mh hypers one 10)')
-    unit.ripl.infer('(mh move2 one %i)'%steps)      
-  return unit
-
-
-
-def get_onebird_params():
-  name = 'default'
-  Y, D = 1, 4
-  years,days = range(Y),range(D)
-  height,width = 4,4
-  features,features_dict = genFeatures(height, width, years, days, order='F')
-  num_features = len( features_dict[(0,0,0,0)] )
-  learn_hypers, hypers = False,(1,1)
-  num_birds = 5
-  softmax_beta = 2
-  load_observes_file=False
-
-  params = dict(name = name,
-                years=years, days = days, height=height, width=width,
-                features=features, num_features = num_features,
-                learn_hypers=learn_hypers, hypers = hypers,
-                num_birds = num_birds, softmax_beta = softmax_beta,
-                load_observes_file=load_observes_file)
-
-  return params
-
-    
-def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
-  params = get_onebird_params()
-  assert set(params_keys).issubset( set(params.keys()) )
-
-  # copy and specialize params for gtruth and inference
-  gtruth_params  = params.copy()
-  infer_params = params.copy()
-  gtruth_params['name'] = 'gtruth'
-  infer_params['name'] = 'infer'
-
-  # define inference program
-  if test_hypers: infer_params['learn_hypers'] = True
-  
-  infer_prog = filter_inf if use_mh_filter else smooth_inf
-  
-  # do inference using OneBird class                                                  
-  unit_objects, all_locs, all_figs = onebird_synthetic_infer(gtruth_params, infer_params, infer_prog,
-                                                             steps_iterations, plot=plot)
-
-                                                  
-  # unpack results                                                  
-  gtruth_unit, fresh_unit, inf_unit = unit_objects
-  gt_locs,prior_locs,post_locs = all_locs
-  gt,pri,post = all_figs
-
-  mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
-  mses = [ (mse_gt(prior_locs),mse_gt(post_locs) ) ]
-  print 'prior,post mses: %.2f %.2f'%mses[0]
-
-  if test_hypers:
-    mse_hypers_gt = lambda unit_obj: compare_hypers(gtruth_unit,unit_obj)
-    mses_hypers = mse_hypers_gt(fresh_unit),mse_hypers_gt(inf_unit)
-    mses.append(mses_hypers)
-    print 'prior,post hypers mses: %.2f %.2f'%(mses[-1])
-
-    
-  return unit_objects,params, all_locs, all_figs, mses
-
-
-
-# Y, D = 1, 8
-# years,days = range(Y),range(D)
-# height,width = 5,5
-# features,features_dict = genFeatures(height, width,years,days, order='F')
-# num_features = len( features_dict[(0,0,0,0)] )
-# learn_hypers, hypers = False,(1,1)
-# num_birds = 14
-# softmax_beta = 3
-# load_observes_file=False
-
-# params = dict(years=years, days = days, height=height, width=width,
-#                 features=features, num_features = num_features,
-#                 learn_hypers=learn_hypers, hypers = hypers,
-#                 num_birds = num_birds, softmax_beta = softmax_beta,
-#                 load_observes_file=load_observes_file)
-
-
-# r=mk_p_ripl()
-# uni = OneBird(r,params)
-# cells = height * width
-# # compare from-i and from-cell-dist
-# if int(sys.argv[1])==1:
-#   cells=(0,5,15)
-#   fig,ax = plt.subplots(len(cells),2)
 
 
 def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F'):
