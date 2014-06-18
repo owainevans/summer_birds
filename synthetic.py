@@ -201,7 +201,7 @@ def get_onebird_params(params_name='easy_hypers'):
 
   if params_name == 'easy_hypers':
     name = 'easy_hypers'
-    Y, D = 1, 4
+    Y, D = 1, 6
     years,days = range(Y),range(D)
     height,width = 4,4
     functions = 'easy'
