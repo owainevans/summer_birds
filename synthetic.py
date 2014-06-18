@@ -223,6 +223,13 @@ def get_onebird_params(params_name='easy_hypers'):
   return params
 
 
+## test hypers inf on an easy case
+# exact values won't be identified
+# but if we get the hypers, we can 
+# assert about relative size.
+
+# problem is that inference still looks really hard!
+
 def test_easy_hypers_onebird():
   easy_params = get_params('easy')
   out = test_recon( (10,4), test_hypers=True, plot=True, use_mh_filter = True)
@@ -234,8 +241,8 @@ def test_easy_hypers_onebird():
   assert gtruth_unit.hypers == easy_params['hypers']
   
   latent_mse_prior, latent_mse_post = mses[0]
-  assert k  > latent_mse_prior > latent_mse_post
-  assert .1 < latent_mse_post < 0.6
+  assert UPPERBOUND  > latent_mse_prior > latent_mse_post
+  assert LOWERBOUND < latent_mse_post < 0.6
 
   hypers_mse_prior, hypers_mse_post = mses[1]
   assert latent_mse_prior > latent_mse_post
