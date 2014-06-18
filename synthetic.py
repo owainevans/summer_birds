@@ -1,5 +1,5 @@
 from itertools import product
-from features_utils import genFeatures,from_cell_dist
+from features_utils import genFeatures,from_cell_dist,plot_from_cell_dist
 from model import OneBird,Poisson
 from venture.venturemagics.ip_parallel import mk_p_ripl,MRipl
 from venture.unit import Analytics,display_directives
@@ -12,14 +12,17 @@ params_keys = ['height','width','years','days',
               'learn_hypers','hypers',
               'softmax_beta','load_observes_file']
 
+
+#### Utils for testing performance of inference
 def mse(locs1,locs2,years,days):
-  'MSE for bird_locations, output of onebird method'
+  'MSE for output of unit.getBirdLocations'
   all_days = product(years,days)
   all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
   return np.mean(all_error)
 
 def get_hypers(ripl,num_features):
   return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+
 
 def compare_hypers(gtruth_unit,inferred_unit):
   'Compare hypers across two different Birds unit objects'
@@ -30,42 +33,40 @@ def compare_hypers(gtruth_unit,inferred_unit):
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
 
-
-
+### Basic procedure for simulating from prior, saving, doing inference.
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
-                            save=False,plot=True,analytics_infer=False):
-  '''Generate OneBird data from prior, save to file, do inference on data'''
+                            save=False,plot=True):
+  '''Generate OneBird data from prior, save to file, do inference on data.
+     Needs full set of OneBird params: one set for generating, another
+     for inference.
+     *save/plot* is whether to save/plot bird locations images.'''
+
+  # years and days are common to gtruth and infer unit objects
   years,days = gtruth_params['years'],gtruth_params['days']
   
-  def locs_fig(unit,name):      
-      locs = unit.getBirdLocations(years,days)
-      fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
-      return locs,fig
+  def locs_fig(unit,name):
+    'Call getBirdLocations and draw_bird locations using global *years,days*.'  
+    locs = unit.getBirdLocations(years,days)
+    fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
+    return locs,fig
     
+  # Create gtruth_unit object with Puma ripl  
   uni = OneBird(mk_p_ripl(),gtruth_params)
   uni.loadAssumes()
-  gtruth_locs,gtruth_fig = locs_fig(uni,gtruth_params['name'])
-  filename = uni.store_observes(years,days)
-
+  gtruth_locs,gtruth_fig = locs_fig(uni, gtruth_params['name'])
+  filename = uni.store_observes(years,days)  # filename will use uni.name and random string
+  
   # make inference model
   uni_inf = OneBird(mk_p_ripl(),infer_params)
   uni_inf.loadAssumes()
-  if analytics_infer:
-    ana = uni_inf.getAnalytics(mripl=None)
-    
-  
   prior_locs,prior_fig = locs_fig(uni_inf,infer_params['name']+'_prior')
 
-  # observe and infer (currently we pass in the whole unit object)
+  # observe and infer (mutating the ripl in the Unit object)
   start = time.time()
-  if analytics_infer:
-    ana_filter_inf(uni_inf,ana,steps_iterations,filename)
-  else:
-    infer_prog(uni_inf, steps_iterations, filename)
+  infer_prog(uni_inf, steps_iterations, filename)
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
-  
-  # posterior info
+  # posterior info (after having mutated uni_inf.ripl)
   posterior_locs,posterior_fig = locs_fig(uni_inf,infer_params['name']+'_post')
 
   # make a fresh ripl to measure impact of inference
@@ -76,24 +77,17 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   all_locs = gtruth_locs, prior_locs, posterior_locs
   figs = gtruth_fig, prior_fig, posterior_fig
 
-  if analytics_infer:
-    unit_objects = list(unit_objects[:]) + ana 
   return unit_objects,all_locs, figs
 
   
 
-
-
-
-
-
-
-
-
-
-
+### Inference procedures for *infer_prog* arg in *onebird_synthetic_infer*
 
 def filter_inf(unit, steps_iterations, filename=None, record_prog=None, verbose=False):
+  """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
+     of inference on move2(i,j) for the previous day and on the hypers. Optionally
+     take a function that records different 'queryExps' in sense of Analytics."""
+
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
   print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
@@ -122,7 +116,10 @@ def filter_inf(unit, steps_iterations, filename=None, record_prog=None, verbose=
   return unit
 
 
+
 def smooth_inf(unit,steps_iterations,filename=None):
+  '''Like *filter_inf* but observes all days at once and does inference on
+   everything in moves2(i,j)'''
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
   print 'smooth_inf. Name: %s, Steps:%i, iterations:%i'%args
@@ -135,10 +132,65 @@ def smooth_inf(unit,steps_iterations,filename=None):
     unit.ripl.infer('(mh move2 one %i)'%steps)      
   return unit
 
+
+# Inference procedure for analytics: could be integrated with *synthetic_bird_infer*.
+# Note that the unit object is given incremental updates simultaneously with
+# ana object and so gets
+# same observes at same time (though no inference is done on unit.ripl)
+def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, verbose=False):
+  '''Incremental inference on Analytics object. General pattern: loop over observes,
+     add a set of them to Unit and Analytics objects [also add query expressions],
+     then run Analytics inference.
+     Here we specialize the observes and infers to Birds model.'''
+  
+  steps,iterations = steps_iterations  
+  args = unit.name, steps, iterations
+  print 'ana filter_inf. Name: %s, Steps:%i, iterations:%i'%args
+                                                         
+
+  def analytics_infer(ripl,year,day):
+    '''Analog of *basic_inf* in *filter_inf*. Here inference is done
+    via Analytics and we store history. Analytics only records after
+    a full run of an inf_prog given as a string. Hence we run Analytics
+    after every iteration (where we should do many iterations).'''
+    
+    hists = []
+    
+    for iteration in range(iterations):
+      # inference program specifies 'block':(day-1)
+      # as observe on *day* calls *move2* for (day-1)
+      latents = '(mh move2 %i %i)'%( day-1, steps)
+      hypers = '(mh hypers one 10)'
+      inf_prog = '(cycle ( %s %s) 1)'%(latents,hypers)
+
+      runs = 1 if not ana.mripl else ana.mripl.no_ripls # TODO sort out runs
+      h,_ = ana.runFromConditional(1, runs=runs, infer = inf_prog )
+      hists.append(h)
+      if verbose: print 'iter: %i, inf_str:%s'%(iteration,latents)
+
+    return hists
+
+
+  # Loop over days, updating observes for *unit* and *ana* objects. 
+  all_hists = []
+  for y in unit.years:
+    for d in unit.days:
+      observes_yd = unit.observe_from_file([y],[d],filename)
+      ana.updateObserves( observes_yd )
+      if verbose: print 'ana.observes[-1]:', ana.observes[-1]
+      # TODO support for QueryExps
+      #[ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
+      if d>0:  all_hists.extend( analytics_infer(ana,y,d)  )
+    
+  return ana, all_hists
+
+
+
 def basic_ana_test(mripl=False):
     v = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
     v.assume('x','(normal 0 100)')
-    observes = [('(normal x 10)',val) for val in [10,10,10,10,10,30,20,30,30,40,34,50,50,45,50,50] ]+[('(normal x .1)',30)]
+    data = [10]*5 + [25]*5 + [50]*5 +[('(normal x .1)',30)]
+    observes = [('(normal x 10)',val) for val in data]
 
     ana = Analytics(v,mutateRipl=True )
     hists = []
@@ -154,47 +206,7 @@ def basic_ana_test(mripl=False):
 
 
 
-def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, verbose=False):
-  '''Incremental inference on Analytics object. General pattern: loop over observes,
-     add a set of them to Unit and Analytics objects [also add query expressions],
-     then run Analytics inference.
-     Here we specialize the observes and infers to Birds model.'''
-  
-  steps,iterations = steps_iterations  
-  args = unit.name, steps, iterations
-  print 'ana filter_inf. Name: %s, Steps:%i, iterations:%i'%args
-                                                         
 
-  def analytics_infer(ripl,year,day):
-
-    hists = []
-    
-    for iteration in range(iterations):
-      # block:day-1, as observe on day calls *move2* for day-1
-      latents = '(mh move2 %i %i)'%( day-1, steps)
-      hypers = '(mh hypers one 10)'
-      inf_prog = '(cycle ( %s %s) 1)'%(latents,hypers)
-
-      runs = 1 if not ana.mripl else ana.mripl.no_ripls
-      h,_ = ana.runFromConditional(1, runs=runs, infer = inf_prog )
-      hists.append(h)
-      if verbose: print 'iter: %i, inf_str:%s'%(iteration,latents)
-
-    return hists
-
-
-  all_hists = []
-  for y in unit.years:
-    for d in unit.days:
-      observes_yd = unit.observe_from_file([y],[d],filename)
-      ana.updateObserves( observes_yd )
-      
-      if verbose: print 'ana.observes[-1]:', ana.observes[-1]
-      
-      #[ana.updateQueryExps( [exp] ) for exp in moves_exp(y,d)]
-      if d>0:  all_hists.extend( analytics_infer(ana,y,d)  )
-    
-  return ana, all_hists
 
 
 def get_onebird_params(params_name='easy_hypers'):
@@ -366,32 +378,6 @@ def test_ana_inf(mripl=False):
   
   return unit,ana, inf_unit, inf_ana, hists
 
-
-
-
-def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True):
-
-  height,width =params['height'],params['width']
-
-  fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
-  ims = []
-  for count,cell in enumerate(cells):
-    simplex, grid_from_cell_dist = from_cell_dist( height,width,ripl,cell,year,day,order=order)
-    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none') 
-    ax[count].set_title('P(i,j),i=%i'%cell)
-    #cbar = plt.colorbar(im)
-  fig.tight_layout()  
-  fig.subplots_adjust(right=0.8)
-  cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-  fig.colorbar(im, cax=cbar_ax)
-  
-## ALT that might work better
-# for ax in axes.flat:
-#     im = ax.imshow(np.random.random((10,10)), vmin=0, vmax=1)
-
-# cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-# plt.colorbar(im, cax=cax, **kw)
-  
 
 
 

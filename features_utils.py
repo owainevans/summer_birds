@@ -2,6 +2,7 @@ from itertools import product
 from utils import toVenture, make_grid
 from venture.venturemagics.ip_parallel import *
 import numpy as np
+import matplotlib.pylab as plt
 
 
 def l2(cell1_ij,cell2_ij ):
@@ -87,3 +88,31 @@ def from_cell_dist(height,width,ripl,i,year,day,order='F'):
   p_dist = simplex / np.sum(simplex)
   grid = make_grid(height,width,lst=p_dist,order=order)
   return simplex,grid
+
+
+def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True):
+
+  height,width =params['height'],params['width']
+
+  fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
+  ims = []
+  for count,cell in enumerate(cells):
+    simplex, grid_from_cell_dist = from_cell_dist( height,width,ripl,cell,year,day,order=order)
+    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none') 
+    ax[count].set_title('P(i,j),i=%i'%cell)
+    #cbar = plt.colorbar(im)
+  fig.tight_layout()  
+  fig.subplots_adjust(right=0.8)
+  cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+  fig.colorbar(im, cax=cbar_ax)
+  
+## ALT that might work better
+# for ax in axes.flat:
+#     im = ax.imshow(np.random.random((10,10)), vmin=0, vmax=1)
+
+# cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+# plt.colorbar(im, cax=cax, **kw)
+  
+
+
+
