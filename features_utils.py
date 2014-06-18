@@ -44,7 +44,7 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
   
   #feature_functions = (goal_direction,within_d,color_diag)
   if functions=='easy':
-      feature_functions = (lambda c1,c2: within_d( c1,c2, d=1), color_diag, uniform_feature )
+      feature_functions = (lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
   else:
       feature_functions = (distance,color_diag)
 

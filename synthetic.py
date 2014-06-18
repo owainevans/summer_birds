@@ -93,7 +93,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
 
 
 
-def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
+def filter_inf(unit, steps_iterations, filename=None, record_prog=None, verbose=False):
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
   print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
@@ -103,7 +103,7 @@ def filter_inf(unit, steps_iterations, filename=None, record_prog=None):
       latents = '(mh move2 %i %i)'%( day, steps)
       ripl.infer('(mh hypers one 10)')
       ripl.infer(latents)
-      print 'iter: %i, inf_str:%s'%(iteration,latents)
+      if verbose: print 'iter: %i, inf_str:%s'%(iteration,latents)
   
   def record(unit):  return get_hypers(unit.ripl, unit.num_features)
 
@@ -208,7 +208,7 @@ def get_onebird_params(params_name='easy_hypers'):
     features,features_dict = genFeatures(height, width, years, days,
                                          order='F',functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
-    learn_hypers, hypers = False, (5, -10, -10)
+    learn_hypers, hypers = False, (5, -3, -3, -3)
     num_birds = 8
     softmax_beta = 1
     load_observes_file=False
