@@ -262,19 +262,6 @@ def test_easy_hypers_onebird():
   assert latent_mse_prior > latent_mse_post
   return None
 
-
-def run_all_tests():
-  for boo in True,False:
-    test_persistent_ripl_analytics(mripl=boo)
-    test_ana_inf(mripl=boo)
-
-  test_hypers = (True,False)
-  use_mh_filter = (True,False)
-  steps_iterations = ( (0,0), (1,1) )
-  settings = product(steps_iterations, test_hypers, use_mh_filter )
-  for steps_iterations, test_hypers, use_mh_filter in settings:
-    print 'steps_iterations, test_hypers, use_mh_filter', steps_iterations, test_hypers, use_mh_filter
-    test_onebird_reconstruction(  steps_iterations, test_hypers, True, use_mh_filter)
     
 
   
@@ -402,4 +389,15 @@ def test_ana_inf(mripl=False):
 
 
 
+def run_all_tests(plot=False):
+  for boo in True,False:
+    test_persistent_ripl_analytics(mripl=boo)
+    test_ana_inf(mripl=boo)
 
+  test_hypers = (True,False)
+  use_mh_filter = (True,False)
+  steps_iterations = ( (0,0), (1,1) )
+  settings = product(steps_iterations, test_hypers, use_mh_filter )
+  for steps_iterations, test_hypers, use_mh_filter in settings:
+    print 'steps_iterations, test_hypers, use_mh_filter', steps_iterations, test_hypers, use_mh_filter
+    test_onebird_reconstruction(  steps_iterations, test_hypers, plot, use_mh_filter)

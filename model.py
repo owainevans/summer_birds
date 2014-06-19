@@ -7,7 +7,7 @@ import cPickle as pickle
 import numpy as np
 num_features = 4
     
-#### OneBirds and Poisson Dataset Functions
+#### OneBirds and Poisson Dataset Loading Functions
 
 def day_features(features,width,y=0,d=0):
   'Python dict of features to features vals for the day'
@@ -40,8 +40,10 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
+
 ## OneBird & Poisson functions for saving synthetic Observes and 
 ## loading and running unit.ripl.observe(loaded_observe)
+
 
 # TODO: less hackish way of storing in unique file/directory for parallel runs
 def store_observes(unit,years=None,days=None):
@@ -66,7 +68,7 @@ def store_observes(unit,years=None,days=None):
 
 
 def observe_from_file(unit,years_range,days_range,filename=None):
-  if filename is None:
+  if filename is None: # uses attribute if no filename arg given
     filename = unit.observed_counts_filename
   assert isinstance(filename,str)
   with open(filename,'r') as f:
@@ -88,9 +90,14 @@ def observe_from_file(unit,years_range,days_range,filename=None):
 
 
 
+## Function for plotting/saving bird images
 
-        
-# calls bird_locs twice, fixed Fortran order
+# calls vlad's *drawBirds* from utils.py for saving 
+# and my *make_grid* from utils.py for plotting
+# (duplicating same reshape operation)
+
+# TODO        
+# inefficiently calls bird_locs twice and with fixed Fortran order
 def drawBirdLocations(bird_locs, name, years, days, height, width,
                       save=True,plot=None):
   if save:
@@ -152,12 +159,12 @@ class OneBird(VentureUnit):
     super(OneBird, self).__init__(ripl, params)
 
 
-# automatically load assumes onto ripl - we can later cancel this if dealing
-# with large number of features
+
   def makeAssumes(self):
     self.loadAssumes(self)
-    # ripl takes value self so we use unit assume method and mutate
-    # the 'assumes' attribute. hence analytics gets all assumes
+    # ripl arg for *loadAssumes* =self so we use VUnit's *assume* method and mutate
+    # the unit object's *assumes* attribute. this way, when we call *getAnalytics*
+    # all the assumes are sent in the Kwargs. 
   
   def makeObserves(self):
     if self.load_observes_file:
@@ -165,12 +172,13 @@ class OneBird(VentureUnit):
     else:
       pass
   
-  def loadAssumes(self, ripl = None):
+  def loadAssumes(self, ripl = None): ## see point under *makeAssumes*
     if ripl is None:  # allows loading of assumes on an alternative ripl
       ripl = self.ripl
     
     print "Loading assumes"
 
+## UTILITY FUNCTIONS
     ripl.assume('filter',"""
       (lambda (pred lst)
         (if (not (is_pair lst)) (list)
@@ -182,6 +190,9 @@ class OneBird(VentureUnit):
         (if (not (is_pair lst)) (list)
           (pair (f (first lst)) (map f (rest lst))) ) )""")
 
+
+
+## PARAMS FOR SINGLE / MULTIBIRD MODEL
     if not self.learn_hypers:
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
@@ -194,8 +205,9 @@ class OneBird(VentureUnit):
     ripl.assume('features', self.features)
     ripl.assume('num_birds',self.num_birds)
     
+    ## ONLY NEEDED FOR MULTIBIRD MODEL
     bird_ids = ' '.join(map(str,range(self.num_birds)))
-    ripl.assume('bird_ids','(list %s)'%bird_ids)
+    ripl.assume('bird_ids','(list %s)'%bird_ids)   
 
     ripl.assume('softmax_beta',self.softmax_beta)
 
@@ -212,20 +224,13 @@ class OneBird(VentureUnit):
     
     ripl.assume('cell_array', fold('array', 'j', 'j', self.cells))
 
+
+#### SINGLE BIRD MODEL
     ripl.assume('move', """
       (lambda (y d i)
         (let ((dist (get_bird_move_dist y d i)))
           (scope_include (quote move) (array y d)
             (categorical dist cell_array))))""")
-
-# since we used a day, this is only going work for single year (ok for now)
-# we'd need to encode y,d pairs as single int o/w
-    ripl.assume('move2', """
-      (mem (lambda (bird_id y d i)
-        (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move2) d
-            (categorical dist cell_array)))))""")
-
 
 # for any day=0, bird starts at 0
     ripl.assume('get_bird_pos', """
@@ -239,13 +244,25 @@ class OneBird(VentureUnit):
 
     ripl.assume('observe_birds_old', '(lambda (y d i) (poisson (+ (count_birds y d i) 0.0001)))')
 
-# multi-bird version
+
+
+### MULTIBIRD MODEL
+### ALL FUNCTIONS END IN *2*
+
+## TODO scope include could be fixed to be an array as above
+## if so, we need inf_progs to be dicts
+    ripl.assume('move2', """
+      (mem (lambda (bird_id y d i)
+        (let ((dist (get_bird_move_dist y d i)))
+          (scope_include (quote move2) d
+            (categorical dist cell_array)))))""")
+
     ripl.assume('get_bird_pos2', """
       (mem (lambda (bird_id y d)
         (if (= d 0) 0
           (move2 bird_id y (- d 1) (get_bird_pos2 bird_id y (- d 1))))))""")
 
-    ripl.assume('all_bird_pos',"""
+    ripl.assume('all_bird_pos2',"""
        (mem (lambda (y d) 
          (map (lambda (bird_id) (get_bird_pos2 bird_id y d)) bird_ids)))""")
 
@@ -261,8 +278,7 @@ class OneBird(VentureUnit):
     ripl.assume('count_birds22', """
       (mem (lambda (y d i)
         (size (filter
-                (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
-
+                (lambda (x) (= x i)) (all_bird_pos2 y d)))))""" )
 ## note that count_22 seems to work faster. haven't looked at whether it harms inference. doesn't obviously do so
     ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
 
@@ -277,14 +293,18 @@ class OneBird(VentureUnit):
 
 
   def bird_to_pos(self,year,day,hist=False):
+    'Return list of bird positions (or optionally hist) for given day'
     l=[]
     for bird_id in self.ripl.sample('bird_ids'):
       args = bird_id, year, day
       l.append(self.ripl.predict('(get_bird_pos2 %i %i %i)'%args))
                                                            
-    all_bird_l = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
+    all_bird_l = self.ripl.predict('(all_bird_pos2 %i %i)'%(year,day))
     assert all( np.array(all_bird_l)==np.array(l) )
+    ## Check that get_bird_pos2 and all_bird_pos2 agree (Could turn off 
+    # for speed)
 
+# How np.histogram works:
 # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
 # np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
     if hist:
@@ -354,6 +374,18 @@ class OneBird(VentureUnit):
       ripl.infer({'kernel': 'gibbs', 'scope': 'move', 'block': block, 'transitions': 1})
   
 
+
+
+
+## TODO
+# We have been making Poisson compatible 
+# with synthetically generated dataset inference
+# and the functions for this inference in 
+# synthetic.py and elsewhere. But Poisson
+# is not compatible yet and may be buggy. 
+
+# TODO: we haven't get store_observes or load_observe
+# methods, and we haven't got ability to plot birds (in utils near top)
 
 class Poisson(VentureUnit):
 
@@ -484,6 +516,8 @@ class Poisson(VentureUnit):
         (if (= min max) x
           (foldl op (op x (f min)) (+ min 1) max f)))""")
 
+## note used anywhere. presumably a multinomial (vs. poisson)
+# but not sure it exactly implement multinomial
     ripl.assume('multinomial_func', """
       (lambda (n min max f)
         (let ((normalize (foldl + 0 min max f)))
@@ -513,7 +547,8 @@ class Poisson(VentureUnit):
                   (scope_include d (array y d i j)
                     (poisson n))))))))))""")
 
-    
+
+  ### SKETCH OF MULTINOMIAL MODEL (NOT FINISHED)
     # ripl.assume('multinomial_mem', """
     #   (lambda (trials simplex)
     #       (let ( (draws (repeat (lambda() (categorical simplex) ) ) ) )
@@ -598,10 +633,11 @@ class Poisson(VentureUnit):
             bird_moves[(y, d, i, j)] = bird_moves_raw[y][i][j]
     
     return bird_moves
-  
+
+    
   def forceBirdMoves(self,d,cell_limit=100):
     # currently ignore including years also
-    detvalues = 0
+    #detvalues = 0
     
     for i in range(self.cells)[:cell_limit]:
       for j in range(self.cells)[:cell_limit]:
