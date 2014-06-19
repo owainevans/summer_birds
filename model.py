@@ -10,7 +10,7 @@ num_features = 4
 #### OneBirds and Poisson Dataset Functions
 
 def day_features(features,width,y=0,d=0):
-  'Python dict of features to features vals for the day')
+  'Python dict of features to features vals for the day'
   lst = [features[(y,d,i,j)] for (i,j) in product(range(cells),range(cells))]
   return lst
 
