@@ -1,4 +1,3 @@
-import venture.shortcuts as s
 from utils import *
 from venture.unit import VentureUnit
 from venture.ripl.ripl import _strip_types
@@ -8,11 +7,15 @@ import cPickle as pickle
 import numpy as np
 num_features = 4
     
-def day_features(features,width,y=0,d=0,summary=None):
+#### OneBirds and Poisson Dataset Functions
+
+def day_features(features,width,y=0,d=0):
+  'Python dict of features to features vals for the day')
   lst = [features[(y,d,i,j)] for (i,j) in product(range(cells),range(cells))]
   return lst
 
-def loadFeatures(dataset, name, years, days, maxDay=None):  
+def loadFeatures(dataset, name, years, days, maxDay=None):
+  'Load features from Birds datasets and convert to Venture dict'
   features_file = "data/input/dataset%d/%s-features.csv" % (dataset, name)
   print "Loading features from %s" % features_file  
   features = readFeatures(features_file, maxYear= max(years)+1, maxDay=maxDay)
@@ -23,8 +26,8 @@ def loadFeatures(dataset, name, years, days, maxDay=None):
   
   return toVenture(features)
 
-
 def loadObservations(ripl, dataset, name, years, days):
+  'Load observations from Birds dataset'
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
   observations = readObservations(observations_file)
 
@@ -35,6 +38,12 @@ def loadObservations(ripl, dataset, name, years, days):
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
 
 
+
+
+## OneBird & Poisson functions for saving synthetic Observes and 
+## loading and running unit.ripl.observe(loaded_observe)
+
+# TODO: less hackish way of storing in unique file/directory for parallel runs
 def store_observes(unit,years=None,days=None):
   if years is None: years = unit.years
   if days is None: days = unit.days
@@ -47,7 +56,7 @@ def store_observes(unit,years=None,days=None):
         counts.append( unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i)) )
       observed_counts[(y,d)] = counts
 
-  path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9)))
+  path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9))) ## TODO random dir name
   ensure(path)
   filename = path + 'observes.dat'
   with open(filename,'w') as f:

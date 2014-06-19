@@ -33,6 +33,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
 
+
 ### Basic procedure for simulating from prior, saving, doing inference.
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
                             save=False,plot=True):
@@ -135,8 +136,7 @@ def smooth_inf(unit,steps_iterations,filename=None):
 
 # Inference procedure for analytics: could be integrated with *synthetic_bird_infer*.
 # Note that the unit object is given incremental updates simultaneously with
-# ana object and so gets
-# same observes at same time (though no inference is done on unit.ripl)
+# ana object and so gets  same observes at same time (though no inference is done on unit.ripl)
 def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, verbose=False):
   '''Incremental inference on Analytics object. General pattern: loop over observes,
      add a set of them to Unit and Analytics objects [also add query expressions],
@@ -186,11 +186,16 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
 
 
 
-def basic_ana_test(mripl=False):
+
+####### TESTS FOR INFERENCE ON BIRDS UNIT/ANALYTICS
+
+
+# Test for Persistent ripls in Analytics (no Birds stuff)
+def test_persistent_ripl_analytics(mripl=False):
     v = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
     v.assume('x','(normal 0 100)')
-    data = [10]*5 + [25]*5 + [50]*5 +[('(normal x .1)',30)]
-    observes = [('(normal x 10)',val) for val in data]
+    data = [10]*5 + [25]*5 + [50]*5
+    observes = [('(normal x 10)',val) for val in data]+ [('(normal x .1)',30)]
 
     ana = Analytics(v,mutateRipl=True )
     hists = []
@@ -205,12 +210,10 @@ def basic_ana_test(mripl=False):
     return vv,ana,hists
 
 
-
-
-
-
+# Produce a params dict for testing inference
+# (be wary of mutating entries without copying first)
 def get_onebird_params(params_name='easy_hypers'):
-
+  'Function for producing params for OneBird Unit object'
   if params_name == 'easy_hypers':
     name = 'easy_hypers'
     Y, D = 1, 6
@@ -222,10 +225,9 @@ def get_onebird_params(params_name='easy_hypers'):
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers, hypers = False, [1,0,0,0][:num_features]
     num_birds = 8
-    softmax_beta = 10
+    softmax_beta = 1
     load_observes_file=False
 
-    
     params = dict(name = name,
                   years=years, days = days, height=height, width=width,
                   features=features, num_features = num_features,
@@ -235,20 +237,16 @@ def get_onebird_params(params_name='easy_hypers'):
 
   return params
 
+ 
 
-## test hypers inf on an easy case
-# exact values won't be identified
-# but if we get the hypers, we can 
-# assert about relative size.
-
-# main thing: get this working for some set of params
-# get this parallized, probably using mripl. this 
-# means saving files in different directories (and 
-# maybe paying some attention to seeds). 
+# Once some params settings have been finalized, this should be a 
+# test that hypers inference has worked correctly.
+# General version would generate some hypers and then test
+# the learning of them. But working with fixed params is ok also.
 
 def test_easy_hypers_onebird():
   easy_params = get_params('easy')
-  out = test_recon( (10,4), test_hypers=True, plot=True, use_mh_filter = True)
+  out = test_onebird_reconstruction( (10,4), test_hypers=True, plot=True, use_mh_filter = True)
   unit_objects, params, all_locs, all_figs, mses = out
 
   gtruth_unit =  unit_objects[0]
@@ -262,12 +260,30 @@ def test_easy_hypers_onebird():
 
   hypers_mse_prior, hypers_mse_post = mses[1]
   assert latent_mse_prior > latent_mse_post
+  return None
 
 
+def run_all_tests():
+  for boo in True,False:
+    test_persistent_ripl_analytics(mripl=boo)
+    test_ana_inf(mripl=boo)
 
-
+  test_hypers = (True,False)
+  use_mh_filter = (True,False)
+  steps_iterations = ( (0,0), (1,1) )
+  settings = product(steps_iterations, test_hypers, use_mh_filter )
+  for steps_iterations, test_hypers, use_mh_filter in settings:
+    print 'steps_iterations, test_hypers, use_mh_filter', steps_iterations, test_hypers, use_mh_filter
+    test_onebird_reconstruction(  steps_iterations, test_hypers, True, use_mh_filter)
     
-def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False):
+
+  
+
+
+## Test non-Analytics reconstruction AND hypers inference. MH-Filter is *filter_inf* vs. *smooth_inf*.
+## Testing involves computing mse for latents and hypers.
+## Gets params from *get_onebird_params*
+def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,use_mh_filter=False):
   params = get_onebird_params()
   assert set(params_keys).issubset( set(params.keys()) )
 
@@ -290,10 +306,14 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   gt_locs,prior_locs,post_locs = all_locs
   gt,pri,post = all_figs
 
-# TESTER
-  plot_from_cell_dist(gtruth_params,gtruth_unit.ripl,(0,1,2,3,4,5),year=0,day=0,order='F')
+  # View the normalized dist on (0,0) for a few cells. Compare to
+  # gtruth moves plots as check
+  check_cells = tuple(range(5))
+  plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
+                      check_cells,year=0,day=0,order='F')
 
 
+  # compute test statistics
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
   mses = [ (mse_gt(prior_locs),mse_gt(post_locs) ) ]
   print 'prior,post mses: %.2f %.2f'%mses[0]
@@ -314,7 +334,9 @@ def test_recon(steps_iterations,test_hypers=False,plot=True,use_mh_filter=False)
   return unit_objects,params, all_locs, all_figs, mses, all_hypers
 
 
-
+###  Tests for Analytics OneBird Incremental Inference
+# 1. Series of basic unit tests for OneBird in Analytics
+# 2. Filter OneBirds hypers inference using *ana_filter_inf* above.
 def test_ana_inf(mripl=False):
   'Series of tests for inference on analytics object for OneBird'
   params = get_onebird_params()
@@ -353,19 +375,19 @@ def test_ana_inf(mripl=False):
   assert hypers0_1 != ana_ripl.sample('hypers0')
   print 'should be closer to 1:,', ana_ripl.sample('hypers0')
 
-  # create gtruth object and run incremental inference
+  # create gtruth uni object and run incremental inference
   gt_params = params.copy()
-  gt_params['learn_hypers'] = False
+  gt_params['learn_hypers'] = False  ## TODO make params code clearer (safer)
   gt_unit = OneBird(mk_p_ripl(),gt_params)
   gt_unit.loadAssumes()
   filename = gt_unit.store_observes(gt_unit.years,gt_unit.days)
 
-  inf_params = params.copy()
+  inf_params = params.copy()  # which must have *learn_hypers*=True
   inf_unit = OneBird(mk_p_ripl(),inf_params)
   inf_unit.loadAssumes()
   inf_ana = inf_unit.getAnalytics(ripl_mripl,mutateRipl=True)
 
-  # prior for inference doesn't know hypers
+  # check prior for inference doesn't know hypers
   h,inf_ana_ripl = inf_ana.runFromConditional(1,runs=1)
   hypers0_prior= h.nameToSeries['hypers0'][0].values[-1]
   hypers0_gt = gt_unit.hypers[0]
