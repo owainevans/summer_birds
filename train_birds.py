@@ -1,9 +1,12 @@
 import time
-import venture.shortcuts as s
-ripl = s.make_puma_church_prime_ripl()
-
+from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl
 from utils import *
 from model import Poisson, num_features
+
+
+## NOTE
+# most of this has not been touched since moving to summer_birds repo
+# however, we started adapting some parts of it (like params in makeModel)
 
 def makeModel(dataset=2, D=6, Y=1, learn_hypers=True, hypers_prior='(gamma 6 1)'):
   width,height = 10,10
@@ -30,6 +33,7 @@ def makeModel(dataset=2, D=6, Y=1, learn_hypers=True, hypers_prior='(gamma 6 1)'
   "ground":True,
   "num_features":num_features}
 
+  ripl = mk_p_ripl()
   model = Poisson(ripl,params)
 
   return model
@@ -172,13 +176,12 @@ def checkMoves(moves,no_days=5):
       allMoves[day].append(fromi)
       
     if day<6:
-      print 'allMoves total for day %i (up to 6): %i'%(day,
-                                                       sum(allMoves[day]))
+      print 'allMoves total for day %i (up to 6): %i'%(day,sum(allMoves[day]))
   
   return allMoves
 
 
-
+##EDIT TO NOT MUTATE RIPL
 def stepThru():
   ripl.clear()
   model.loadAssumes()
@@ -211,12 +214,6 @@ def loadFromPrior():
   
   return observes
 
-#observes = loadFromPrior()
-#true_bird_moves = getBirdMoves()
-
-
-#p = multiprocessing.cpu_count() / 2
-
 
 
 
@@ -233,65 +230,3 @@ def sweep(r, *args):
   t2 = time.time()
   
   print "pgibbs: %f, mh: %f" % (t1-t0, t2-t1)
-
-
-
-                                                          
-
-# getMoves basedir: hypers_cfgetMoves_6881/
-
-#  getMoves args:
-# transitions=500, iterations=4
-
-#  Starting run
-# params: {'venture_random_seed': 0, 'name': '10x10x1000-train', 'hypers': ['(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)', '(gamma 7 1)'], 'cells': 100, 'days': [], 'years': [0], 'height': 10, 'width': 10, 'maxDay': 8, 'dataset': 2, 'num_birds': 1000} 
-
-# Loading assumes
-
-# Day 1
-# [1, 0, 500, -30.239999999999998, 5185.0, array([ 7.06,  3.91,  5.85,  7.85]), 4.0800000000000001]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 0 one 0)) 1)
-# [1, 1, 500, -23.390000000000001, 676.0, array([ 3.79,  3.91,  4.32,  7.85]), 7.46]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 0 one 0)) 1)
-# [1, 2, 500, -23.710000000000001, 1156.0, array([ 6.14,  5.05,  8.03,  8.48]), 7.2199999999999998]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 0 one 0)) 1)
-# [1, 3, 500, -22.579999999999998, 576.0, array([ 4.57,  5.95,  6.03,  8.48]), 7.3099999999999996]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 0 one 0)) 1)
-# [1, 4, 500, -26.170000000000002, 256.0, array([  2.29,   2.77,  10.33,   8.48]), 7.1200000000000001]
-
-# Day 2
-# [2, 0, 500, -1942.02, 659427.0, array([  2.29,   2.77,  10.33,   8.48]), 9.6999999999999993]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 1 one 0)) 1)
-# [2, 1, 500, -170.84, 5585.0, array([  4.79,   8.19,  10.33,   8.48]), 44.950000000000003]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 1 one 0)) 1)
-# [2, 2, 500, -170.84, 5585.0, array([  4.79,   8.19,  10.33,   8.48]), 76.680000000000007]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 1 one 0)) 1)
-# [2, 3, 500, -143.40000000000001, 6460.0, array([  3.8 ,   8.19,  10.33,   8.48]), 58.420000000000002]
-# Inf_prog = (cycle ((mh hypers one 10) (mh 1 one 0)) 1)
-# [2, 4, 500, -143.40000000000001, 6460.0, array([  3.8 ,   8.19,  10.33,   8.48]), 55.640000000000001]
-
-# Day 3
-# [3, 0, 500, -368.92000000000002, 9912.0, array([  3.8 ,   8.19,  10.33,   8.48]), 14.720000000000001]
-# Inf_prog = (cycle ((mh hypers one 4) (mh 2 one 0)) 1)
-# [3, 1, 500, -296.57999999999998, 8682.0, array([ 3.8 ,  8.19,  8.72,  8.48]), 116.65000000000001]
-# Inf_prog = (cycle ((mh hypers one 4) (mh 2 one 0)) 1)
-# [3, 2, 500, -296.57999999999998, 8682.0, array([ 3.8 ,  8.19,  8.72,  8.48]), 146.97]
-# Inf_prog = (cycle ((mh hypers one 4) (mh 2 one 0)) 1)
-# [3, 3, 500, -271.61000000000001, 6916.0, array([ 3.95,  8.19,  8.72,  8.48]), 127.59999999999999]
-# Inf_prog = (cycle ((mh hypers one 4) (mh 2 one 0)) 1)
-# [3, 4, 500, -271.61000000000001, 6916.0, array([ 3.95,  8.19,  8.72,  8.48]), 144.88]
-
-# Day 4
-# [4, 0, 500, -427.02999999999997, 6968.0, array([ 3.95,  8.19,  8.72,  8.48]), 17.100000000000001]
-# Inf_prog = (cycle ((mh hypers one 3) (mh 3 one 0)) 1)
-# [4, 1, 500, -427.02999999999997, 6968.0, array([ 3.95,  8.19,  8.72,  8.48]), 238.59]
-# Inf_prog = (cycle ((mh hypers one 3) (mh 3 one 0)) 1)
-# [4, 2, 500, -427.02999999999997, 6968.0, array([ 3.95,  8.19,  8.72,  8.48]), 241.06]
-# Inf_prog = (cycle ((mh hypers one 3) (mh 3 one 0)) 1)
-# [4, 3, 500, -427.02999999999997, 6968.0, array([ 3.95,  8.19,  8.72,  8.48]), 220.33000000000001]
-# Inf_prog = (cycle ((mh hypers one 3) (mh 3 one 0)) 1)
-# [4, 4, 500, -427.02999999999997, 6968.0, array([ 3.95,  8.19,  8.72,  8.48]), 279.44999999999999]
-
-# Day 5
-# [5, 0, 500, -593.26999999999998, 10229.0, array([ 3.95,  8.19,  8.72,  8.48]), 16.82]
-# Inf_prog = (cycle ((mh hypers one 2) (mh 4 one 0)) 1)
