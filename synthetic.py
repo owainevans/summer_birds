@@ -1,8 +1,8 @@
 from itertools import product
 from features_utils import genFeatures,from_cell_dist,plot_from_cell_dist
 from model import OneBird,Poisson
-from venture.venturemagics.ip_parallel import mk_p_ripl,MRipl
-from venture.unit import Analytics,display_directives
+from venture.venturemagics.ip_parallel import mk_p_ripl,MRipl, display_directives
+from venture.unit import Analytics
 import matplotlib.pylab as plt
 import numpy as np
 import sys,time
@@ -245,7 +245,8 @@ def get_onebird_params(params_name='easy_hypers'):
     features,features_dict = genFeatures(height, width, years, days,
                                          order='F',functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
-    learn_hypers, hypers = False, [1,0,0,0][:num_features]
+    learn_hypers = False
+    hypers = [1,0,0,0][:num_features]
     num_birds = 8
     softmax_beta = 1
     load_observes_file=False

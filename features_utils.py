@@ -72,7 +72,7 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
   
 
   if functions=='easy':
-      feature_functions =  (one_step,color_diag)#,lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
+      feature_functions =  (one_step, color_diag)#,lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
   else:
       feature_functions = (distance,color_diag)
 
@@ -118,11 +118,11 @@ def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True
   for count,cell in enumerate(cells):
     simplex, grid_from_cell_dist = from_cell_dist( height,width,ripl,cell,year,day,order=order)
     im= ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none') 
-    ax[count].set_title('P(i,j),i=%i'%cell)
+    ax[count].set_title('d: %i, P(i,j),i=%i'%(day,cell))
     #cbar = plt.colorbar(im)
   fig.tight_layout()  
   fig.subplots_adjust(right=0.8)
-  cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+  cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
   fig.colorbar(im, cax=cbar_ax)
   
 ## ALT that might work better
