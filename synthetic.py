@@ -318,8 +318,9 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
 
   # View the normalized dist on (0,0) for a few cells. Compare to
   # gtruth moves plots as check
-  check_cells = tuple(range(5))
-  plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
+  if plot:
+    check_cells = tuple(range(5))
+    plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
                       check_cells,year=0,day=0,order='F')
 
 
