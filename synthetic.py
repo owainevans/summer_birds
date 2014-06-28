@@ -55,7 +55,6 @@ def compare_hypers(gtruth_unit,inferred_unit):
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
 
-
 ### Basic procedure for simulating from prior, saving, doing inference.
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
                             save=False,plot=True):
@@ -164,6 +163,7 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
      add a set of them to Unit and Analytics objects [also add query expressions],
      then run Analytics inference.
      Here we specialize the observes and infers to Birds model.'''
+  ana = unit.getAnalytics(unit.ripl,mutateRipl=True)
   
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
@@ -171,9 +171,9 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
                                                          
 
   def analytics_infer(ripl,year,day):
-    '''Analog of *basic_inf* in *filter_inf*. Here inference is done
-    via Analytics and we store history. Analytics only records after
-    a full run of an inf_prog given as a string. Hence we run Analytics
+    '''Analog of *basic_inf* in *filter_inf* with inference by
+       analytics and history stored. Analytics only records after
+       a full run of an inf_prog given as a string. Hence we run Analytics
     after every iteration (where we should do many iterations).'''
     
     hists = []
@@ -238,25 +238,27 @@ def get_onebird_params(params_name='easy_hypers'):
   'Function for producing params for OneBird Unit object'
   if params_name == 'easy_hypers':
     name = 'easy_hypers'
-    Y, D = 1, 6
+    Y, D = 1, 4
     years,days = range(Y),range(D)
-    height,width = 4,4
+    height,width = 3,3
     functions = 'easy'
     features,features_dict = genFeatures(height, width, years, days,
                                          order='F',functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,0,0,0][:num_features]
-    num_birds = 8
-    softmax_beta = 1
+    num_birds = 4
+    softmax_beta = 10
     load_observes_file=False
+    venture_random_seed = 1
 
     params = dict(name = name,
                   years=years, days = days, height=height, width=width,
                   features=features, num_features = num_features,
                   learn_hypers=learn_hypers, hypers = hypers,
                   num_birds = num_birds, softmax_beta = softmax_beta,
-                  load_observes_file=load_observes_file)
+                  load_observes_file=load_observes_file,
+                  venture_random_seed = venture_random_seed)
 
   return params
 
@@ -268,9 +270,9 @@ def get_onebird_params(params_name='easy_hypers'):
 # the learning of them. But working with fixed params is ok also.
 
 def test_easy_hypers_onebird():
-  easy_params = get_params('easy')
-  out = test_onebird_reconstruction( (10,4), test_hypers=True, plot=True, use_mh_filter = True)
-  unit_objects, params, all_locs, all_figs, mses = out
+  easy_params = get_onebird_params('easy_hypers')
+  out = test_onebird_reconstruction( (30,3), test_hypers=True, plot=True, use_mh_filter = True)
+  unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]
   assert isinstance(gtruth_unit,OneBird)
@@ -278,12 +280,15 @@ def test_easy_hypers_onebird():
   assert gtruth_unit.hypers == easy_params['hypers']
   
   latent_mse_prior, latent_mse_post = mses[0]
-  assert UPPERBOUND  > latent_mse_prior > latent_mse_post
-  assert LOWERBOUND < latent_mse_post < 0.6
+  assert 1  > latent_mse_prior > latent_mse_post
+  assert .05 < latent_mse_post < 0.8
 
   hypers_mse_prior, hypers_mse_post = mses[1]
-  assert latent_mse_prior > latent_mse_post
-  return None
+  assert 5 > hypers_mse_prior
+  assert 5 > hypers_mse_post
+
+  print '\n\n Passed "test_easy_hypers_onebird"'
+  return out
 
     
 

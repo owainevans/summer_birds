@@ -26,6 +26,7 @@ def loadFeatures(dataset, name, years, days, maxDay=None):
   
   return toVenture(features)
 
+
 def loadObservations(ripl, dataset, name, years, days):
   'Load observations from Birds dataset'
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
