@@ -34,7 +34,6 @@ params_keys = ['height','width','years','days',
 
 
 
-
 #### Utils for testing performance of inference
 def mse(locs1,locs2,years,days):
   'MSE for output of unit.getBirdLocations'
@@ -87,7 +86,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   start = time.time()
   infer_prog(uni_inf, steps_iterations, filename)
   if use_analytics:
-    ana, all_hists = ana_filter_inf(unit,steps_iterations,filename)
+    ana, all_hists = ana_filter_inf(uni_inf, steps_iterations, filename)
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
   # posterior info (after having mutated uni_inf.ripl)
@@ -199,7 +198,7 @@ def ana_filter_inf(unit,  steps_iterations, filename=None, query_exps=None, verb
   all_hists = []
   for y in unit.years:
     for d in unit.days:
-      #observes_yd = unit.observe_from_file([y],[d],filename)
+      observes_yd = unit.observe_from_file([y],[d],filename,no_observe_directives=True)
       ana.updateObserves( observes_yd )
       if verbose: print 'ana.observes[-1]:', ana.observes[-1]
       # TODO support for QueryExps
@@ -280,7 +279,7 @@ def get_onebird_params(params_name='easy_hypers'):
 
 def test_easy_hypers_onebird(use_analytics=False):
   easy_params = get_onebird_params('easy_hypers')
-  out = test_onebird_reconstruction( (40,3), test_hypers=True, plot=True, use_mh_filter = True, use_analytics=use_analytics)
+  out = test_onebird_reconstruction( (20,2), test_hypers=True, plot=True, use_mh_filter = True, use_analytics=use_analytics)
   unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]

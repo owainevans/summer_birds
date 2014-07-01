@@ -68,7 +68,7 @@ def store_observes(unit,years=None,days=None):
   return filename
 
 
-def observe_from_file(unit,years_range,days_range,filename=None):
+def observe_from_file(unit,years_range,days_range,filename=None, no_observe_directives=False):
   if filename is None: # uses attribute if no filename arg given
     filename = unit.observed_counts_filename
   assert isinstance(filename,str)
@@ -84,7 +84,8 @@ def observe_from_file(unit,years_range,days_range,filename=None):
       for i,bird_count_i in enumerate(unit.observed_counts[(y,d)]):
         
         obs_tuple = ('(observe_birds %i %i %i)'%(y,d,i), bird_count_i )
-        unit.ripl.observe( *obs_tuple )
+        if not no_observe_directives:
+          unit.ripl.observe( *obs_tuple )
         observes.append( obs_tuple)
 
   return observes
