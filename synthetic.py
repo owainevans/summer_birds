@@ -84,10 +84,10 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
 
   # observe and infer (mutating the ripl in the Unit object)
   start = time.time()
-  infer_prog(uni_inf, steps_iterations, filename)
   if use_analytics:
     analytics_obj_hists = ana_filter_inf(uni_inf, steps_iterations, filename)
   else:
+    infer_prog(uni_inf, steps_iterations, filename)
     analytics_obj_hists = None
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
@@ -298,11 +298,25 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
 
   hypers_mse_prior, hypers_mse_post = mses[1]
   assert 5 > hypers_mse_prior
-  assert 5 > hypers_mse_post
+  assert 50 > hypers_mse_post
+  # mse can be large because scaling of hypers does well (up to point where prior kills it)
+
+
+  # inferred hypers: hypers0 > hypers1
+  assert all_hypers[-1][0] > all_hypers[-1][1]
+  assert all_hypers[-1][1] < .5
+
+  ana,hists = unit_objects[-1]
+
+  if use_analytics:
+    from venture.unit.history import historyStitch
+    hists_stitched = historyStitch(hists)
+    assert 0.1 > abs( hists_stitched.nameToSeries['hypers0'][0].values[-1] - all_hypers[-1][0] )
+    assert -2 < hists_stitched.averageValue('hypers0') < 5
 
   print '\n\n Passed "test_easy_hypers_onebird"'
 
-  ana,hists = unit_objects[-1]
+
   return out,ana,hists
 
     

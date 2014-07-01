@@ -290,7 +290,7 @@ class OneBird(VentureUnit):
     return store_observes(self,years,days)
     
 
-  def observe_from_file(self,years_range,days_range,filename=None,no_observe_directives=False):
+  def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
     return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
 
 
@@ -386,7 +386,7 @@ class OneBird(VentureUnit):
 # synthetic.py and elsewhere. But Poisson
 # is not compatible yet and may be buggy. 
 
-# TODO: we haven't get store_observes or load_observe
+# TODO: we haven't got store_observes or load_observe
 # methods, and we haven't got ability to plot birds (in utils near top)
 
 class Poisson(VentureUnit):
@@ -419,7 +419,7 @@ class Poisson(VentureUnit):
       self.num_features = params['num_features']
     else:
       self.features = loadFeatures(self.dataset, self.name, self.years, self.days,
-                                   maxDay=self.maxDay)
+                                   maxDay = self.maxDay)
       self.num_features = num_features
       
     self.softmax_beta=params.get('softmax_beta',1)
