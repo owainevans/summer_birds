@@ -8,7 +8,7 @@ from model import Poisson, num_features
 # most of this has not been touched since moving to summer_birds repo
 # however, we started adapting some parts of it (like params in makeModel)
 
-def makeModel(dataset=2, D=6, Y=1, learn_hypers=True, hypers_prior='(gamma 6 1)'):
+def makeModel(dataset=2, D=4, Y=1, learn_hypers=True, hypers_prior='(gamma 6 1)', toy=False):
   width,height = 10,10
   cells = width * height
   num_birds = 1000 if dataset == 2 else 1000000

@@ -288,7 +288,7 @@ class OneBird(VentureUnit):
 
   def store_observes(self,years=None,days=None):
     return store_observes(self,years,days)
-    
+     
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
     return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
@@ -586,6 +586,10 @@ class Poisson(VentureUnit):
     ripl.assume('get_birds_moving4', '(lambda () %s)' % fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1))
 
   
+  def store_observes(self,years=None,days=None):
+    return store_observes(self,years,days)
+
+
   def loadModel(self, ripl = None):
     if ripl is None:
       ripl = self.ripl
