@@ -290,8 +290,8 @@ class OneBird(VentureUnit):
     return store_observes(self,years,days)
     
 
-  def observe_from_file(self,years_range,days_range,filename=None):
-    return observe_from_file(self,years_range,days_range,filename)
+  def observe_from_file(self,years_range,days_range,filename=None,no_observe_directives=False):
+    return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
 
 
   def bird_to_pos(self,year,day,hist=False):

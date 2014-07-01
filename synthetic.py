@@ -86,7 +86,9 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   start = time.time()
   infer_prog(uni_inf, steps_iterations, filename)
   if use_analytics:
-    ana, all_hists = ana_filter_inf(uni_inf, steps_iterations, filename)
+    analytics_obj_hists = ana_filter_inf(uni_inf, steps_iterations, filename)
+  else:
+    analytics_obj_hists = None
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
   # posterior info (after having mutated uni_inf.ripl)
@@ -95,7 +97,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   # make a fresh ripl to measure impact of inference
   uni_fresh = OneBird(mk_p_ripl(),infer_params)
   uni_fresh.loadAssumes()
-  unit_objects = uni,uni_fresh,uni_inf
+  unit_objects = uni,uni_fresh,uni_inf, analytics_obj_hists
   
   all_locs = gtruth_locs, prior_locs, posterior_locs
   figs = gtruth_fig, prior_fig, posterior_fig
@@ -164,7 +166,8 @@ def ana_filter_inf(unit,  steps_iterations, filename=None, query_exps=None, verb
      add a set of them to Unit and Analytics objects [also add query expressions],
      then run Analytics inference.
      Here we specialize the observes and infers to Birds model.'''
-  ana = unit.getAnalytics(unit.ripl,mutateRipl=True)
+
+  ana = unit.getAnalytics(unit.ripl, mutateRipl=True)
   
   steps,iterations = steps_iterations  
   args = unit.name, steps, iterations
@@ -277,9 +280,11 @@ def get_onebird_params(params_name='easy_hypers'):
 # General version would generate some hypers and then test
 # the learning of them. But working with fixed params is ok also.
 
-def test_easy_hypers_onebird(use_analytics=False):
+def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
+  steps_iterations = (20,2) if not steps_iterations else steps_iterations
   easy_params = get_onebird_params('easy_hypers')
-  out = test_onebird_reconstruction( (20,2), test_hypers=True, plot=True, use_mh_filter = True, use_analytics=use_analytics)
+  out = test_onebird_reconstruction( steps_iterations, test_hypers=True,
+                                     plot=True, use_mh_filter = True, use_analytics=use_analytics)
   unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]
@@ -296,7 +301,9 @@ def test_easy_hypers_onebird(use_analytics=False):
   assert 5 > hypers_mse_post
 
   print '\n\n Passed "test_easy_hypers_onebird"'
-  return out
+
+  ana,hists = unit_objects[-1]
+  return out,ana,hists
 
     
   
@@ -324,7 +331,7 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations, plot=plot, use_analytics=use_analytics)
 
   # unpack results                                                  
-  gtruth_unit, fresh_unit, inf_unit = unit_objects
+  gtruth_unit, fresh_unit, inf_unit, analytics_obj_hists = unit_objects
   gt_locs,prior_locs,post_locs = all_locs
   gt,pri,post = all_figs
 
@@ -342,19 +349,20 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   print 'prior,post mses: %.2f %.2f'%mses[0]
 
   if test_hypers:
+    unit_only = unit_objects[:-1]
     mse_hypers_gt = lambda unit_obj: compare_hypers(gtruth_unit,unit_obj)
     mses_hypers = mse_hypers_gt(fresh_unit),mse_hypers_gt(inf_unit)
     mses.append(mses_hypers)
     
     print '\n---\n gt_hypers, fresh_prior_hypers, post_hypers:'
-    all_hypers= [get_hypers(unit.ripl,params['num_features']) for unit in unit_objects]
+    all_hypers= [get_hypers(unit.ripl,params['num_features']) for unit in unit_only]
     print all_hypers
 
     print '\nprior,post hypers mses: %.2f %.2f'%(mses[-1])
   else:
     all_hypers = None
     
-  return unit_objects,params, all_locs, all_figs, mses, all_hypers
+  return unit_objects, params, all_locs, all_figs, mses, all_hypers
 
 
 ###  Tests for Analytics OneBird Incremental Inference
