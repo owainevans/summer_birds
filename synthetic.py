@@ -57,7 +57,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
 ### Basic procedure for simulating from prior, saving, doing inference.
 def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
-                            save=False,plot=True):
+                            save=False,plot=True, use_analytics=False):
   '''Generate OneBird data from prior, save to file, do inference on data.
      Needs full set of OneBird params: one set for generating, another
      for inference.
@@ -86,6 +86,8 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   # observe and infer (mutating the ripl in the Unit object)
   start = time.time()
   infer_prog(uni_inf, steps_iterations, filename)
+  if use_analytics:
+    ana, all_hists = ana_filter_inf(unit,steps_iterations,filename)
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
   # posterior info (after having mutated uni_inf.ripl)
@@ -99,7 +101,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   all_locs = gtruth_locs, prior_locs, posterior_locs
   figs = gtruth_fig, prior_fig, posterior_fig
 
-  return unit_objects,all_locs, figs
+  return unit_objects, all_locs, figs
 
   
 
@@ -158,7 +160,7 @@ def smooth_inf(unit,steps_iterations,filename=None):
 # Inference procedure for analytics: could be integrated with *synthetic_bird_infer*.
 # Note that the unit object is given incremental updates simultaneously with
 # ana object and so gets  same observes at same time (though no inference is done on unit.ripl)
-def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, verbose=False):
+def ana_filter_inf(unit,  steps_iterations, filename=None, query_exps=None, verbose=False):
   '''Incremental inference on Analytics object. General pattern: loop over observes,
      add a set of them to Unit and Analytics objects [also add query expressions],
      then run Analytics inference.
@@ -197,7 +199,7 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
   all_hists = []
   for y in unit.years:
     for d in unit.days:
-      observes_yd = unit.observe_from_file([y],[d],filename)
+      #observes_yd = unit.observe_from_file([y],[d],filename)
       ana.updateObserves( observes_yd )
       if verbose: print 'ana.observes[-1]:', ana.observes[-1]
       # TODO support for QueryExps
@@ -216,19 +218,26 @@ def ana_filter_inf(unit, ana, steps_iterations, filename=None, query_exps=None, 
 def test_persistent_ripl_analytics(mripl=False):
     v = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
     v.assume('x','(normal 0 100)')
-    data = [10]*5 + [25]*5 + [50]*5
+    data_len = 5
+    data = [10]*data_len + [25]*data_len + [50]*data_len
     observes = [('(normal x 10)',val) for val in data]+ [('(normal x .1)',30)]
 
     ana = Analytics(v,mutateRipl=True )
     hists = []
     vv = ana.ripl if not mripl else ana.mripl
+    xs = []
 
     for i,obs in enumerate(observes):
         ana.updateObserves( [ obs ] )
-        h,_ = ana.runFromConditional( 40, runs=1)        
-        print i,' x: ', vv.sample('x')
+        h,_ = ana.runFromConditional( 40, runs=1)
+        x_value = np.mean( vv.sample('x') )
+        xs.append(x_value)
+        print i,' x: ', x_value
         hists.append( h )
     
+    assert np.mean(xs[2:data_len]) < np.mean(xs[data_len:2*data_len])
+    assert np.mean(xs[data_len:2*data_len]) < np.mean(xs[2*data_len:])
+
     return vv,ana,hists
 
 
@@ -269,9 +278,9 @@ def get_onebird_params(params_name='easy_hypers'):
 # General version would generate some hypers and then test
 # the learning of them. But working with fixed params is ok also.
 
-def test_easy_hypers_onebird():
+def test_easy_hypers_onebird(use_analytics=False):
   easy_params = get_onebird_params('easy_hypers')
-  out = test_onebird_reconstruction( (30,3), test_hypers=True, plot=True, use_mh_filter = True)
+  out = test_onebird_reconstruction( (40,3), test_hypers=True, plot=True, use_mh_filter = True, use_analytics=use_analytics)
   unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]
@@ -291,14 +300,13 @@ def test_easy_hypers_onebird():
   return out
 
     
-
   
 
 
 ## Test non-Analytics reconstruction AND hypers inference. MH-Filter is *filter_inf* vs. *smooth_inf*.
 ## Testing involves computing mse for latents and hypers.
 ## Gets params from *get_onebird_params*
-def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,use_mh_filter=False):
+def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,use_mh_filter=False, use_analytics=False):
   params = get_onebird_params()
   assert set(params_keys).issubset( set(params.keys()) )
 
@@ -314,7 +322,7 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   infer_prog = filter_inf if use_mh_filter else smooth_inf
   
   # do inference using OneBird class                                                  
-  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations, plot=plot)
+  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations, plot=plot, use_analytics=use_analytics)
 
   # unpack results                                                  
   gtruth_unit, fresh_unit, inf_unit = unit_objects
