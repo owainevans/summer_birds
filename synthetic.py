@@ -56,16 +56,17 @@ def onebird_synthetic_infer(*args,**kwargs):
 
 
 def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
-                     steps_iterations, make_infer_string = None, save=False,plot=True, use_analytics=False):
+                                    steps_iterations, make_infer_string = None,
+                                    save=False, plot=True, use_analytics=False):
   '''Generate  data from prior, save to file, do inference on data.
-     Needs full set of OneBird params: one set for generating, another
+     Needs full set of model params: one set for generating, another
      for inference.
      *save/plot* is whether to save/plot bird locations images.'''
 
   makeUnit = OneBird if model == 'onebird' else Poisson
   
   # years and days are common to gtruth and infer unit objects
-  years,days = gtruth_params['years'],gtruth_params['days']
+  years,days = gtruth_params['years'], gtruth_params['days']
   
   def locs_fig(unit,name):
     'Call getBirdLocations and draw_bird locations using global *years,days*.'  
@@ -108,11 +109,11 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
 
   
 
-### Inference procedures for *infer_prog* arg in *onebird_synthetic_infer*
+### Inference procedures for *infer_prog* arg in *synthetic_infer*
 
-def poisson_inf( day, steps, day_to_hypers=None):
+def make_poisson_infer_string( day, steps, day_to_hypers=None):
   if day_to_hypers is None:
-    day_to_hypers = lambda day: 10
+    day_to_hypers = lambda day:10
   args = day_to_hypers(day), day, steps
   s='(cycle ((mh hypers all %i) (mh %i one %i)) 1)'%args
   return s
@@ -134,15 +135,18 @@ def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, re
   def basic_inf(ripl,year,day):
     for iteration in range(iterations):
       inf_string = make_infer_string(day, steps)
+      if verbose or True: print 'iter: %i, inf_str:%s'%(iteration,inf_string)
       ripl.infer( inf_string )
-      if verbose: print 'iter: %i, inf_str:%s'%(iteration,inf_string)
+      
   
   def record(unit):  return get_hypers(unit.ripl, unit.num_features)
 
   records = {}
   for y in unit.years:
     for d in unit.days:
-      unit.observe_from_file([y],[d],filename)
+      print 'before obs from file'
+      ou = unit.observe_from_file([y],[d],filename)
+      print ou[1] 
 
       if d>0:
         basic_inf(unit.ripl, y, d-1)
@@ -155,7 +159,7 @@ def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, re
 
 
 
-def smooth_inf(unit,steps_iterations,filename=None):
+def smooth_inf(unit,steps_iterations,filename=None,**kwargs):
   '''Like *filter_inf* but observes all days at once and does inference on
    everything in moves2(i,j)'''
   steps,iterations = steps_iterations  
@@ -332,7 +336,7 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
   steps_iterations = (20,2) if not steps_iterations else steps_iterations
   easy_params = get_onebird_params('easy_hypers')
   out = test_onebird_reconstruction( steps_iterations, test_hypers=True,
-                                     plot=True, use_mh_filter = True, use_analytics=use_analytics)
+                                     plot=True, infer_prog = filter_inf, use_analytics=use_analytics)
   unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]
@@ -372,8 +376,16 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
 ## Test non-Analytics reconstruction AND hypers inference. MH-Filter is *filter_inf* vs. *smooth_inf*.
 ## Testing involves computing mse for latents and hypers.
 ## Gets params from *get_onebird_params*
-def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,use_mh_filter=False, use_analytics=False):
-  params = get_onebird_params()
+def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,
+                                infer_prog=filter_inf, use_analytics=False):
+  return test_reconstruction(steps_iterations, test_hypers, plot,infer_prog,
+                             use_analytics, model = 'onebird')
+
+
+def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
+                        infer_prog=filter_inf, use_analytics=False, model='poisson'):
+
+  params = get_params('easy_hypers', model)
 
   # copy and specialize params for gtruth and inference
   gtruth_params  = params.copy()
@@ -381,20 +393,21 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   gtruth_params['name'] = 'gtruth'
   infer_params['name'] = 'infer'
 
-  # define inference program
+  # inference string
   if test_hypers: infer_params['learn_hypers'] = True
   
-  if use_mh_filter:
-    make_infer_string = make_onebird_infer_string
-    infer_prog = filter_inf
+  if model=='poisson':
+    make_infer_string = lambda d,s: make_poisson_infer_string(d,s,None)
   else:
-    infer_prog = smooth_inf
-  
-  # do inference using OneBird class                                                  
-  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
-                                                           make_infer_string = make_infer_string, plot=plot, use_analytics=use_analytics)
+    make_infer_string = make_onebird_infer_string 
+    
+                              
+  # generate synthetic data and do inference                                                 
+  inf_out = synthetic_infer(model, gtruth_params, infer_params, infer_prog, steps_iterations,
+                            make_infer_string = make_infer_string, plot=plot, use_analytics=use_analytics)
 
-  # unpack results                                                  
+  # unpack results
+  unit_objects,all_locs,all_figs = inf_out
   gtruth_unit, fresh_unit, inf_unit, analytics_obj_hists = unit_objects
   gt_locs,prior_locs,post_locs = all_locs
   gt,pri,post = all_figs
@@ -404,8 +417,7 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   if plot:
     check_cells = tuple(range(5))
     plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
-                        check_cells,year=0,day=0,order='F')
-
+                        check_cells, year=0, day=0, order='F')
 
   # compute test statistics
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
@@ -503,9 +515,9 @@ def run_all_tests(plot=False):
     test_ana_inf(mripl=boo)
 
   test_hypers = (True,False)
-  use_mh_filter = (True,False)
+  infer_prog = (filter_inf,smooth_inf)
   steps_iterations = ( (0,0), (1,1) )
-  settings = product(steps_iterations, test_hypers, use_mh_filter )
-  for steps_iterations, test_hypers, use_mh_filter in settings:
-    print 'steps_iterations, test_hypers, use_mh_filter', steps_iterations, test_hypers, use_mh_filter
-    test_onebird_reconstruction(  steps_iterations, test_hypers, plot, use_mh_filter)
+  settings = product(steps_iterations, test_hypers, infer_prog )
+  for steps_iterations, test_hypers, infer_prog in settings:
+    print 'steps_iterations, test_hypers, infer_prog', steps_iterations, test_hypers, infer_prog
+    test_onebird_reconstruction(  steps_iterations, test_hypers, plot, infer_prog)

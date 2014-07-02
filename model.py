@@ -469,11 +469,11 @@ class Poisson(VentureUnit):
 
     
     if not self.learn_hypers:
-      for k, b in enumerate(self.hypers):
-        ripl.assume('hypers%d' % k,  b)
+      for k, k_value in enumerate(self.hypers):
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %i %f )'%(k, k_value) )
     else:
-      for k, prior in enumerate(self.hypers_prior):
-        ripl.assume('hypers%d' % k,'(scope_include (quote hypers) %i %s )'%(k,prior) )
+      for k, k_prior in enumerate(self.hypers_prior):
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %i %s )'%(k, k_prior) )
 
     ripl.assume('features', self.features)
 
@@ -568,8 +568,11 @@ class Poisson(VentureUnit):
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
     observes = observe_from_file(self,years_range,days_range,filename,no_observe_directives)
-    self.days = days_range
-    return observes
+    # assume we always have unbroken sequence of days
+    self.days = range(max(days_range))
+
+    string = 'observes_from_file: days_range, self.days %s %s'%(days_range,self.days)
+    return observes, sting
 
   def loadModel(self, ripl = None):
     if ripl is None:
