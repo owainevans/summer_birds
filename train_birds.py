@@ -10,14 +10,13 @@ from model import Poisson, num_features
 
 def makeModel(dataset=2, D=4, Y=1, learn_hypers=True, hypers_prior='(gamma 6 1)', toy=False):
   width,height = 10,10
-  cells = width * height
   num_birds = 1000 if dataset == 2 else 1000000
   name = "%dx%dx%d-train" % (width, height, num_birds)
-  runs = 1
   hypers = [5, 10, 10, 10] 
   num_features = 4
   hypers_prior = [hypers_prior]*num_features
 
+  
   params = {
   "name":name,
   "width":width,

@@ -245,12 +245,18 @@ def test_persistent_ripl_analytics(mripl=False):
 
 # Produce a params dict for testing inference
 # (be wary of mutating entries without copying first)
+
 def get_onebird_params(params_name='easy_hypers'):
+  return get_params( params_name='easy_hypers', model='onebird')
+
+def get_params(params_name='easy_hypers', model='poisson'):
   'Function for producing params for OneBird Unit object'
+  
   if params_name == 'easy_hypers':
     name = 'easy_hypers'
     Y, D = 1, 4
     years,days = range(Y),range(D)
+    maxDay = D
     height,width = 3,3
     functions = 'easy'
     features,features_dict = genFeatures(height, width, years, days,
@@ -262,18 +268,45 @@ def get_onebird_params(params_name='easy_hypers'):
     softmax_beta = 10
     load_observes_file=False
     venture_random_seed = 1
+    dataset = None
 
-    params = dict(name = name,
-                  years=years, days = days, height=height, width=width,
-                  features=features, num_features = num_features,
-                  learn_hypers=learn_hypers, hypers = hypers,
-                  num_birds = num_birds, softmax_beta = softmax_beta,
-                  load_observes_file=load_observes_file,
-                  venture_random_seed = venture_random_seed)
+
+  elif params_name in ('ds2','ds3'):
+    dataset = 2 if params_name=='ds2' else 3
+    width,height = 10,10
+    num_birds = 1000 if dataset == 2 else 1000000
+    name = "%dx%dx%d-train" % (width, height, num_birds)
+    Y,D = 1, 4
+    years = range(Y)
+    days = []
+    maxDay = D
+    hypers = [5, 10, 10, 10] 
+    num_features = len(hypers)
+    hypers_prior = ['(gamma 6 1)']*num_features
+    learn_hypers = False
+    features = None
+    softmax_beta = None
+    load_observes_file = None
+    venture_random_seed = 1
+
+  params = dict(name = name, dataset = dataset,
+                years=years,  days = days, maxDay = maxDay,
+                height=height, width=width,
+                features=features, num_features = num_features,
+                learn_hypers=learn_hypers, hypers = hypers,
+                num_birds = num_birds, softmax_beta = softmax_beta,
+                load_observes_file = load_observes_file,
+                venture_random_seed = venture_random_seed)
 
   return params
 
  
+def poi(params_name='easy_params'):
+  params = get_params(params_name=params_name,model='poisson')
+  unit = Poisson(mk_p_ripl(),params)
+  unit.loadAssumes()
+  return unit
+
 
 # Once some params settings have been finalized, this should be a 
 # test that hypers inference has worked correctly.

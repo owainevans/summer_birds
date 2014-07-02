@@ -98,10 +98,10 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 # and my *make_grid* from utils.py for plotting
 # (duplicating same reshape operation)
 
-# TODO        
-# inefficiently calls bird_locs twice and with fixed Fortran order
+# TODO inefficiently calls bird_locs twice and with fixed Fortran order
+# note that saved images use different order
 def drawBirdLocations(bird_locs, name, years, days, height, width,
-                      save=True,plot=None):
+                      save=True,plot=None,order='F'):
   if save:
     for y in years:
       path = 'bird_moves_%s/%d/' % (name, y)
@@ -114,7 +114,7 @@ def drawBirdLocations(bird_locs, name, years, days, height, width,
     ncols=len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
     for y,d in product(years,days):
-      im = make_grid(height, width, lst=bird_locs[y][d], order='F')
+      im = make_grid(height, width, lst=bird_locs[y][d], order=order)
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
       ax_dy.imshow(im,cmap=plt.cm.Reds, interpolation='none',
                       extent=[0,width,0,height])
@@ -398,7 +398,7 @@ class Poisson(VentureUnit):
     self.cells = self.width * self.height
     assert isinstance(self.cells,int) and self.cells > 1
     
-    self.dataset = params['dataset']
+    self.dataset = params.get('dataset',None)
     self.num_birds = params['num_birds']
     self.years = params['years']
     self.days = params['days']
@@ -414,14 +414,13 @@ class Poisson(VentureUnit):
     self.ground = readReconstruction(params) if 'ground' in params else None
     self.maxDay = params.get('maxDay',None)
 
-    if 'features' in params:
-      self.features = params['features']
-      self.num_features = params['num_features']
-    else:
+    if self.dataset in (2,3):
       self.features = loadFeatures(self.dataset, self.name, self.years, self.days,
                                    maxDay = self.maxDay)
-      self.num_features = num_features
-      
+    else:
+      self.features = params['features']
+
+    self.num_features = params['num_features']
     self.softmax_beta=params.get('softmax_beta',1)
     self.load_observes_file=params.get('load_observes_file',True)
 
@@ -549,28 +548,6 @@ class Poisson(VentureUnit):
                   (scope_include d (array y d i j)
                     (poisson n))))))))))""")
 
-
-  ### SKETCH OF MULTINOMIAL MODEL (NOT FINISHED)
-    # ripl.assume('multinomial_mem', """
-    #   (lambda (trials simplex)
-    #       (let ( (draws (repeat (lambda() (categorical simplex) ) ) ) )
-    #       (mem (lambda (i)
-    #          (count_instances i draws) ) ) ) )"""
-
-    # ripl.assume('count_instances',"""
-    #             (lambda (i lst) 
-    #                   (size (filter (lambda (x) (= x i)) lst) ) )""")
-
-    # ripl.assume('bird_movements_loc', """
-    #   (mem (lambda (y d i)
-    #     (if (= (count_birds y d i) 0)
-    #       (lambda (j) 0)
-    #         (let ((normalize (foldl + 0 0 cells (lambda (j) (phi y d i j)))))
-    #           (scope_include d (array y d i)
-    #             (let ( (counts (multinomial_mem (count_birds y d i) normalize)) )
-    #               (mem (lambda (j) (counts j) ) ) ) ) ) ) ) ) """ )
-    
-
     #ripl.assume('bird_movements', '(mem (lambda (y d) %s))' % fold('array', '(bird_movements_loc y d __i)', '__i', self.cells))
     
     ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.0001))))')
@@ -589,6 +566,8 @@ class Poisson(VentureUnit):
   def store_observes(self,years=None,days=None):
     return store_observes(self,years,days)
 
+  def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
+    return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
 
   def loadModel(self, ripl = None):
     if ripl is None:
@@ -601,10 +580,11 @@ class Poisson(VentureUnit):
     #if d > 0: self.ripl.forget('bird_moves')
     loadObservations(self.ripl, self.dataset, self.name, self.years, [d])
     #self.ripl.infer('(incorporate)')
-    
     #self.ripl.predict(fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1), label='bird_moves')
   
-  def getBirdLocations(self, years=None, days=None):
+
+## TODO Should this be sample or predict
+  def getBirdLocations(self, years=None, days=None, predict=False):
     if years is None: years = self.years
     if days is None: days = self.days
     
@@ -612,7 +592,9 @@ class Poisson(VentureUnit):
     for y in years:
       bird_locations[y] = {}
       for d in days:
-        bird_locations[y][d] = [self.ripl.sample('(count_birds %d %d %d)' % (y, d, i)) for i in range(self.cells)]
+        r = self.ripl
+        predict_sample = lambda s:r.predict(s) if predict else lambda s:r.sample(s)
+        bird_locations[y][d] = [predict_sample('(count_birds %d %d %d)' % (y, d, i)) for i in range(self.cells)]
     
     return bird_locations
   
@@ -626,6 +608,17 @@ class Poisson(VentureUnit):
       for d in self.days:
         drawBirds(bird_locs[y][d], path + '%02d.png' % d, **self.parameters)
   
+## NOTE careful of PREDICT for getBirdLocations if doing inference
+  def draw_bird_locations(self,years,days,name=None,plot=True,save=True):
+      assert isinstance(years,(list,tuple))
+      assert isinstance(days,(list,tuple))
+      assert not max(days) > self.maxDay
+      name = self.name if name is None else name
+      bird_locs = self.getBirdLocations(years,days,predict=True)
+      bitmaps = drawBirdLocations(bird_locs, self.name, years, days,
+                                  self.height, self.width, plot=plot,save=save)
+      return bitmaps
+
 
   def getBirdMoves(self):
     
