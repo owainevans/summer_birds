@@ -317,7 +317,7 @@ class OneBird(VentureUnit):
       return l
 
 
-  def getBirdLocations(self, years=None, days=None):
+  def getBirdLocations(self, years=None, days=None, predict=False):
     if years is None: years = self.years
     if days is None: days = self.days
     
@@ -567,7 +567,9 @@ class Poisson(VentureUnit):
     return store_observes(self,years,days)
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
-    return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
+    observes = observe_from_file(self,years_range,days_range,filename,no_observe_directives)
+    self.days = days_range
+    return observes
 
   def loadModel(self, ripl = None):
     if ripl is None:

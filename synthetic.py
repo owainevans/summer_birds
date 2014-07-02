@@ -7,10 +7,6 @@ import matplotlib.pylab as plt
 import numpy as np
 import sys,time
 
-params_keys = ['height','width','years','days',
-              'features','num_features','num_birds',
-              'learn_hypers','hypers',
-              'softmax_beta','load_observes_file']
 
 ## TODO PLAN FOR BIRDS
 
@@ -55,30 +51,36 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
 
 ### Basic procedure for simulating from prior, saving, doing inference.
-def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
-                            save=False,plot=True, use_analytics=False):
-  '''Generate OneBird data from prior, save to file, do inference on data.
+def onebird_synthetic_infer(*args,**kwargs):
+  return synthetic_infer('onebird',*args,**kwargs)
+
+
+def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
+                     steps_iterations, make_infer_string = None, save=False,plot=True, use_analytics=False):
+  '''Generate  data from prior, save to file, do inference on data.
      Needs full set of OneBird params: one set for generating, another
      for inference.
      *save/plot* is whether to save/plot bird locations images.'''
 
+  makeUnit = OneBird if model == 'onebird' else Poisson
+  
   # years and days are common to gtruth and infer unit objects
   years,days = gtruth_params['years'],gtruth_params['days']
   
   def locs_fig(unit,name):
     'Call getBirdLocations and draw_bird locations using global *years,days*.'  
-    locs = unit.getBirdLocations(years,days)
+    locs = unit.getBirdLocations(years,days,predict = True)
     fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
     return locs,fig
     
   # Create gtruth_unit object with Puma ripl  
-  uni = OneBird(mk_p_ripl(),gtruth_params)
+  uni = makeUnit(mk_p_ripl(),gtruth_params)
   uni.loadAssumes()
   gtruth_locs,gtruth_fig = locs_fig(uni, gtruth_params['name'])
   filename = uni.store_observes(years,days)  # filename will use uni.name and random string
   
   # make inference model
-  uni_inf = OneBird(mk_p_ripl(),infer_params)
+  uni_inf = makeUnit(mk_p_ripl(),infer_params)
   uni_inf.loadAssumes()
   prior_locs,prior_fig = locs_fig(uni_inf,infer_params['name']+'_prior')
 
@@ -87,7 +89,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   if use_analytics:
     analytics_obj_hists = ana_filter_inf(uni_inf, steps_iterations, filename)
   else:
-    infer_prog(uni_inf, steps_iterations, filename)
+    infer_prog(uni_inf, steps_iterations, filename, make_infer_string = make_infer_string)
     analytics_obj_hists = None
   print 'Obs and Inf: %s, elapsed: %s'%(infer_prog,time.time() - start)
 
@@ -95,7 +97,7 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
   posterior_locs,posterior_fig = locs_fig(uni_inf,infer_params['name']+'_post')
 
   # make a fresh ripl to measure impact of inference
-  uni_fresh = OneBird(mk_p_ripl(),infer_params)
+  uni_fresh = makeUnit(mk_p_ripl(),infer_params)
   uni_fresh.loadAssumes()
   unit_objects = uni,uni_fresh,uni_inf, analytics_obj_hists
   
@@ -108,21 +110,32 @@ def onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iteratio
 
 ### Inference procedures for *infer_prog* arg in *onebird_synthetic_infer*
 
-def filter_inf(unit, steps_iterations, filename=None, record_prog=None, verbose=False):
+def poisson_inf( day, steps, day_to_hypers=None):
+  if day_to_hypers is None:
+    day_to_hypers = lambda day: 10
+  args = day_to_hypers(day), day, steps
+  s='(cycle ((mh hypers all %i) (mh %i one %i)) 1)'%args
+  return s
+
+def make_onebird_infer_string( day, steps, day_to_hypers=None):
+  s='(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)'%(day,steps)
+  return s
+ 
+
+def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
      of inference on move2(i,j) for the previous day and on the hypers. Optionally
      take a function that records different 'queryExps' in sense of Analytics."""
 
-  steps,iterations = steps_iterations  
+  steps,iterations = steps_iterations
   args = unit.name, steps, iterations
   print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
                                                          
   def basic_inf(ripl,year,day):
     for iteration in range(iterations):
-      latents = '(mh move2 %i %i)'%( day, steps)
-      ripl.infer('(mh hypers one 10)')
-      ripl.infer(latents)
-      if verbose: print 'iter: %i, inf_str:%s'%(iteration,latents)
+      inf_string = make_infer_string(day, steps)
+      ripl.infer( inf_string )
+      if verbose: print 'iter: %i, inf_str:%s'%(iteration,inf_string)
   
   def record(unit):  return get_hypers(unit.ripl, unit.num_features)
 
@@ -301,11 +314,13 @@ def get_params(params_name='easy_hypers', model='poisson'):
   return params
 
  
-def poi(params_name='easy_params'):
-  params = get_params(params_name=params_name,model='poisson')
-  unit = Poisson(mk_p_ripl(),params)
-  unit.loadAssumes()
-  return unit
+def poi(params_name='easy_hypers'):
+  params = get_params(params_name=params_name, model='poisson')
+  model = 'poisson'
+  gtruth_params, infer_params = params.copy(), params.copy()
+  out = synthetic_infer(model, gtruth_params, infer_params, smooth_inf, (0,0), False, True)
+  
+  return out
 
 
 # Once some params settings have been finalized, this should be a 
@@ -334,12 +349,14 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
   assert 50 > hypers_mse_post
   # mse can be large because scaling of hypers does well (up to point where prior kills it)
 
-
   # inferred hypers: hypers0 > hypers1
   assert all_hypers[-1][0] > all_hypers[-1][1]
   assert all_hypers[-1][1] < .5
 
-  ana,hists = unit_objects[-1]
+  try:
+    ana,hists = unit_objects[-1]
+  except:
+    ana,hists = None,None
 
   if use_analytics:
     from venture.unit.history import historyStitch
@@ -349,19 +366,14 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
 
   print '\n\n Passed "test_easy_hypers_onebird"'
 
-
   return out,ana,hists
 
     
-  
-
-
 ## Test non-Analytics reconstruction AND hypers inference. MH-Filter is *filter_inf* vs. *smooth_inf*.
 ## Testing involves computing mse for latents and hypers.
 ## Gets params from *get_onebird_params*
 def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,use_mh_filter=False, use_analytics=False):
   params = get_onebird_params()
-  assert set(params_keys).issubset( set(params.keys()) )
 
   # copy and specialize params for gtruth and inference
   gtruth_params  = params.copy()
@@ -372,10 +384,15 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,u
   # define inference program
   if test_hypers: infer_params['learn_hypers'] = True
   
-  infer_prog = filter_inf if use_mh_filter else smooth_inf
+  if use_mh_filter:
+    make_infer_string = make_onebird_infer_string
+    infer_prog = filter_inf
+  else:
+    infer_prog = smooth_inf
   
   # do inference using OneBird class                                                  
-  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations, plot=plot, use_analytics=use_analytics)
+  unit_objects,all_locs,all_figs = onebird_synthetic_infer(gtruth_params,infer_params,infer_prog,steps_iterations,
+                                                           make_infer_string = make_infer_string, plot=plot, use_analytics=use_analytics)
 
   # unpack results                                                  
   gtruth_unit, fresh_unit, inf_unit, analytics_obj_hists = unit_objects
@@ -474,7 +491,7 @@ def test_ana_inf(mripl=False):
   # analytics will only record every entire run on inf_prog
   # so we do lots of iteraions with small number of mh transitions
   steps_iterations = (2,4)
-  _,hists = ana_filter_inf(inf_unit, inf_ana, steps_iterations, filename, verbose=True)
+  _,hists = ana_filter_inf(inf_unit, steps_iterations, filename, verbose=True)
   
   return unit,ana, inf_unit, inf_ana, hists
 
