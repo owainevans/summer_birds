@@ -129,8 +129,8 @@ def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, re
      take a function that records different 'queryExps' in sense of Analytics."""
 
   steps,iterations = steps_iterations
-  args = unit.name, steps, iterations
-  print 'filter_inf. Name: %s, Steps:%i, iterations:%i'%args
+  args = str(unit), unit.name, steps, iterations
+  print 'filter_inf. Model: %s Name: %s, Steps:%i, iterations:%i'%args
                                                          
   def basic_inf(ripl,year,day):
     for iteration in range(iterations):
@@ -281,6 +281,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,0,0,0][:num_features]
+    hypers_prior = ['(gamma 6 1)']*num_features
     num_birds = 4
     softmax_beta = 10
     load_observes_file=False
@@ -310,7 +311,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
                 years=years,  days = days, maxDay = maxDay,
                 height=height, width=width,
                 features=features, num_features = num_features,
-                learn_hypers=learn_hypers, hypers = hypers,
+                learn_hypers=learn_hypers, hypers = hypers, hypers_prior = hypers_prior,
                 num_birds = num_birds, softmax_beta = softmax_beta,
                 load_observes_file = load_observes_file,
                 venture_random_seed = venture_random_seed)

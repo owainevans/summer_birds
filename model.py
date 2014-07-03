@@ -402,17 +402,17 @@ class Poisson(VentureUnit):
     self.num_birds = params['num_birds']
     self.years = params['years']
     self.days = params['days']
+    self.maxDay = params.get('maxDay',None)
+    for attr in self.years,self.days:
+      assert isinstance( attr[0], (float,int) )
 
     self.hypers = params["hypers"]
-    self.hypers_prior = params.get('hypers_prior',None)
-    if self.hypers_prior:
-      assert isinstance(self.hypers_prior[0],str)
-      
-    self.learn_hypers = params.get('learn_hypers',None)
-    assert not(self.learn_hypers and not(self.hypers_prior))
+    self.hypers_prior = params['hypers_prior']
+    assert isinstance(self.hypers_prior[0],str)
+    self.learn_hypers = params['learn_hypers']
     
     self.ground = readReconstruction(params) if 'ground' in params else None
-    self.maxDay = params.get('maxDay',None)
+    
 
     if self.dataset in (2,3):
       self.features = loadFeatures(self.dataset, self.name, self.years, self.days,
@@ -572,7 +572,7 @@ class Poisson(VentureUnit):
     self.days = range(max(days_range))
 
     string = 'observes_from_file: days_range, self.days %s %s'%(days_range,self.days)
-    return observes, sting
+    return observes, string
 
   def loadModel(self, ripl = None):
     if ripl is None:
