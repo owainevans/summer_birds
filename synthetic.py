@@ -122,10 +122,47 @@ def make_onebird_infer_string( day, steps, day_to_hypers=None):
   s='(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)'%(day,steps)
   #s='(cycle ((mh hypers all 10) (mh move2 one %i)) 1)'%steps
   #s='(mh default one %i)'%steps
-
-
+  try:
+    s=onebird_string[0]%(day,steps)
+  except:
+    s=onebird_string[0]%steps
   return s
- 
+
+
+def test_inf():
+  infer_prog_list = ['(mh default one %i)', '(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)']
+  infer_prog_list = ['(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)',
+                     '(cycle ((func_pgibbs hypers all 10 2) (func_pgibbs move2 %i %i 5)) 1)' ] # note flipped steps and particles
+  step_size = 10
+  steps_prep = [1] + range(step_size,test_inf_limit,step_size)
+  steps_list = [(steps,2) for steps in steps_prep]
+
+  mses = {}
+  for infer_prog in infer_prog_list:
+    onebird_string[0] = infer_prog
+    print '\n-------\n infer_prog: ', infer_prog
+    for steps in steps_list:
+      print '\n------\n steps', steps
+      ou = test_onebird_reconstruction( steps, True, plot=False)
+      mses[(infer_prog,steps)] = ou[-2]
+
+  # just to reconstruction error
+  mses_seq = {'steps_list':steps_list}
+  for infer_prog in infer_prog_list:
+    mses_seq[infer_prog] = []
+    for steps in steps_list:
+      # mses = [ key:(recon[pr,po],hyps) ]
+      mses_seq[infer_prog].append( mses[(infer_prog,steps)][0][1] )
+
+  return mses, mses_seq
+
+
+onebird_string=['(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)']
+
+test_inf_limit = 20
+if len(sys.argv)>1:
+  test_inf_limit = int( sys.argv[1] )
+  
 
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
