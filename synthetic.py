@@ -120,6 +120,10 @@ def make_poisson_infer_string( day, steps, day_to_hypers=None):
 
 def make_onebird_infer_string( day, steps, day_to_hypers=None):
   s='(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)'%(day,steps)
+  #s='(cycle ((mh hypers all 10) (mh move2 one %i)) 1)'%steps
+  #s='(mh default one %i)'%steps
+
+
   return s
  
 
@@ -133,8 +137,10 @@ def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, re
   print 'filter_inf. Model: %s Name: %s, Steps:%i, iterations:%i'%args
                                                          
   def basic_inf(ripl,year,day):
+    'Make inference string given *year,day* and do inference'
     for iteration in range(iterations):
       inf_string = make_infer_string(day, steps)
+      # TODO: change verbose setting
       if verbose or True: print 'iter: %i, inf_str:%s'%(iteration,inf_string)
       ripl.infer( inf_string )
       

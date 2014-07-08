@@ -1,6 +1,6 @@
 from utils import *
 from venture.unit import VentureUnit
-from venture.ripl.ripl import _strip_types
+from venture.ripl.utils import _strip_types
 from itertools import product
 import matplotlib.pylab as plt
 import cPickle as pickle
