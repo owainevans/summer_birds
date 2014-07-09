@@ -49,6 +49,7 @@ def generate_save_synthetic_data(params,directory):
 
 
 
+
 def filter_inf(unit, filename, infer_string_list):
   args = str(unit), unit.name, steps,
   print 'filter_inf. Model: %s Name: %s, Steps:%i '%args
