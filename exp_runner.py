@@ -5,6 +5,15 @@ import os
 from utils import ensure
 from synthetic import *
 
+# we select a dirname (name for the synth data params).
+# dirname is used to save synth data and params in 'synth.dat'
+# we then use dirname to generate_experiment_data
+# every run of this creates a file (or overwrites existing)
+# which is a pickled list of experiments. name can't start 
+# with syn. 
+
+
+
 os.chdir('/home/owainevans/summer_birds')
 
 def generate_synthetic_data(params):
@@ -16,12 +25,12 @@ def generate_synthetic_data(params):
 
 def save_gtruth_params(params,directory):
   with open(directory+'synthetic_gtruth_params.dat','w') as f:
-    pickle.dumps(params)
+    pickle.dump(params,f)
 
 def save_synthetic_data(synthetic_data,directory):
   'add name that denotes synthetic data'
   with open(directory+'synthetic_data.dat','w') as f:
-    pickle.dumps(synthetic_data)
+    pickle.dump(synthetic_data,f)
 
 
 ## special file in the directory with the synth data and params
@@ -37,7 +46,8 @@ def make_inf_list(params,steps, make_string):
 
 # specify params for synth data 
 # params are also needed to construct inference prog / ripl
-params_name = 'easy_hypers'
+params_name = 'easy_d4_s33_bi4_be10'
+#featurefunctions__maxDay_size_num_birds_softmaxbeta
 
 params = get_params(params_name, 'onebird')
 gtruth_params  = params.copy()
@@ -62,7 +72,9 @@ exp_seed1=dict( type = 'mh_sequential_blocks',
                 steps = 50,
                 make_inf_string = mh_make_inf_string )
 
-exp_seeds = (exp_seed1,)
+exp_seed2 = exp_seed1.copy()
+exp_seed2['steps'] = 100
+exp_seeds = (exp_seed1,exp_seed2)
 
 # loop over seeds, generate experiments
 experiments = []
@@ -98,17 +110,10 @@ def load_experiments(directory):
         experiments.extend(pickle.load(experiments_list))
   return experiments
 
-# we select a dirname (name for the synth data params).
-# dirname is used to save synth data and params in 'synth.dat'
-# we then use dirname to generate_experiment_data
-# every run of this creates a file (or overwrites existing)
-# which is a pickled list of experiments. name can't start 
-# with syn. 
-
 
 def generate_experiment_data(experiments, directory, name, overwrite = False):
   assert not name.startswith('syn')
-  filename = directory+name+'.dat'
+  filename = directory + name + '.dat'
 
   if os.path.isfile(filename) and not overwrite:
       return  # or should we run anyway?
@@ -120,7 +125,8 @@ def generate_experiment_data(experiments, directory, name, overwrite = False):
     pickle.dump(experiments,f)
 
   
-#generate_experiment_data(experiments, name='pack_of_results')
+
+
 
 
 

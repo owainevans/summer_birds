@@ -401,7 +401,7 @@ def get_onebird_params(params_name='easy_hypers'):
 def get_params(params_name='easy_hypers', model='poisson'):
   'Function for producing params for OneBird Unit object'
   
-  if params_name == 'easy_hypers':
+  if params_name in ('easy_hypers','easy_d4_s33_bi4_be10'):
     name = 'easy_hypers'
     Y, D = 1, 4
     years,days = range(Y),range(D)
