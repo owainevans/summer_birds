@@ -2,6 +2,10 @@ import cPickle as pickle
 from synthetic import *
 
 def generate_synthetic_data(params):
+  # first big of synthetic_infer.
+  # note: easy to generate and then save as file and 
+  # get filename. if want to store actual data
+  # then we need to modify store_observes
   return {}
 
 def save_synthetic_data(synthetic_data,dirname):
@@ -62,14 +66,18 @@ for seed in exp_seeds:
   experiments.append( experiment )
 
 
-def run_experiment(experiment):
-  experiment['logscore'] = np.random.randint(100)
-  experiment['runtime'] = .3*np.random.randint(100)
+def run_experiment(experiment,overwrite=False):
+  if overwrite or experiment['logscore']==[]:
+    experiment['logscore'] = 333
+    experiment['runtime'] = .55
     
+
 def generate_experiment_data(experiments, directory, name, overwrite = False):
-  filename = 
+  filename = directory+name+'.dat'
+
   for experiment in experiments:
-    run_experiment[experiment]
+    run_experiment(experiment,overwrite)
+
     with open(filename,'a') as f:
       pickle.dump(experiment,f)
 #generate_experiment_data(experiments, name='pack_of_results')

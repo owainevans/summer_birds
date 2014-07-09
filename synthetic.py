@@ -8,28 +8,6 @@ import numpy as np
 import sys,time
 
 
-## TODO PLAN FOR BIRDS
-
-# 1. I tried to find an example where hypers can be learned
-# in small amount of time. Current 'easy' functions params
-# have one_step and color_diag, with hypers=[1,0]. if a feature
-# can be positive and negative, then it should be possible
-# to learn a zero hyper. if the features values are always
-# positive, then it's trickier, because a zero weight
-# will look similar to a negative weight.
-
-# Once we find an example that can be easily learned, we 
-# can vary inf programs and compare performance. We
-# can get an integration test of Analytics filtering inference.
-
-# 2. Need to add store_observes and observes_from_file methods
-# to poisson and then generalization testing/inference functions
-# below to work with Poisson object. Test Poisson param inference
-# on our basic example. 
-
-# easy to iterate and add new inference methods.
-# - store the generated data
-
 
 
 # FEATURES TO ADD
