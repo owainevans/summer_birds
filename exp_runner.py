@@ -4,6 +4,7 @@ from os.path import isfile, join
 import os    
 from utils import ensure
 from synthetic import *
+import matplotlib.pylab as plt
 
 # we select a dirname (name for the synth data params).
 # dirname is used to save synth data and params in 'synth.dat'
@@ -12,31 +13,42 @@ from synthetic import *
 # which is a pickled list of experiments. name can't start 
 # with syn. 
 
-
-
 os.chdir('/home/owainevans/summer_birds')
 
-def generate_synthetic_data(params):
-  # first big of synthetic_infer.
-  # note: easy to generate and then save as file and 
-  # get filename. if want to store actual data
-  # then we need to modify store_observes
-  return {(0,0,0,0):55}
+get_ripl = mk_p_ripl
 
-def save_gtruth_params(params,directory):
+def draw_locs_fig(unit,plot=True,name='draw_locs'):
+  'Call getBirdLocations and draw_bird locations'
+  years,days  = unit.years,unit.days
+  locs = unit.getBirdLocations(years,days,predict = True)
+  fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
+  return locs,fig
+
+
+# also saves gtruth params
+def generate_save_synthetic_data(params,directory):
+  gtruth_unit = OneBird(get_ripl(),params)
+  gtruth_unit.loadAssumes()
+
+  years,days  = gtruth_unit.years,gtruth_unit.days
+  #gtruth_locs,gtruth_fig = draw_locs_fig(gtruth_unit)
+
+  # store synthetic data
+  filename = directory + 'synthetic_data.dat'
+  gtruth_unit.store_observes(years,days,filename)
+  
+  # store gtruth params
   with open(directory+'synthetic_gtruth_params.dat','w') as f:
     pickle.dump(params,f)
 
-def save_synthetic_data(synthetic_data,directory):
-  'add name that denotes synthetic data'
-  with open(directory+'synthetic_data.dat','w') as f:
-    pickle.dump(synthetic_data,f)
+  print 'saved synthetic data and gtruth params'
+  
 
+def seq_block_pgibbs_make_inf_string(day,steps):
+  s='(cycle ((func_pgibbs hypers one 10 2) (func_pgibbs move2 %i %i 2)) 1)'%(day,steps)
+  return s
 
-## special file in the directory with the synth data and params
-
-
-def mh_make_inf_string(day,steps):
+def seq_block_mh_make_inf_string(day,steps):
   s='(cycle ((mh hypers one 10) (mh move2 %i %i)) 1)'%(day,steps)
   return s
 
@@ -58,9 +70,7 @@ infer_params['name'] = 'infer'
 ensure(params_name)
 directory = params_name +'/'
 
-synthetic_data = generate_synthetic_data(gtruth_params)
-save_synthetic_data(synthetic_data,directory)
-save_gtruth_params(gtruth_params,directory)
+generate_save_synthetic_data(gtruth_params,directory)
 
 
 
@@ -68,13 +78,18 @@ save_gtruth_params(gtruth_params,directory)
 # need list of inference strings or single one (filter/batch)
 # for list, need num_days from params
 
-exp_seed1=dict( type = 'mh_sequential_blocks', 
+exp_seed1=dict( type = 'seq_block_mh', 
                 steps = 50,
-                make_inf_string = mh_make_inf_string )
-
+                make_inf_string = seq_block_mh_make_inf_string)
 exp_seed2 = exp_seed1.copy()
 exp_seed2['steps'] = 100
-exp_seeds = (exp_seed1,exp_seed2)
+
+exp_seed3=dict( type = 'seq_block_pgibbs', 
+                steps = 50,
+                make_inf_string = seq_block_pgibbs_make_inf_string)
+
+exp_seeds = (exp_seed1,exp_seed2,exp_seed3)
+
 
 # loop over seeds, generate experiments
 experiments = []
@@ -97,8 +112,8 @@ for seed in exp_seeds:
 
 
 def run_experiment(experiment):
-  experiment['logscore'] = [333]
-  experiment['runtime'] = [.55]
+  experiment['logscore'] = np.random.randint(20,size=10)
+  experiment['runtime'] = np.random.normal(size=10)
 
 
 def load_experiments(directory):
@@ -111,22 +126,66 @@ def load_experiments(directory):
   return experiments
 
 
+
 def generate_experiment_data(experiments, directory, name, overwrite = False):
   assert not name.startswith('syn')
   filename = directory + name + '.dat'
 
   if os.path.isfile(filename) and not overwrite:
-      return  # or should we run anyway?
+    print 'generate_experiment_data avoided overwriting %s'%filename  
+    return  # or should we run anyway?
    
-  [run_experiment(experiment) for experiment in experiments]
-  
+  map(run_experiment,experiments)
   
   with open(filename,'w') as f:
     pickle.dump(experiments,f)
 
+
+
+def reduce_by_type(experiments,measure='logscore'):
+  all_types = set([e['type'] for e in experiments])
+  reduced_data = {}
   
+  for type in all_types:
+    reduced_data[type] = []
+    
+    for e in experiments:
+      if e['type']==type:
+        reduced_data[type].extend( e[measure] )
+        
+  return reduced_data
 
 
+def plot_reduced(reduced_data,ground_truth_data=None,colors=None):
+  fig,ax = plt.subplots()
+  for type,vals in reduced_data.items():
+    n = len(vals)
+    ax.hist(vals, normed=True, label=type+', n=%i'%n)
+  ax.legend()
+  #ax.set_title('
+
+
+def test_reduce():
+  ## uses global *experiments*
+  generate_experiment_data(experiments,directory,'testred2')
+  exps = load_experiments(directory)
+  red = reduce_by_type(exps,measure='logscore')
+  plot_reduced(red)
+
+
+def test_save_load():
+  # should use fresh directory. uses global *experiments*
+  my_exps = experiments[:]
+  map(run_experiment,my_exps)
+
+  name = 'test_run'
+  generate_experiment_data(experiments[:],directory,name)
+  out_load_exp = load_experiments(directory)
+
+  assert len(my_exps) == len(out_load_exp)
+  for k,v in my_exps[0].items():
+    assert k in out_load_exp[0]
+    assert v == out_load_exp[0][k]
 
 
 

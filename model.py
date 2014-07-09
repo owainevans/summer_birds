@@ -47,7 +47,7 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 # TODO: less hackish way of storing in unique file/directory for parallel runs
-def store_observes(unit,years=None,days=None):
+def store_observes(unit,years=None,days=None,filename=None):
   if years is None: years = unit.years
   if days is None: days = unit.days
 
@@ -58,10 +58,12 @@ def store_observes(unit,years=None,days=None):
       for i in range(unit.cells):
         counts.append( unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i)) )
       observed_counts[(y,d)] = counts
-
-  path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9))) ## TODO random dir name
-  ensure(path)
-  filename = path + 'observes.dat'
+      
+  if filename is None:
+    path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9))) ## TODO random dir name
+    ensure(path)
+    filename = path + 'observes.dat'
+  
   with open(filename,'w') as f:
     pickle.dump(observed_counts,f)
   print 'Stored observes in %s.'%filename
@@ -286,8 +288,8 @@ class OneBird(VentureUnit):
 
   
 
-  def store_observes(self,years=None,days=None):
-    return store_observes(self,years,days)
+  def store_observes(self,years=None,days=None,filename=None):
+    return store_observes(self,years,days,filename)
      
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):

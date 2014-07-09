@@ -139,6 +139,9 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
 
 ### Basic procedure for simulating from prior, saving, doing inference.
+
+
+
 def onebird_synthetic_infer(*args,**kwargs):
   return synthetic_infer('onebird',*args,**kwargs)
 
@@ -146,7 +149,7 @@ def onebird_synthetic_infer(*args,**kwargs):
 def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
                                     steps_iterations, make_infer_string = None,
                                     save=False, plot=True, use_analytics=False):
-  '''Generate  data from prior, save to file, do inference on data.
+  '''Generate data from prior, save to file, do inference on data.
      Needs full set of model params: one set for generating, another
      for inference.
      *save/plot* is whether to save/plot bird locations images.'''
@@ -156,7 +159,7 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
   # years and days are common to gtruth and infer unit objects
   years,days = gtruth_params['years'], gtruth_params['days']
   
-  def locs_fig(unit,name):
+  def locs_fig(unit,name=None):
     'Call getBirdLocations and draw_bird locations using global *years,days*.'  
     locs = unit.getBirdLocations(years,days,predict = True)
     fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
