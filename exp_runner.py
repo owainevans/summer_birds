@@ -1,16 +1,31 @@
 import cPickle as pickle
+from os import listdir
+from os.path import isfile, join
+import os    
+from utils import ensure
 from synthetic import *
+
+os.chdir('/home/owainevans/summer_birds')
 
 def generate_synthetic_data(params):
   # first big of synthetic_infer.
   # note: easy to generate and then save as file and 
   # get filename. if want to store actual data
   # then we need to modify store_observes
-  return {}
+  return {(0,0,0,0):55}
 
-def save_synthetic_data(synthetic_data,dirname):
+def save_gtruth_params(params,directory):
+  with open(directory+'synthetic_gtruth_params.dat','w') as f:
+    pickle.dumps(params)
+
+def save_synthetic_data(synthetic_data,directory):
   'add name that denotes synthetic data'
-  pass
+  with open(directory+'synthetic_data.dat','w') as f:
+    pickle.dumps(synthetic_data)
+
+
+## special file in the directory with the synth data and params
+
 
 def mh_make_inf_string(day,steps):
   s='(cycle ((mh hypers one 10) (mh move2 %i %i)) 1)'%(day,steps)
@@ -30,10 +45,13 @@ infer_params = params.copy()
 gtruth_params['name'] = 'gtruth'
 infer_params['name'] = 'infer'
 
-dir_name = '/'+params_name
+ensure(params_name)
+directory = params_name +'/'
+
 synthetic_data = generate_synthetic_data(gtruth_params)
-save_synthetic_data(synthetic_data,dir_name)
-# save gtruth params?
+save_synthetic_data(synthetic_data,directory)
+save_gtruth_params(gtruth_params,directory)
+
 
 
 ## specifying an inference prog:
@@ -66,20 +84,42 @@ for seed in exp_seeds:
   experiments.append( experiment )
 
 
-def run_experiment(experiment,overwrite=False):
-  if overwrite or experiment['logscore']==[]:
-    experiment['logscore'] = 333
-    experiment['runtime'] = .55
-    
+def run_experiment(experiment):
+  experiment['logscore'] = [333]
+  experiment['runtime'] = [.55]
+
+
+def load_experiments(directory):
+  experiments = []
+  for f in listdir(directory):
+    if isfile(join(directory,f)) and not f.startswith('syn'):
+        
+      with open(join(directory,f),'r') as experiments_list:
+        experiments.extend(pickle.load(experiments_list))
+  return experiments
+
+# we select a dirname (name for the synth data params).
+# dirname is used to save synth data and params in 'synth.dat'
+# we then use dirname to generate_experiment_data
+# every run of this creates a file (or overwrites existing)
+# which is a pickled list of experiments. name can't start 
+# with syn. 
+
 
 def generate_experiment_data(experiments, directory, name, overwrite = False):
+  assert not name.startswith('syn')
   filename = directory+name+'.dat'
 
-  for experiment in experiments:
-    run_experiment(experiment,overwrite)
+  if os.path.isfile(filename) and not overwrite:
+      return  # or should we run anyway?
+   
+  [run_experiment(experiment) for experiment in experiments]
+  
+  
+  with open(filename,'w') as f:
+    pickle.dump(experiments,f)
 
-    with open(filename,'a') as f:
-      pickle.dump(experiment,f)
+  
 #generate_experiment_data(experiments, name='pack_of_results')
 
 
