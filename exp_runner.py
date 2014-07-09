@@ -16,22 +16,24 @@ import matplotlib.pylab as plt
 os.chdir('/home/owainevans/summer_birds')
 
 get_ripl = mk_p_ripl
+plot_all = True
+
 
 def draw_locs_fig(unit,plot=True,name='draw_locs'):
   'Call getBirdLocations and draw_bird locations'
   years,days  = unit.years,unit.days
   locs = unit.getBirdLocations(years,days,predict = True)
-  fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
+  fig = unit.draw_bird_locations( years, days,name=name,plot=plot,save=False)
   return locs,fig
 
 
 # also saves gtruth params
 def generate_save_synthetic_data(params,directory):
-  gtruth_unit = OneBird(get_ripl(),params)
+  gtruth_unit = OneBird(get_ripl(), params)
   gtruth_unit.loadAssumes()
 
   years,days  = gtruth_unit.years,gtruth_unit.days
-  #gtruth_locs,gtruth_fig = draw_locs_fig(gtruth_unit)
+  gtruth_locs,gtruth_fig = draw_locs_fig(gtruth_unit,plot=plot_all)
 
   # store synthetic data
   filename = directory + 'synthetic_data.dat'
@@ -42,7 +44,34 @@ def generate_save_synthetic_data(params,directory):
     pickle.dump(params,f)
 
   print 'saved synthetic data and gtruth params'
-  
+
+  return gtruth_unit,gtruth_locs,gtruth_fig
+
+
+
+def filter_inf(unit, filename, infer_string_list):
+  args = str(unit), unit.name, steps,
+  print 'filter_inf. Model: %s Name: %s, Steps:%i '%args
+                                                         
+  def basic_inf(ripl,year,day):
+    inf_string = infer_string_list(day)
+    ripl.infer( inf_string )
+      
+  def record(unit):  return get_hypers(unit.ripl, unit.num_features)
+
+  records = {}
+  for y in unit.years:
+    for d in unit.days:
+      ou = unit.observe_from_file([y],[d],filename)
+      print 'first observe: ou[1]' 
+
+      if d>0:
+        basic_inf(unit.ripl, y, d-1)
+        records[(y,d)] = record(unit)
+
+  unit.last_inference_records = records
+  unit.logscore = unit.ripl.get_global_logscore()
+
 
 def seq_block_pgibbs_make_inf_string(day,steps):
   s='(cycle ((func_pgibbs hypers one 10 2) (func_pgibbs move2 %i %i 2)) 1)'%(day,steps)
@@ -73,7 +102,6 @@ directory = params_name +'/'
 generate_save_synthetic_data(gtruth_params,directory)
 
 
-
 ## specifying an inference prog:
 # need list of inference strings or single one (filter/batch)
 # for list, need num_days from params
@@ -82,13 +110,12 @@ exp_seed1=dict( type = 'seq_block_mh',
                 steps = 50,
                 make_inf_string = seq_block_mh_make_inf_string)
 exp_seed2 = exp_seed1.copy()
-exp_seed2['steps'] = 100
-
 exp_seed3=dict( type = 'seq_block_pgibbs', 
                 steps = 50,
                 make_inf_string = seq_block_pgibbs_make_inf_string)
 
 exp_seeds = (exp_seed1,exp_seed2,exp_seed3)
+
 
 
 # loop over seeds, generate experiments
@@ -103,8 +130,9 @@ for seed in exp_seeds:
   other= { 'infer_string_list': infer_string_list,
            'steps': seed['steps'],
            'gtruth_params': gtruth_params,
-           'infer_params': infer_params,
-           'synthetic_data': synthetic_data, }
+           'infer_params': infer_params,}
+           #'synthetic_data': synthetic_data, }
+           ## synthetic data always found in directory (but would be ideal to include it here also)
   
   experiment['other'] = other
 
@@ -112,8 +140,21 @@ for seed in exp_seeds:
 
 
 def run_experiment(experiment):
-  experiment['logscore'] = np.random.randint(20,size=10)
-  experiment['runtime'] = np.random.normal(size=10)
+  infer_params = experiment['infer_params']
+  infer_string_list = experiment['infer_string_list']
+  steps = experiment['steps']
+  
+  infer_unit = OneBird(get_ripl(),infer_params)
+
+  start = time.time()
+  filter_inf(infer_unit, filename, infer_string_list)
+  elapsed = start - time.time()
+  
+  post_locs,post_fig = draw_locs_fig(infer_unit,plot=plot_all)
+  experiment['logscore'] = [infer_unit.logscore]
+  experiment['runtime'] = [elapsed]
+  
+  
 
 
 def load_experiments(directory):
