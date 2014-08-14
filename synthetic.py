@@ -1,13 +1,11 @@
 from itertools import product
-from features_utils import genFeatures,from_cell_dist,plot_from_cell_dist
+from features_utils import genFeatures, from_cell_dist, plot_from_cell_dist
 from model import OneBird,Poisson
-from venture.venturemagics.ip_parallel import mk_p_ripl,MRipl, display_directives
+from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl, display_directives
 from venture.unit import Analytics
 import matplotlib.pylab as plt
 import numpy as np
 import sys,time
-
-
 
 
 # FEATURES TO ADD
@@ -118,6 +116,7 @@ import sys,time
 #  
 
 
+
 #### Utils for testing performance of inference
 def mse(locs1,locs2,years,days):
   'MSE for output of unit.getBirdLocations'
@@ -139,7 +138,6 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
 
 ### Basic procedure for simulating from prior, saving, doing inference.
-
 
 
 def onebird_synthetic_infer(*args,**kwargs):

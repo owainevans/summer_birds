@@ -1,8 +1,10 @@
 import venture.shortcuts as s
+import venture.value.dicts as venturedicts
 import numpy as np
 from scipy import misc
 import os
 import matplotlib.pylab as plt
+
 
 def parseLine(line):
   return line.strip().split(',')
@@ -93,8 +95,6 @@ def drawBirds(bird_locs, filename, width=None, height=None,  **kwargs):
           bitmap[x*scale+xs, y*scale+ys] = bird_locs[x * height + y]
           
   print "Saving images to %s" % filename
-
-
   
   misc.imsave(filename, bitmap)
   return bitmap
@@ -156,13 +156,13 @@ def getParams(dataset):
 
 def toVenture(thing):
   if isinstance(thing, dict):
-    return s.val("dict", {k:toVenture(v) for k, v in thing.iteritems()})
+    return venturedicts.val("dict", {k:toVenture(v) for k, v in thing.iteritems()})
   if isinstance(thing, (list, tuple)):
-    return s.val("array", [toVenture(v) for v in thing])
+    return venturedicts.val("array", [toVenture(v) for v in thing])
   if isinstance(thing, (int, float)):
-    return s.number(thing)
+    return venturedicts.number(thing)
   if isinstance(thing, str):
-    return s.symbol(thing)
+    return venturedicts.symbol(thing)
 
 # handles numbers, lists, tuples, and dicts
 def toExpr(thing):
@@ -217,9 +217,10 @@ def renderRIPL(dirpath="graphs/onebird",fmt="svg",colorIgnored = False):
 
 def avgFinalValue(history, name):
   series = history.nameToSeries[name]
-  values = [s.values[-1] for s in series]
+  values = [el.values[-1] for el in series]
   return np.average(values)
 
 def normalize(l):
   s = sum(l)
   return [e/s for e in l]
+

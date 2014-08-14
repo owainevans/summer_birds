@@ -118,12 +118,15 @@ def drawBirdLocations(bird_locs, name, years, days, height, width,
     for y,d in product(years,days):
       im = make_grid(height, width, lst=bird_locs[y][d], order=order)
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
-      ax_dy.imshow(im,cmap=plt.cm.Reds, interpolation='none',
-                      extent=[0,width,0,height])
+      my_imshow = ax_dy.imshow(im,cmap='copper', interpolation='none',
+                               extent=[0,width,0,height])
       ax_dy.set_title('%s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
       ax_dy.set_yticks(range(height+1))
-    fig.tight_layout()
+  fig.tight_layout()  
+  fig.subplots_adjust(right=0.8)
+  cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
+  fig.colorbar(my_imshow, cax=cbar_ax)
 
   return fig if plot else None
 
@@ -251,7 +254,7 @@ class OneBird(VentureUnit):
 
 
 ### MULTIBIRD MODEL
-### ALL FUNCTIONS END IN *2*
+### ALL FUNCTIONS END IN '2'
 
 ## TODO scope include could be fixed to be an array as above
 ## if so, we need inf_progs to be dicts
@@ -296,6 +299,7 @@ class OneBird(VentureUnit):
     return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
 
 
+## FIXME speedup by getting rid of this
   def bird_to_pos(self,year,day,hist=False):
     'Return list of bird positions (or optionally hist) for given day'
     l=[]
