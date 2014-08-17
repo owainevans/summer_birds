@@ -120,11 +120,12 @@ def drawBirdLocations(bird_locs, name, years, days, height, width,
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
       my_imshow = ax_dy.imshow(im,cmap='copper', interpolation='none',
                                extent=[0,width,0,height])
-      ax_dy.set_title('%s- y:%i d:%i'%(name,y,d))
+      ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
       ax_dy.set_yticks(range(height+1))
+
   fig.tight_layout()  
-  fig.subplots_adjust(right=0.8)
+  fig.subplots_adjust(right=0.67)
   cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
   fig.colorbar(my_imshow, cax=cbar_ax)
 

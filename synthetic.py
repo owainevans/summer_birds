@@ -408,15 +408,15 @@ def get_params(params_name='easy_hypers', model='poisson'):
     years,days = range(Y),range(D)
     maxDay = D
     height,width = 3,3
-    functions = 'easy'
+    functions = 'blah'#,'easy'
     features,features_dict = genFeatures(height, width, years, days,
                                          order='F',functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,0,0,0][:num_features]
     hypers_prior = ['(gamma 6 1)']*num_features
-    num_birds = 4
-    softmax_beta = 10
+    num_birds = 30
+    softmax_beta = 1
     load_observes_file=False
     venture_random_seed = 1
     dataset = None

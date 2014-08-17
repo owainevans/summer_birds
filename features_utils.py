@@ -106,7 +106,9 @@ def from_cell_dist(height,width,ripl,cell_i,year,day,order='F'):
   simplex =ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
   p_dist = simplex / np.sum(simplex)
   grid = make_grid(height,width,lst=p_dist,order=order)
-  return simplex,grid
+  ij_cell_i = ind_to_ij(height,width,cell_i,order=order)
+  return simplex,grid, cell_i, ij_cell_i
+
 
 
 def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True):
@@ -116,10 +118,19 @@ def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True
   fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
   
   for count,cell in enumerate(cells):
-    simplex, grid_from_cell_dist = from_cell_dist( height,width,ripl,cell,year,day,order=order)
-    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',interpolation='none') 
-    ax[count].set_title('d: %i, P(i,j),i=%i'%(day,cell))
-    #cbar = plt.colorbar(im)
+
+    out = from_cell_dist( height,width,ripl,cell,year,day,order)
+    simplex, grid_from_cell_dist, _, ij_cell = out
+    ij_cell = ij_cell[1],ij_cell[0] # flip order for annotate
+
+    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',
+                         interpolation='none', extent=[0,width,0,height]) 
+    ax[count].set_title('P(i,j) for i=%i, day:%i'%(cell,day))
+    ax[count].set_xticks(range(width+1))
+    ax[count].set_yticks(range(height+1))
+    
+    ax[count].annotate('i',xy=ij_cell,xytext=ij_cell,color='r')
+
   fig.tight_layout()  
   fig.subplots_adjust(right=0.8)
   cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
