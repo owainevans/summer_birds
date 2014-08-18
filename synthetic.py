@@ -254,7 +254,6 @@ test_inf_limit = 20
 if len(sys.argv)>1:
   test_inf_limit = int( sys.argv[1] )
   
-
 global_order='C'
 ## need var for order. does genFeatures order have to link 
 # up to order for displaying (order for display is completely
@@ -263,6 +262,8 @@ global_order='C'
 # the basic procedures used here (e.g. in feature_utils) would
 # all be functional. we just simplify this script by using a global
 
+
+## FIXME: something weird with not moving along diagonals. seems you sometimes can move along the diagonal. need to work that shit out. 
 
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
@@ -426,7 +427,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     learn_hypers = False
     hypers = [1,0,0,0][:num_features]
     hypers_prior = ['(gamma 6 1)']*num_features
-    num_birds = 30
+    num_birds = 6
     softmax_beta = 6
     load_observes_file=False
     venture_random_seed = 1

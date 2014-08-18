@@ -26,8 +26,8 @@ def one_step(cell1_ij, cell2_ij):
 def uniform_feature(cell1_ij, cell2_ij): return 1
 
 def distance(cell1_ij, cell2_ij):
-  d=l2(cell1_ij, cell2_ij)**(.5)
-  return d**-1 if d!=0 else 2  # 2 could be set differently
+  d=l2(cell1_ij, cell2_ij)
+  return d**-1 if d!=0 else 1  # 1 could be set differently
 
 def avoid_cells(cell1_ij, cell2_ij, avoided_cells):
   'Avoided cells get 0 and so are neutral over all. Other cells are "goal" cells.'
@@ -42,21 +42,16 @@ def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
   return angle - goal_direction 
     # find angle between cells
 
-# also try a det function for reproducibility
 
 #date_wind = mem(lambda y,d: np.random.vonmises(0,4))
 # def wind(cell1_ij,cell2_ij,year=0,day=0):
 #     return goal_direction( cell1_ij, cell2_ij, date_wind(year,day))
 
 
-
-## Other Utils for generating features
 def ind_to_ij(height,width,index,order='F'):
   'Convert flat index to (i,j), depending on order'
   grid = make_grid(height,width=width,order=order)
   return map(int,np.where(grid==index))
-
-
 
 # Generate Python and Venture dict of features from *functions*                        
 def genFeatures(height,width,years,days,order='F',functions='easy'):
@@ -66,9 +61,6 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
   
   diagonal = [(i,i) for i in range(min(height,width))]
   color_diag = lambda c1,c2: avoid_cells(c1,c2,diagonal)
-
-  # diagonal2 = [(1,0),(2,0) ]
-  # color_diag2 = lambda c1,c2: avoid_cells(c1,c2,diagonal2)
   
 
   if functions=='easy':
@@ -82,7 +74,6 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
     cell1_ij,cell2_ij = map(lambda index:ind_to_ij(height,width,index, order),
                             (cell1,cell2))
     
-    # feature func should take years/days also for wind
     for f in feature_functions:
     
       feature_dict[(y,d,cell1,cell2)].append( f(cell1_ij, cell2_ij) )

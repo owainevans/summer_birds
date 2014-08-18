@@ -1,5 +1,6 @@
 import venture.shortcuts as s
 import venture.value.dicts as venturedicts
+from venture.ripl.utils import strip_types_from_dict_values
 import numpy as np
 from scipy import misc
 import os
@@ -153,6 +154,11 @@ def getParams(dataset):
   params['cells'] = params['width'] * params['height']
 
   return params
+
+
+def venturedict_to_pythondict(venturedict):
+  return strip_types_from_dict_values(venturedict)
+
 
 def toVenture(thing):
   if isinstance(thing, dict):
