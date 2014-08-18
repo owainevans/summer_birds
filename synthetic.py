@@ -416,7 +416,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
   
   if params_name in ('easy_hypers','easy_d4_s33_bi4_be10'):
     name = 'easy_hypers'
-    Y, D = 1, 4
+    Y, D = 1, 2
     years,days = range(Y),range(D)
     maxDay = D
     height,width = 3,3

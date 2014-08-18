@@ -157,7 +157,8 @@ def getParams(dataset):
 
 
 def venturedict_to_pythondict(venturedict):
-  return strip_types_from_dict_values(venturedict)
+  remove_type_venturedict = dict(venturedict['value'].iteritems())
+  return strip_types_from_dict_values(remove_type_venturedict)
 
 
 def toVenture(thing):

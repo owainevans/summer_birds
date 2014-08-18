@@ -119,7 +119,8 @@ def _draw_bird_locations(bird_locs, name, years, days, height, width,
       indices = range(len(bird_locs[years[0]][days[0]]))
       im_info = make_grid(height, width, indices, order=order )
       print '\n map from *bird_locs* indices (which comes from Venture function) to grid via function *make_grid* (order is %s, 0 index at top) \n'%order, im_info
-
+      
+      
 
     for y,d in product(years,days):
       im = make_grid(height, width, lst=bird_locs[y][d], order=order)
@@ -329,11 +330,7 @@ class OneBird(VentureUnit):
     else:
       return l
 
-# want to plot this directly (histogram of ppositions)
-# with option of C or F made explicit in plot (alongside indices)
-# also have plot for features which also makes C or F explicit
-# need to also make explicit if you want top or bottom start
-# (and maybe mention that we've converted to 0 index for CP data
+
 
   def get_bird_locations(self, years=None, days=None, predict=False):
     if years is None: years = self.years
@@ -348,13 +345,35 @@ class OneBird(VentureUnit):
     return bird_locations
 
 
-  def draw_bird_locations(self,years,days,name=None,plot=True,save=True, order='F'):
+  def draw_bird_locations(self,years,days,name=None,plot=True,save=True, order='F', all_info=True):
     assert isinstance(years,(list,tuple))
     assert isinstance(days,(list,tuple))
     name = self.name if name is None else name
     bird_locs = self.get_bird_locations(years,days)
+
+    if all_info:
+      features_dict = venturedict_to_pythondict(self.features)
+      count = 0
+      from0 = range(self.cells) # list [features(0,j)[0]]
+      
+      print '\n features dict[:10] for y,d = 0,0'
+
+      for k,v in features_dict.items():
+        if k[0]==0 and k[1]==0:
+          if count < 10:
+            print k[2:4],':',v
+            count += 1
+
+          if k[2] == 0:
+            from0[ k[3] ] = v[0]
+
+      print '\n feature0_j for d,y,i = (0,0,0), order=%s, 0 is at top \n'%order, make_grid(self.height,self.width,lst=from0,order=order)
+          
+      
+      
     bitmaps = _draw_bird_locations(bird_locs, self.name, years, days,
-                                self.height, self.width, plot=plot,save=save, order=order)
+                                   self.height, self.width, plot=plot,save=save, order=order,
+                                   all_info = all_info)
     return bitmaps
 
     
