@@ -102,8 +102,8 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 # TODO inefficiently calls bird_locs twice and with fixed Fortran order
 # note that saved images use different order
-def drawBirdLocations(bird_locs, name, years, days, height, width,
-                      save=True,plot=None,order='F'):
+def _draw_bird_locations(bird_locs, name, years, days, height, width,
+                      save=True,plot=None, order='F',all_info=True):
   if save:
     for y in years:
       path = 'bird_moves_%s/%d/' % (name, y)
@@ -112,9 +112,15 @@ def drawBirdLocations(bird_locs, name, years, days, height, width,
         drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width)
 
   if plot:
-    nrows=len(days)
-    ncols=len(years)
+    nrows,ncols = len(days), len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
+    
+    if all_info:
+      indices = range(len(bird_locs[years[0]][days[0]]))
+      im_info = make_grid(height, width, indices, order=order )
+      print '\n map from *bird_locs* indices (which comes from Venture function) to grid via function *make_grid* (order is %s, 0 index at top) \n'%order, im_info
+
+
     for y,d in product(years,days):
       im = make_grid(height, width, lst=bird_locs[y][d], order=order)
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
@@ -323,8 +329,13 @@ class OneBird(VentureUnit):
     else:
       return l
 
+# want to plot this directly (histogram of ppositions)
+# with option of C or F made explicit in plot (alongside indices)
+# also have plot for features which also makes C or F explicit
+# need to also make explicit if you want top or bottom start
+# (and maybe mention that we've converted to 0 index for CP data
 
-  def getBirdLocations(self, years=None, days=None, predict=False):
+  def get_bird_locations(self, years=None, days=None, predict=False):
     if years is None: years = self.years
     if days is None: days = self.days
     
@@ -337,13 +348,13 @@ class OneBird(VentureUnit):
     return bird_locations
 
 
-  def draw_bird_locations(self,years,days,name=None,plot=True,save=True):
+  def draw_bird_locations(self,years,days,name=None,plot=True,save=True, order='F'):
     assert isinstance(years,(list,tuple))
     assert isinstance(days,(list,tuple))
     name = self.name if name is None else name
-    bird_locs = self.getBirdLocations(years,days)
-    bitmaps = drawBirdLocations(bird_locs, self.name, years, days,
-                                self.height, self.width, plot=plot,save=save)
+    bird_locs = self.get_bird_locations(years,days)
+    bitmaps = _draw_bird_locations(bird_locs, self.name, years, days,
+                                self.height, self.width, plot=plot,save=save, order=order)
     return bitmaps
 
     

@@ -119,7 +119,7 @@ import sys,time
 
 #### Utils for testing performance of inference
 def mse(locs1,locs2,years,days):
-  'MSE for output of unit.getBirdLocations'
+  'MSE for output of unit.get_bird_locations'
   all_days = product(years,days)
   all_error = [ (locs1[y][d]-locs2[y][d])**2 for (y,d) in all_days]
   return np.mean(all_error)
@@ -146,7 +146,7 @@ def onebird_synthetic_infer(*args,**kwargs):
 
 def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
                                     steps_iterations, make_infer_string = None,
-                                    save=False, plot=True, use_analytics=False):
+                                    save=False, plot=True, use_analytics=False, order='F'):
   '''Generate data from prior, save to file, do inference on data.
      Needs full set of model params: one set for generating, another
      for inference.
@@ -158,9 +158,9 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
   years,days = gtruth_params['years'], gtruth_params['days']
   
   def locs_fig(unit,name=None):
-    'Call getBirdLocations and draw_bird locations using global *years,days*.'  
-    locs = unit.getBirdLocations(years,days,predict = True)
-    fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save)
+    'Call get_bird_locations and draw_bird locations using global *years,days*.'  
+    locs = unit.get_bird_locations(years,days,predict = True)
+    fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save, order=order)
     return locs,fig
     
   # Create gtruth_unit object with Puma ripl  
@@ -245,6 +245,8 @@ def test_inf():
 
   return mses, mses_seq
 
+
+### FIXME  
 ## GLOBAL VARS
 onebird_string=['(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)']
 
@@ -252,6 +254,15 @@ test_inf_limit = 20
 if len(sys.argv)>1:
   test_inf_limit = int( sys.argv[1] )
   
+
+global_order='C'
+## need var for order. does genFeatures order have to link 
+# up to order for displaying (order for display is completely
+# independent of inference, etc. just needed for visualization)
+# note that order could be a global for this script, while
+# the basic procedures used here (e.g. in feature_utils) would
+# all be functional. we just simplify this script by using a global
+
 
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
@@ -408,15 +419,15 @@ def get_params(params_name='easy_hypers', model='poisson'):
     years,days = range(Y),range(D)
     maxDay = D
     height,width = 3,3
-    functions = 'blah'#,'easy'
+    functions = 'easy'
     features,features_dict = genFeatures(height, width, years, days,
-                                         order='F',functions=functions)
+                                         order=global_order,functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,0,0,0][:num_features]
     hypers_prior = ['(gamma 6 1)']*num_features
     num_birds = 30
-    softmax_beta = 1
+    softmax_beta = 6
     load_observes_file=False
     venture_random_seed = 1
     dataset = None
@@ -520,6 +531,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
                         infer_prog=filter_inf, use_analytics=False, model='poisson'):
 
   params = get_params('easy_hypers', model)
+  order = global_order
 
   # copy and specialize params for gtruth and inference
   gtruth_params  = params.copy()
@@ -538,7 +550,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
                               
   # generate synthetic data and do inference                                                 
   inf_out = synthetic_infer(model, gtruth_params, infer_params, infer_prog, steps_iterations,
-                            make_infer_string = make_infer_string, plot=plot, use_analytics=use_analytics)
+                            make_infer_string = make_infer_string, plot=plot, use_analytics=use_analytics, order=order)
 
   # unpack results
   unit_objects,all_locs,all_figs = inf_out
@@ -551,7 +563,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   if plot:
     check_cells = tuple(range(5))
     plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
-                        check_cells, year=0, day=0, order='F')
+                        check_cells, year=0, day=0, order= order)
 
   # compute test statistics
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])
