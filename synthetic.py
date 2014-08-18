@@ -1,5 +1,5 @@
 from itertools import product
-from features_utils import genFeatures, from_cell_dist, plot_from_cell_dist
+from features_utils import make_features_dict, from_cell_dist, plot_from_cell_dist
 from model import OneBird,Poisson
 from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl, display_directives
 from venture.unit import Analytics
@@ -255,7 +255,7 @@ if len(sys.argv)>1:
   test_inf_limit = int( sys.argv[1] )
   
 global_order='C'
-## need var for order. does genFeatures order have to link 
+## need var for order. does make_features_dict order have to link 
 # up to order for displaying (order for display is completely
 # independent of inference, etc. just needed for visualization)
 # note that order could be a global for this script, while
@@ -421,7 +421,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     maxDay = D
     height,width = 3,3
     functions = 'easy'
-    features,features_dict = genFeatures(height, width, years, days,
+    features,features_dict = make_features_dict(height, width, years, days,
                                          order=global_order,functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False

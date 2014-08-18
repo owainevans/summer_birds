@@ -7,6 +7,7 @@ import os
 import matplotlib.pylab as plt
 
 
+
 def parseLine(line):
   return line.strip().split(',')
 
@@ -118,8 +119,10 @@ def drawBirdMoves(bird_moves, path, cells=None, num_birds=None, years=None, days
       drawBirds(bird_locs, filename, **params)
 
 
-def make_grid(height,width=None,top0=True,lst=None,order='F'):
-  width = height if width is None else width
+def make_grid(height,width,top0=True,lst=None,order='F'):
+  if lst:
+    assert isinstance(lst[0],(float,int))
+    
   l = np.array(range(width*height)) if lst is None else np.array(lst)
   grid = l.reshape( (height, width), order=order)
   if top0:

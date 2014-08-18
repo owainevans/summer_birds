@@ -120,8 +120,6 @@ def _draw_bird_locations(bird_locs, name, years, days, height, width,
       im_info = make_grid(height, width, indices, order=order )
       print '\n map from *bird_locs* indices (which comes from Venture function) to grid via function *make_grid* (order is %s, 0 index at top) \n'%order, im_info
       
-      
-
     for y,d in product(years,days):
       im = make_grid(height, width, lst=bird_locs[y][d], order=order)
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
@@ -172,7 +170,6 @@ class OneBird(VentureUnit):
     self.observed_counts_filename = params.get('observed_counts_filename',None)
     
     super(OneBird, self).__init__(ripl, params)
-
 
 
   def makeAssumes(self):

@@ -22,8 +22,6 @@ def within_d(cell1_ij, cell2_ij, d=2):
 
 def one_step(cell1_ij, cell2_ij):
   return 1 if l2(cell1_ij, cell2_ij) == 1 else 0
-  
-def uniform_feature(cell1_ij, cell2_ij): return 1
 
 def distance(cell1_ij, cell2_ij):
   d=l2(cell1_ij, cell2_ij)
@@ -34,27 +32,22 @@ def avoid_cells(cell1_ij, cell2_ij, avoided_cells):
   return 0 if list(cell2_ij) in map(list,avoided_cells) else 1
 
 def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
-  dx = cell2_ij[1]-cell1_ij[1] ## TODO get this working proper
+  dx = cell2_ij[1]-cell1_ij[1] ## TODO get this working 
   dy = cell2_ij[0]-cell1_ij[0] 
   if dx==0: angle = 0
   else:
       angle=np.arctan( float(dy) / dx )
-  return angle - goal_direction 
-    # find angle between cells
+  return angle - goal_direction     # find angle between cells
 
-
-#date_wind = mem(lambda y,d: np.random.vonmises(0,4))
-# def wind(cell1_ij,cell2_ij,year=0,day=0):
-#     return goal_direction( cell1_ij, cell2_ij, date_wind(year,day))
-
-
+  
 def ind_to_ij(height,width,index,order='F'):
   'Convert flat index to (i,j), depending on order'
   grid = make_grid(height,width=width,order=order)
   return map(int,np.where(grid==index))
 
+
 # Generate Python and Venture dict of features from *functions*                        
-def genFeatures(height,width,years,days,order='F',functions='easy'):
+def make_features_dict(height,width,years,days,order='F',functions='easy'):
     
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
@@ -82,7 +75,6 @@ def genFeatures(height,width,years,days,order='F',functions='easy'):
 
 
 
-
 def cell_to_feature(height, width, state, python_features_dict, feature_ind):
   'Given state(y,d,i) and feature index, return feature from features_dict'
   cells = height * width
@@ -94,7 +86,7 @@ def cell_to_feature(height, width, state, python_features_dict, feature_ind):
 
 def from_cell_dist(height,width,ripl,cell_i,year,day,order='F'):
   'Given ripl, (year,day,cell_i), get simplex (unnormed) and grid with normed dist'
-  simplex =ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
+  simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
   p_dist = simplex / np.sum(simplex)
   grid = make_grid(height,width,lst=p_dist,order=order)
   ij_cell_i = ind_to_ij(height,width,cell_i,order=order)
