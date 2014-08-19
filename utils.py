@@ -120,8 +120,8 @@ def drawBirdMoves(bird_moves, path, cells=None, num_birds=None, years=None, days
 
 
 def make_grid(height,width,top0=True,lst=None,order='F'):
-  if lst:
-    assert len(list( lst[0] ))==1
+  if lst is not None:
+    assert isinstance( lst[0] , (int,float) )
     
   l = np.array(range(width*height)) if lst is None else np.array(lst)
   grid = l.reshape( (height, width), order=order)

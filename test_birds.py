@@ -9,10 +9,10 @@ from model import OneBird, Poisson
 
 def test_make_grid():
   cf = []
-  cf.append(  np.array( ([0,3],[1,4],[2,5]) ) == make_grid(3,2,True,None,'F') )
-  cf.append(  np.array( ([1,3],[0,2]) ) == make_grid(2,2,False,None,'F') )
-  cf.append(  np.array( ([0,1],[2,3]) ) == make_grid(2,2,True,None,'C') )
-  cf.append(  np.array( ([0,0,0],[0,0,0]) ) == make_grid(2,3,True,np.ones(4),'F') )  
+  cf.append(  np.array( ([0,3],[1,4],[2,5]),np.int32 ) == make_grid(3,2,True,None,'F') )
+  cf.append(  np.array( ([1,3],[0,2]),np.int32 ) == make_grid(2,2,False,None,'F') )
+  cf.append(  np.array( ([0,1],[2,3]),np.int32 ) == make_grid(2,2,True,None,'C') )
+  cf.append(  np.array( ([0,0,0],[0,0,0]),np.int32 ) == make_grid(2,3,True,np.zeros(6,np.int32),'F') )  
   assert all( [ ar.all() for ar in cf ] )  
   
 def test_ind_to_ij():
@@ -41,16 +41,44 @@ def make_onebird_unit():
 def test_from_cell_dist():
   unit = make_onebird_unit()
   height, width, ripl = unit.height, unit.width, unit.ripl
-  for cell in [0,1,2]:
+  cells = height * width
+  for cell in range(cells):
     _,grid,_,_ = from_cell_dist( height, width, ripl, cell, 0, 0, order='F' )
-    assert_almost_equal( sum(grid), 1)
+    assert_almost_equal( np.sum(grid), 1)
     
+def test_model_onebird():
+  unit = make_onebird_unit()
+  simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
+  eq_( simplex['type'], 'simplex')
+  eq_( len( simplex['value'] ), unit.cells)
 
+  # bird0 is at pos_day1 on day 1, so total birds
+  # at cell is => 1
+  pos_day1 = unit.ripl.predict('(get_bird_pos2 0 0 1)')
+  count_pos_day1 = unit.ripl.predict('(count_birds2 0 1 %i)'%pos_day1)
+  assert 1 <= count_pos_day1 <= unit.num_birds
 
+  # if all birds start at zero on d=0
+  eq_( unit.ripl.predict('(move2 0 0 0 0)'), pos_day1 )
 
-
-
-
-
+  # observe and infer should change position of bird0
+  # - observe no bird at pos_day1
+  unit.ripl.observe('(observe_birds 0 1 %i)'%pos_day1,'0.')
+  total_transitions = 0
+  transitions_chunk = 50
+  while total_transitions < 500:
+    unit.ripl.infer(transitions_chunk)
+    new_pos_day1 = unit.ripl.predict('(get_bird_pos2 0 0 1)')
+    if new_pos_day1 != pos_day1:
+      break
+    total_transitions += transitions_chunk
+    if total_transitions >= 500:
+      assert False,'Did total_transitions without changing bird_pos'
+    
+def all_tests():
+  test_from_cell_dist()
+  test_make_features_dict()
+  test_ind_to_ij()
+  test_make_grid()
 
 

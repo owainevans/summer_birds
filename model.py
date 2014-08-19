@@ -269,6 +269,7 @@ class OneBird(VentureUnit):
           (scope_include (quote move2) d
             (categorical dist cell_array)))))""")
 
+## NOTE PLACES ALL BIRDS AT CELL ZERO ON FIRST DAY!
     ripl.assume('get_bird_pos2', """
       (mem (lambda (bird_id y d)
         (if (= d 0) 0
