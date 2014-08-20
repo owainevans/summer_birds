@@ -159,7 +159,7 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
   
   def locs_fig(unit,name=None):
     'Call get_bird_locations and draw_bird locations using global *years,days*.'  
-    locs = unit.get_bird_locations(years,days,predict = True)
+    locs = unit.get_bird_locations(years,days)
     fig = unit.draw_bird_locations(years,days,name=name,plot=plot,save=save, order=order)
     return locs,fig
     

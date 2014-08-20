@@ -3,6 +3,7 @@ from venture.unit import VentureUnit
 from venture.ripl.utils import strip_types
 from itertools import product
 import matplotlib.pylab as plt
+from scipy import misc
 import cPickle as pickle
 import numpy as np
 num_features = 4
@@ -96,45 +97,51 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 ## Function for plotting/saving bird images
 
-# calls vlad's *drawBirds* from utils.py for saving 
-# and my *make_grid* from utils.py for plotting
-# (duplicating same reshape operation)
-
-# TODO inefficiently calls bird_locs twice and with fixed Fortran order
-# note that saved images use different order
 def _draw_bird_locations(bird_locs, name, years, days, height, width,
                          save=None, plot=None, order=None, print_features_info=None):
-  if save:
-    for y in years:
-      path = 'bird_moves_%s/%d/' % (name, y)
-      ensure(path)
-      for d in days:
-        drawBirds(bird_locs[y][d], path+'%02d.png'%d, height=height, width=width)
+
+  if print_features_info:
+    indices = range(len(bird_locs[years[0]][days[0]]))
+    im_info = make_grid(height, width, indices, order=order )
+    print '''\n Map from *bird_locs* indices (which comes from Venture
+             function) to grid via function *make_grid* (order is %s,
+             0 index at top) \n'''%order
+    print im_info
+
+  grids = []
+  for y,d in product(years,days):
+    grids.append( make_grid(height, width, lst=bird_locs[y][d], order=order) )
+
+  # bird_count is constant (for OneBird not Poisson)
+  assert len( np.unique( map(np.sum, grids) ) ) == 1
 
   if plot:
     nrows,ncols = len(days), len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
-    
-    if print_features_info:
-      indices = range(len(bird_locs[years[0]][days[0]]))
-      im_info = make_grid(height, width, indices, order=order )
-      print '\n map from *bird_locs* indices (which comes from Venture function) to grid via function *make_grid* (order is %s, 0 index at top) \n'%order, im_info
-      
+
     for y,d in product(years,days):
-      im = make_grid(height, width, lst=bird_locs[y][d], order=order)
       ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
       my_imshow = ax_dy.imshow(im,cmap='copper', interpolation='none',
-                               extent=[0,width,0,height])
+                                 extent=[0,width,0,height])
       ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
       ax_dy.set_yticks(range(height+1))
 
-  fig.tight_layout()  
-  fig.subplots_adjust(right=0.67)
-  cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
-  fig.colorbar(my_imshow, cax=cbar_ax)
+    fig.tight_layout()  
+    fig.subplots_adjust(right=0.67)
+    cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
+    fig.colorbar(my_imshow, cax=cbar_ax)
+
+  if save:
+    for y,d in product(years,days):
+      path = 'bird_moves_%s/%d/' % (name, y)
+      ensure(path)
+      big_im = misc.imresize(im,(200,200))
+      misc.imsave(path+'%02d.png'%d, big_im)
+      print '\n Saved bird location images in %s \n'%path
 
   return fig if plot else None
+
 
 
 
@@ -318,6 +325,7 @@ class OneBird(VentureUnit):
     if hist:
       hist,_ = np.histogram(l,bins=range(self.cells+1))
       assert len(hist)==self.cells
+      assert np.sum(hist) == self.num_birds
       return hist
     else:
       return l
@@ -355,7 +363,7 @@ class OneBird(VentureUnit):
     
     if print_features_info:
       features_dict = venturedict_to_pythondict(self.features)
-      assert len(features_dict) == (self.height*self.width)**2 * (self.years*self.days)
+      assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
 
       count = 0
       from0 = range(self.cells) # list [features(0,j)[0]]

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from nose.tools import eq_, assert_almost_equal
 
@@ -75,6 +76,18 @@ def test_model_onebird():
     if total_transitions >= 500:
       assert False,'Did total_transitions without changing bird_pos'
     
+
+def test_save_images(del_images=True):
+  unit = make_onebird_unit()
+  years = range(1)
+  days = range(3)
+  name = 'temp_test_save'
+  #os.chdir('~/summer_birds')
+  unit.draw_bird_locations([0],years,days,name,save=True,order='F',print_features_info=True)
+  assert os.path.exists( name )
+  if del_images: subprocess.call(['rm','-r',name])
+  
+
 def all_tests():
   test_from_cell_dist()
   test_make_features_dict()
