@@ -208,8 +208,8 @@ def make_poisson_infer_string( day, steps, day_to_hypers=None):
   return s
 
 def make_onebird_infer_string( day, steps, day_to_hypers=None):
-  s='(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)'%(day,steps)
-  #s='(cycle ((mh hypers all 10) (mh move2 one %i)) 1)'%steps
+  s='(cycle ((mh hypers all 10) (mh move %i %i)) 1)'%(day,steps)
+  #s='(cycle ((mh hypers all 10) (mh move one %i)) 1)'%steps
   #s='(mh default one %i)'%steps
   try:
     s=onebird_string[0]%(day,steps)
@@ -220,9 +220,9 @@ def make_onebird_infer_string( day, steps, day_to_hypers=None):
 
 def test_inf():
   infer_prog_list = ['(cycle ((mh default one 10) (mh default one %i)) 1)',
-                     '(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)']
-  # infer_prog_list = ['(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)',
-  #                    '(cycle ((func_pgibbs hypers all 10 2) (func_pgibbs move2 %i %i 5)) 1)' ] # note flipped steps and particle
+                     '(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
+  # infer_prog_list = ['(cycle ((mh hypers all 10) (mh move %i %i)) 1)',
+  #                    '(cycle ((func_pgibbs hypers all 10 2) (func_pgibbs move %i %i 5)) 1)' ] # note flipped steps and particle
   
   step_size = 10
   steps_prep = [1] + range(step_size,test_inf_limit,step_size)
@@ -248,7 +248,7 @@ def test_inf():
 
 ### FIXME  
 ## GLOBAL VARS
-onebird_string=['(cycle ((mh hypers all 10) (mh move2 %i %i)) 1)']
+onebird_string=['(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
 
 test_inf_limit = 20
 if len(sys.argv)>1:
@@ -267,7 +267,7 @@ global_order='C'
 
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
-     of inference on move2(i,j) for the previous day and on the hypers. Optionally
+     of inference on move(i,j) for the previous day and on the hypers. Optionally
      take a function that records different 'queryExps' in sense of Analytics."""
 
   steps,iterations = steps_iterations
@@ -316,7 +316,7 @@ def smooth_inf(unit,steps_iterations,filename=None,**kwargs):
     
   for iteration in range(iterations):
     unit.ripl.infer('(mh hypers one 10)')
-    unit.ripl.infer('(mh move2 one %i)'%steps)      
+    unit.ripl.infer('(mh move one %i)'%steps)      
   return unit
 
 
@@ -346,8 +346,8 @@ def ana_filter_inf(unit,  steps_iterations, filename=None, query_exps=None, verb
     
     for iteration in range(iterations):
       # inference program specifies 'block':(day-1)
-      # as observe on *day* calls *move2* for (day-1)
-      latents = '(mh move2 %i %i)'%( day-1, steps)
+      # as observe on *day* calls *move* for (day-1)
+      latents = '(mh move %i %i)'%( day-1, steps)
       hypers = '(mh hypers one 10)'
       inf_prog = '(cycle ( %s %s) 1)'%(latents,hypers)
 

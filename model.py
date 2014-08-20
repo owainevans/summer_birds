@@ -103,7 +103,7 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 # TODO inefficiently calls bird_locs twice and with fixed Fortran order
 # note that saved images use different order
 def _draw_bird_locations(bird_locs, name, years, days, height, width,
-                      save=True,plot=None, order='F',all_info=True):
+                         save=None, plot=None, order=None, print_features_info=None):
   if save:
     for y in years:
       path = 'bird_moves_%s/%d/' % (name, y)
@@ -115,7 +115,7 @@ def _draw_bird_locations(bird_locs, name, years, days, height, width,
     nrows,ncols = len(days), len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
     
-    if all_info:
+    if print_features_info:
       indices = range(len(bird_locs[years[0]][days[0]]))
       im_info = make_grid(height, width, indices, order=order )
       print '\n map from *bird_locs* indices (which comes from Venture function) to grid via function *make_grid* (order is %s, 0 index at top) \n'%order, im_info
@@ -217,9 +217,8 @@ class OneBird(VentureUnit):
     ripl.assume('features', self.features)
     ripl.assume('num_birds',self.num_birds)
     
-    ## ONLY NEEDED FOR MULTIBIRD MODEL
-    bird_ids = ' '.join(map(str,range(self.num_birds)))
-    ripl.assume('bird_ids','(list %s)'%bird_ids)   
+    bird_ids = ' '.join(map(str,range(self.num_birds))) # multibird only
+    ripl.assume('bird_ids','(list %s)'%bird_ids) # multibird only
 
     ripl.assume('softmax_beta',self.softmax_beta)
 
@@ -238,65 +237,61 @@ class OneBird(VentureUnit):
 
 
 #### SINGLE BIRD MODEL
-    ripl.assume('move', """
+    ripl.assume('single_move', """
       (lambda (y d i)
         (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move) (array y d)
+          (scope_include (quote single_move) (array y d)
             (categorical dist cell_array))))""")
 
-# for any day=0, bird starts at 0
-    ripl.assume('get_bird_pos', """
+# single bird is at 0 on d=0
+    ripl.assume('single_get_bird_pos', """
       (mem (lambda (y d)
         (if (= d 0) 0
-          (move y (- d 1) (get_bird_pos y (- d 1))))))""")
+          (single_move y (- d 1) (single_get_bird_pos y (- d 1))))))""")
 
-    ripl.assume('count_birds', """
+    ripl.assume('single_count_birds', """
       (lambda (y d i)
-        (if (= (get_bird_pos y d) i) 1 0))""")
+        (if (= (single_get_bird_pos y d) i) 1 0))""")
 
-    ripl.assume('observe_birds_old', '(lambda (y d i) (poisson (+ (count_birds y d i) 0.0001)))')
-
+    ripl.assume('single_observe_birds', '(lambda (y d i) (poisson (+ (single_count_birds y d i) 0.0001)))')
 
 
 ### MULTIBIRD MODEL
-### ALL FUNCTIONS END IN '2'
-
-## TODO scope include could be fixed to be an array as above
-## if so, we need inf_progs to be dicts
-    ripl.assume('move2', """
+    ripl.assume('move', """
       (mem (lambda (bird_id y d i)
         (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move2) d
+          (scope_include (quote move) d
             (categorical dist cell_array)))))""")
 
-## NOTE PLACES ALL BIRDS AT CELL ZERO ON FIRST DAY!
-    ripl.assume('get_bird_pos2', """
+# all birds at 0 on d=0
+    ripl.assume('get_bird_pos', """
       (mem (lambda (bird_id y d)
         (if (= d 0) 0
-          (move2 bird_id y (- d 1) (get_bird_pos2 bird_id y (- d 1))))))""")
+          (move bird_id y (- d 1) (get_bird_pos bird_id y (- d 1))))))""")
 
-    ripl.assume('all_bird_pos2',"""
+    ripl.assume('all_bird_pos',"""
        (mem (lambda (y d) 
-         (map (lambda (bird_id) (get_bird_pos2 bird_id y d)) bird_ids)))""")
+         (map (lambda (bird_id) (get_bird_pos bird_id y d)) bird_ids)))""")
 
-# count birds at i. calls get_bird_pos2 which calls move2 which moves
-# birds. since moves are all memoized, results here will be derviatively 
-# memoized
-    ripl.assume('count_birds2', """
+# Counts number of birds at cell i. Calls *get_bird_pos* on each bird_id
+# which moves each bird via *move*. Since each bird's move from i is 
+# memoized by *move*, the counts will be fixed by predict.
+
+    ripl.assume('count_birds', """
       (lambda (y d i)
         (size (filter 
-                 (lambda (bird_id) (= i (get_bird_pos2 bird_id y d)) )
+                 (lambda (bird_id) (= i (get_bird_pos bird_id y d)) )
                   bird_ids) ) ) """)
 
-    ripl.assume('count_birds22', """
+# alternative version of count_birds
+    ripl.assume('count_birds_v2', """
       (mem (lambda (y d i)
         (size (filter
-                (lambda (x) (= x i)) (all_bird_pos2 y d)))))""" )
-## note that count_22 seems to work faster. haven't looked at whether it harms inference. doesn't obviously do so
-    ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds22 y d i) 0.0001)))')
+                (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
+## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
+    ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001)))')
 
   
-
   def store_observes(self,years=None,days=None,filename=None):
     return store_observes(self,years,days,filename)
      
@@ -305,17 +300,16 @@ class OneBird(VentureUnit):
     return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
 
 
-## FIXME speedup by getting rid of this
   def bird_to_pos(self,year,day,hist=False):
-    'Return list of bird positions (or optionally hist) for given day'
+    'Return list [cell_index for bird_i], or optionally hist, for given day'
     l=[]
     for bird_id in self.ripl.sample('bird_ids'):
       args = bird_id, year, day
-      l.append(self.ripl.predict('(get_bird_pos2 %i %i %i)'%args))
+      l.append(self.ripl.predict('(get_bird_pos %i %i %i)'%args))
                                                            
-    all_bird_l = self.ripl.predict('(all_bird_pos2 %i %i)'%(year,day))
+    all_bird_l = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
     assert all( np.array(all_bird_l)==np.array(l) )
-    ## Check that get_bird_pos2 and all_bird_pos2 agree (Could turn off 
+    ## Check that get_bird_pos and all_bird_pos agree (Could turn off 
     # for speed)
 
 # How np.histogram works:
@@ -330,7 +324,9 @@ class OneBird(VentureUnit):
 
 
 
-  def get_bird_locations(self, years=None, days=None, predict=False):
+  def get_bird_locations(self, years=None, days=None):
+    '''Returns dict { y: { d:histogram of bird positions on y,d}  }
+       for y,d in product(years,days) '''
     if years is None: years = self.years
     if days is None: days = self.days
     
@@ -343,35 +339,40 @@ class OneBird(VentureUnit):
     return bird_locations
 
 
-  def draw_bird_locations(self,years,days,name=None,plot=True,save=True, order='F', all_info=True):
-    assert isinstance(years,(list,tuple))
-    assert isinstance(days,(list,tuple))
+  def draw_bird_locations(self, years, days, name=None, plot=True, save=True, order='F',
+                          print_features_info=True):
+
+    assert isinstance(years,list)
+    assert isinstance(days,list)
+    assert order in ('F','C')
     name = self.name if name is None else name
     bird_locs = self.get_bird_locations(years,days)
 
-    if all_info:
+
+    bitmaps = _draw_bird_locations(bird_locs, name, years, days, self.height, self.width,
+                                   plot=plot, save=save, order=order,
+                                   print_features_info = print_features_info)
+    
+    if print_features_info:
       features_dict = venturedict_to_pythondict(self.features)
+      assert len(features_dict) == (self.height*self.width)**2 * (self.years*self.days)
+
       count = 0
       from0 = range(self.cells) # list [features(0,j)[0]]
       
-      print '\n features dict[:10] for y,d = 0,0'
+      print '\n Features dict (up to 10th entry) for year,day = 0,0'
 
-      for k,v in features_dict.items():
-        if k[0]==0 and k[1]==0:
-          if count < 10:
-            print k[2:4],':',v
-            count += 1
+      for k,v in features_dict.iteritems():
+        if k[0]==0 and k[1]==0 and count<10: 
+          print k[2:4],':',v
+          count += 1
 
           if k[2] == 0:
             from0[ k[3] ] = v[0]
 
-      print '\n feature0_j for d,y,i = (0,0,0), order=%s, 0 is at top \n'%order, make_grid(self.height,self.width,lst=from0,order=order)
-          
+      print '\n feature0_j for y,d,i = (0,0,0), order=%s, 0 is at top \n'%order
+      print make_grid( self.height, self.width, lst=from0, order=order)
       
-      
-    bitmaps = _draw_bird_locations(bird_locs, self.name, years, days,
-                                   self.height, self.width, plot=plot,save=save, order=order,
-                                   all_info = all_info)
     return bitmaps
 
     

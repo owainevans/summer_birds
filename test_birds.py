@@ -54,12 +54,12 @@ def test_model_onebird():
 
   # bird0 is at pos_day1 on day 1, so total birds
   # at cell is => 1
-  pos_day1 = unit.ripl.predict('(get_bird_pos2 0 0 1)')
-  count_pos_day1 = unit.ripl.predict('(count_birds2 0 1 %i)'%pos_day1)
+  pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
+  count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
   assert 1 <= count_pos_day1 <= unit.num_birds
 
   # if all birds start at zero on d=0
-  eq_( unit.ripl.predict('(move2 0 0 0 0)'), pos_day1 )
+  eq_( unit.ripl.predict('(move 0 0 0 0)'), pos_day1 )
 
   # observe and infer should change position of bird0
   # - observe no bird at pos_day1
@@ -68,7 +68,7 @@ def test_model_onebird():
   transitions_chunk = 50
   while total_transitions < 500:
     unit.ripl.infer(transitions_chunk)
-    new_pos_day1 = unit.ripl.predict('(get_bird_pos2 0 0 1)')
+    new_pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
     if new_pos_day1 != pos_day1:
       break
     total_transitions += transitions_chunk
@@ -80,5 +80,6 @@ def all_tests():
   test_make_features_dict()
   test_ind_to_ij()
   test_make_grid()
+  test_model_onebird()
 
 
