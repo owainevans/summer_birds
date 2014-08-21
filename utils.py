@@ -131,7 +131,7 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
         ax_dy = ax[d][y]
       
       my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none',
-                                 extent=[0,width,0,height])
+                                 extent=[0,width,height,width])
       ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
       ax_dy.set_yticks(range(height+1))

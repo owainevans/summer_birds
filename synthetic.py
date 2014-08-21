@@ -1,119 +1,11 @@
-from itertools import product
 from features_utils import make_features_dict, from_cell_dist, plot_from_cell_dist
 from model import OneBird,Poisson
-from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl, display_directives
+from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl
 from venture.unit import Analytics
 import matplotlib.pylab as plt
 import numpy as np
 import sys,time
-
-
-# FEATURES TO ADD
-# 
-# 
-# batch_inf(...) with same args, etc, as birdsUnit
-#
-# 
-
-# experiments: [ experiment ... ]
-# experiment:  { 'type': <shorthand_inference_string_key>,
-#                 'logscore': ...,
-#                 'runtime': ...,
-#                 'other': a dictionary with all keys needed to call either batch_inf or filter_inf
-#              }]
-#
-# load_experiments(directory) => experiments
-#   treats all files in the directory as experiment lists
-#   loads them all, and appends them together
-#
-# run_experiment(experiment) => None (but modifies experiment to include logscore and runtime)
-#   pefrorms the computation, using the 'type' field to drive make_params, and storing params in the 'other' key of the
-#   current experiment, saving the resulting logscore, runtime, etc
-#
-#   calls batch_inf, filter_inf, etc as appropriate
-#  
-#   v2: uses a worker pool w/ multiprocessing
-# 
-# generate_experiment_data([experiments], directory, name, overwrite=False)
-#   runs all the given experiments, saves the results to the directory to the file name.dat, and if overwrite is True,
-#   actually overwrites the file. 
-#
-#   
-# reduce_by_type([experiments]) => { <type as str> : <vals as list> } 
-# for all types <foo> in the experiments:
-#   [e['logscore'] for e in experiments if e['type'] = <foo>]
-#
-# plot( <reduced data>, ground_truth_data, colors = { <type as str> : <color, etc> } )
-#   histogram overlay of the reduced data, aggregated by type already, in given colors (placeholder for other layout)
-#   vertical line at ground_truth_data value
-#
-#   colors act as overrides, otherwise trust the default
-#
-# generate_synthetic_data_<foo>() => <dict that can go in experiment['other'], with raw data values, pickleable>
-#
-# save_synthetic(synth, dir) # uses pickle to dump synth to a file
-# synth = load_synthetic(dir)
-#
-
-# ****
-# 
-# manual code to make the initial list of experiments, after calling the appropriate generate_synthetic_data_<foo>():
-#
-# <v2: name from command line>
-#
-# synth = generate_synthetic_data_<foo>()
-# save_synthetic(synth, dirname)
-# 
-# experiments = []
-#
-# for type in ['asdf' ... ]:
-#       experiment = {}
-#       experiment['other'] = {}
-#
-#       <add extra crap to other as appropriate, using your maker procedures>
-#
-#       experiment['other']['data'] = synth
-#       experiments.append(experiment)
-# 
-# generate_experiment_data(experiments, ..., name = 'packet_of_results_1')
-# 
-# **** separate script below ***
-#
-# expts = load_experiments(... <v2: read from cmd line> ...)
-# synth = load_synthetic()
-#
-# reduction = reduce_by_type(expts)
-# plot(reduction, synth['ground_truth_logscore'])
-#
-
-# write w run_expt producing total random junk w/o a ripl at all, and test end-to-end
-#
-# refactor make_inference_string to return a list of inference strings, one per day
-# refactor batch_inf and filter_inf to take generated inf strings rather than generators so that all the data can be flat in experiment
-#
-# write run_expt and test manually, comparing to past experience
-# incrementally generate some data to end up with a first real 'candidate' graph, albeit on too little data
-# add more data and iterate as desired
-
-
-# PART OF EXPT GENERATION:
-#
-# get_parameters(<config info>) => <params dict>
-# make_inference_string(day, #steps) => <inference prog src>
-#
-# PART OF EXPT RUNNING:
-#
-# birdsUnit(ripl, <params dict>)
-# birdsUnit.makeAssumes, loadObserves, ...
-#
-# filter_inf(birdsUnit, logger_proc, amount_of_inference, inference_string_maker, datafilename) => None (but birdsUnit modified, so
-# birdsUnit.last_inference_records = {(d,y): logger_proc(ripl)}
-# batch_inf(...)
-#
-
-# synthetic_infer(<config info + inf config info>, logger(ripl)) => gtUnit, ripl_with_results, 
-# 
-#  
+from itertools import product
 
 
 
@@ -137,6 +29,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
   return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
 
+  
 ### Basic procedure for simulating from prior, saving, doing inference.
 
 
@@ -246,7 +139,7 @@ def test_inf():
   return mses, mses_seq
 
 
-### FIXME  
+
 ## GLOBAL VARS
 onebird_string=['(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
 
@@ -254,7 +147,7 @@ test_inf_limit = 20
 if len(sys.argv)>1:
   test_inf_limit = int( sys.argv[1] )
   
-global_order='C'
+global_order='F'
 ## need var for order. does make_features_dict order have to link 
 # up to order for displaying (order for display is completely
 # independent of inference, etc. just needed for visualization)
@@ -263,8 +156,8 @@ global_order='C'
 # all be functional. we just simplify this script by using a global
 
 
-## FIXME: something weird with not moving along diagonals. seems you sometimes can move along the diagonal. need to work that shit out. 
 
+## FIXME: something weird with not moving along diagonals. seems you sometimes can move along the diagonal.
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
      of inference on move(i,j) for the previous day and on the hypers. Optionally
@@ -414,9 +307,11 @@ def get_onebird_params(params_name='easy_hypers'):
 def get_params(params_name='easy_hypers', model='poisson'):
   'Function for producing params for OneBird Unit object'
   
+# 'easy_hypers', currently uses 'must move exactly onestep away'
+# and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
   if params_name in ('easy_hypers','easy_d4_s33_bi4_be10'):
     name = 'easy_hypers'
-    Y, D = 1, 2
+    Y, D = 1, 4
     years,days = range(Y),range(D)
     maxDay = D
     height,width = 3,3
@@ -531,6 +426,7 @@ def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,
 def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
                         infer_prog=filter_inf, use_analytics=False, model='poisson'):
 
+  plt.close('all')
   params = get_params('easy_hypers', model)
   order = global_order
 
@@ -564,7 +460,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   if plot:
     check_cells = tuple(range(5))
     plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
-                        check_cells, year=0, day=0, order= order)
+                        check_cells, year=0, day=0, order= order, name='Gtruth')
 
   # compute test statistics
   mse_gt = lambda l: mse(gt_locs,l,gtruth_params['years'],gtruth_params['days'])

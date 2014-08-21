@@ -159,7 +159,6 @@ class OneBird(VentureUnit):
           (pair (f (first lst)) (map f (rest lst))) ) )""")
 
 
-
 ## PARAMS FOR SINGLE / MULTIBIRD MODEL
     if not self.learn_hypers:
       for k, value_k in enumerate(self.hypers):

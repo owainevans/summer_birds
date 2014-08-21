@@ -88,13 +88,15 @@ def from_cell_dist(height,width,ripl,cell_i,year,day,order='F'):
   'Given ripl, (year,day,cell_i), get simplex (unnormed) and grid with normed dist'
   simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
   p_dist = simplex / np.sum(simplex)
+  print 'simplex, pdist', simplex, p_dist
+
   grid = make_grid(height,width,lst=p_dist,order=order)
   ij_cell_i = ind_to_ij(height,width,cell_i,order=order)
   return simplex,grid, cell_i, ij_cell_i
 
 
 
-def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True):
+def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F', name=''):
 
   height,width =params['height'],params['width']
 
@@ -106,13 +108,13 @@ def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F',horizontal=True
     simplex, grid_from_cell_dist, _, ij_cell = out
     ij_cell = ij_cell[1],ij_cell[0] # flip order for annotate
 
-    im= ax[count].imshow(grid_from_cell_dist, cmap='copper',
-                         interpolation='none', extent=[0,width,0,height]) 
-    ax[count].set_title('P(i,j) for i=%i, day:%i'%(cell,day))
+    im= ax[count].imshow(grid_from_cell_dist, cmap='hot', vmin=0, vmax=1,
+                         interpolation='none', extent=[0,width,height,0]) 
+    ax[count].set_title('%s  P(i,j) for i=%i, day:%i'%(name,cell,day))
     ax[count].set_xticks(range(width+1))
     ax[count].set_yticks(range(height+1))
     
-    ax[count].annotate('i',xy=ij_cell,xytext=ij_cell,color='r')
+    ax[count].annotate('Cell i', xy=ij_cell, xytext=ij_cell, color='c')
 
   fig.tight_layout()  
   fig.subplots_adjust(right=0.8)
