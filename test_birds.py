@@ -1,5 +1,5 @@
 import numpy as np
-import os
+import os, subprocess
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from nose.tools import eq_, assert_almost_equal
 
@@ -95,5 +95,5 @@ def all_tests():
   test_ind_to_ij()
   test_make_grid()
   test_model_onebird()
-
+  test_save_images()
 

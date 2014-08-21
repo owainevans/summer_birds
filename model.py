@@ -3,7 +3,6 @@ from venture.unit import VentureUnit
 from venture.ripl.utils import strip_types
 from itertools import product
 import matplotlib.pylab as plt
-from scipy import misc
 import cPickle as pickle
 import numpy as np
 num_features = 4
@@ -38,8 +37,6 @@ def loadObservations(ripl, dataset, name, years, days):
       if d not in days: continue
       for i, n in enumerate(ns):
         ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
-
-
 
 
 
@@ -95,69 +92,11 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 
 
-## Function for plotting/saving bird images
-
-def _draw_bird_locations(bird_locs, name, years, days, height, width,
-                         save=None, plot=None, order=None, print_features_info=None):
-
-  if print_features_info:
-    indices = range(len(bird_locs[years[0]][days[0]]))
-    im_info = make_grid(height, width, indices, order=order )
-    print '''\n
-    Map from *bird_locs* indices (which comes from Venture
-    function) to grid via function *make_grid* (order is %s,
-    0 index at top) \n'''%order
-    print im_info
-
-  grids = {}
-  for y,d in product(years,days):
-    grids[(y,d)] = make_grid(height, width, lst=bird_locs[y][d], order=order)
-
-  # bird_count is constant (for OneBird not Poisson)
-  assert len( np.unique( map(np.sum, grids.values()) ) ) == 1
-
-  if plot:
-    nrows,ncols = len(days), len(years)
-    fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
-
-    for y,d in product(years,days):
-      grid = grids[(y,d)]
-      if ncols==1 and nrows==1:
-        ax_dy = ax
-      elif ncols==1:
-        ax_dy = ax[d]
-      else:
-        ax_dy = ax[d][y]
-      
-      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none',
-                                 extent=[0,width,0,height])
-      ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
-      ax_dy.set_xticks(range(width+1))
-      ax_dy.set_yticks(range(height+1))
-
-    fig.tight_layout()  
-    fig.subplots_adjust(right=0.67)
-    cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
-    fig.colorbar(my_imshow, cax=cbar_ax)
-
-  ## FIXME make images look better!
-  if save:
-    for y,d in product(years,days):
-      grid = grids[(y,d)]
-      path = 'bird_moves_%s/%d/' % (name, y)
-      ensure(path)
-      big_im = misc.imresize(grid,(200,200))
-      misc.imsave(path+'%02d.png'%d, big_im)
-      print '\n Saved bird location images in %s \n'%path
-
-  return fig if plot else None
-
-
-
-
 class OneBird(VentureUnit):
   
   def __init__(self, ripl, params):
+
+    ## FIXME, loop over setattr(k,v) for most of these
     self.name = params['name']
     self.width = params['width']
     self.height = params['height']
@@ -367,7 +306,7 @@ class OneBird(VentureUnit):
     bird_locs = self.get_bird_locations(years,days)
 
 
-    bitmaps = _draw_bird_locations(bird_locs, name, years, days, self.height, self.width,
+    bitmaps = plot_save_bird_locations(bird_locs, name, years, days, self.height, self.width,
                                    plot=plot, save=save, order=order,
                                    print_features_info = print_features_info)
     
@@ -674,7 +613,7 @@ class Poisson(VentureUnit):
       assert not max(days) > self.maxDay
       name = self.name if name is None else name
       bird_locs = self.getBirdLocations(years,days,predict=True)
-      bitmaps = drawBirdLocations(bird_locs, self.name, years, days,
+      bitmaps = plot_save_bird_locations(bird_locs, self.name, years, days,
                                   self.height, self.width, plot=plot,save=save)
       return bitmaps
 

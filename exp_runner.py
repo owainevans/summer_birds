@@ -6,6 +6,118 @@ from utils import ensure
 from synthetic import *
 import matplotlib.pylab as plt
 
+## PLAN (formerly in synthetic.py)
+
+# FEATURES TO ADD
+# 
+# 
+# batch_inf(...) with same args, etc, as birdsUnit
+#
+# 
+
+# experiments: [ experiment ... ]
+# experiment:  { 'type': <shorthand_inference_string_key>,
+#                 'logscore': ...,
+#                 'runtime': ...,
+#                 'other': a dictionary with all keys needed to call either batch_inf or filter_inf
+#              }]
+#
+# load_experiments(directory) => experiments
+#   treats all files in the directory as experiment lists
+#   loads them all, and appends them together
+#
+# run_experiment(experiment) => None (but modifies experiment to include logscore and runtime)
+#   pefrorms the computation, using the 'type' field to drive make_params, and storing params in the 'other' key of the
+#   current experiment, saving the resulting logscore, runtime, etc
+#
+#   calls batch_inf, filter_inf, etc as appropriate
+#  
+#   v2: uses a worker pool w/ multiprocessing
+# 
+# generate_experiment_data([experiments], directory, name, overwrite=False)
+#   runs all the given experiments, saves the results to the directory to the file name.dat, and if overwrite is True,
+#   actually overwrites the file. 
+#
+#   
+# reduce_by_type([experiments]) => { <type as str> : <vals as list> } 
+# for all types <foo> in the experiments:
+#   [e['logscore'] for e in experiments if e['type'] = <foo>]
+#
+# plot( <reduced data>, ground_truth_data, colors = { <type as str> : <color, etc> } )
+#   histogram overlay of the reduced data, aggregated by type already, in given colors (placeholder for other layout)
+#   vertical line at ground_truth_data value
+#
+#   colors act as overrides, otherwise trust the default
+#
+# generate_synthetic_data_<foo>() => <dict that can go in experiment['other'], with raw data values, pickleable>
+#
+# save_synthetic(synth, dir) # uses pickle to dump synth to a file
+# synth = load_synthetic(dir)
+#
+
+# ****
+# 
+# manual code to make the initial list of experiments, after calling the appropriate generate_synthetic_data_<foo>():
+#
+# <v2: name from command line>
+#
+# synth = generate_synthetic_data_<foo>()
+# save_synthetic(synth, dirname)
+# 
+# experiments = []
+#
+# for type in ['asdf' ... ]:
+#       experiment = {}
+#       experiment['other'] = {}
+#
+#       <add extra crap to other as appropriate, using your maker procedures>
+#
+#       experiment['other']['data'] = synth
+#       experiments.append(experiment)
+# 
+# generate_experiment_data(experiments, ..., name = 'packet_of_results_1')
+# 
+# **** separate script below ***
+#
+# expts = load_experiments(... <v2: read from cmd line> ...)
+# synth = load_synthetic()
+#
+# reduction = reduce_by_type(expts)
+# plot(reduction, synth['ground_truth_logscore'])
+#
+
+# write w run_expt producing total random junk w/o a ripl at all, and test end-to-end
+#
+# refactor make_inference_string to return a list of inference strings, one per day
+# refactor batch_inf and filter_inf to take generated inf strings rather than generators so that all the data can be flat in experiment
+#
+# write run_expt and test manually, comparing to past experience
+# incrementally generate some data to end up with a first real 'candidate' graph, albeit on too little data
+# add more data and iterate as desired
+
+
+# PART OF EXPT GENERATION:
+#
+# get_parameters(<config info>) => <params dict>
+# make_inference_string(day, #steps) => <inference prog src>
+#
+# PART OF EXPT RUNNING:
+#
+# birdsUnit(ripl, <params dict>)
+# birdsUnit.makeAssumes, loadObserves, ...
+#
+# filter_inf(birdsUnit, logger_proc, amount_of_inference, inference_string_maker, datafilename) => None (but birdsUnit modified, so
+# birdsUnit.last_inference_records = {(d,y): logger_proc(ripl)}
+# batch_inf(...)
+#
+
+# synthetic_infer(<config info + inf config info>, logger(ripl)) => gtUnit, ripl_with_results, 
+# 
+#  
+
+
+
+
 # we select a dirname (name for the synth data params).
 # dirname is used to save synth data and params in 'synth.dat'
 # we then use dirname to generate_experiment_data
