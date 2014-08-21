@@ -82,10 +82,11 @@ def test_save_images(del_images=True):
   years = range(1)
   days = range(3)
   name = 'temp_test_save'
+  path = 'bird_moves_' + name
   #os.chdir('~/summer_birds')
-  unit.draw_bird_locations([0],years,days,name,save=True,order='F',print_features_info=True)
-  assert os.path.exists( name )
-  if del_images: subprocess.call(['rm','-r',name])
+  unit.draw_bird_locations(years, days, name, save=True, order='F', print_features_info=True)
+  assert os.path.exists( path )
+  if del_images: subprocess.call(['rm','-r',path])
   
 
 def all_tests():

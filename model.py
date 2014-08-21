@@ -103,25 +103,33 @@ def _draw_bird_locations(bird_locs, name, years, days, height, width,
   if print_features_info:
     indices = range(len(bird_locs[years[0]][days[0]]))
     im_info = make_grid(height, width, indices, order=order )
-    print '''\n Map from *bird_locs* indices (which comes from Venture
-             function) to grid via function *make_grid* (order is %s,
-             0 index at top) \n'''%order
+    print '''\n
+    Map from *bird_locs* indices (which comes from Venture
+    function) to grid via function *make_grid* (order is %s,
+    0 index at top) \n'''%order
     print im_info
 
-  grids = []
+  grids = {}
   for y,d in product(years,days):
-    grids.append( make_grid(height, width, lst=bird_locs[y][d], order=order) )
+    grids[(y,d)] = make_grid(height, width, lst=bird_locs[y][d], order=order)
 
   # bird_count is constant (for OneBird not Poisson)
-  assert len( np.unique( map(np.sum, grids) ) ) == 1
+  assert len( np.unique( map(np.sum, grids.values()) ) ) == 1
 
   if plot:
     nrows,ncols = len(days), len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
 
     for y,d in product(years,days):
-      ax_dy = ax[d] if len(ax.shape)==1 else ax[d][y]
-      my_imshow = ax_dy.imshow(im,cmap='copper', interpolation='none',
+      grid = grids[(y,d)]
+      if ncols==1 and nrows==1:
+        ax_dy = ax
+      elif ncols==1:
+        ax_dy = ax[d]
+      else:
+        ax_dy = ax[d][y]
+      
+      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none',
                                  extent=[0,width,0,height])
       ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
@@ -132,11 +140,13 @@ def _draw_bird_locations(bird_locs, name, years, days, height, width,
     cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
     fig.colorbar(my_imshow, cax=cbar_ax)
 
+  ## FIXME make images look better!
   if save:
     for y,d in product(years,days):
+      grid = grids[(y,d)]
       path = 'bird_moves_%s/%d/' % (name, y)
       ensure(path)
-      big_im = misc.imresize(im,(200,200))
+      big_im = misc.imresize(grid,(200,200))
       misc.imsave(path+'%02d.png'%d, big_im)
       print '\n Saved bird location images in %s \n'%path
 

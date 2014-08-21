@@ -83,42 +83,6 @@ def ensure(path):
     os.makedirs(path)
 
 
-def drawBirds(bird_locs, filename, width=None, height=None,  **kwargs):
-  scale = 10
-  
-  bitmap = np.ndarray(shape=(width*scale, height*scale))
-  
-  #import pdb; pdb.set_trace()
-  
-  for x in range(width):
-    for xs in range(scale):
-      for y in range(height):
-        for ys in range(scale):
-          bitmap[x*scale+xs, y*scale+ys] = bird_locs[x * height + y]
-          
-  print "Saving images to %s" % filename
-  
-  misc.imsave(filename, bitmap)
-  return bitmap
-
-def drawBirdMoves(bird_moves, path, cells=None, num_birds=None, years=None, days=None, **params):
-  for y in years:
-    bird_locs = [0] * cells
-    bird_locs[0] = num_birds
-    
-    for d in days[:-1]:
-      for i in range(cells):
-        for j in range(cells):
-          move = bird_moves[(y, d, i, j)]
-          bird_locs[i] -= move
-          bird_locs[j] += move
-      
-      p = path + '/%d' % y
-      ensure(p)
-      filename = p + '/%02d.png' % (d+1)
-      drawBirds(bird_locs, filename, **params)
-
-
 def make_grid(height,width,top0=True,lst=None,order='F'):
   if lst is not None:
     assert isinstance( lst[0] , (int,float) )
@@ -134,9 +98,6 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
     return grid_mat
 
 
-def testDrawBirdMoves(dataset):
-  params = getParams(dataset)
-  drawBirdMoves(readReconstruction(params), 'ground%d' % dataset, **params)
 
 def getParams(dataset):
   params = {'dataset': dataset}
@@ -191,8 +152,12 @@ def dictToExpr(dict):
 def listToExpr(list):
   return expr("array", *list)
 
-def fold(op, exp, counter, length):
-  return '(' + op + " " + " ".join([exp.replace(counter, str(i)) for i in range(length)]) + ')'
+def fold(op, exp_ind, ind, length):
+  '''Outputs string of form (op  exp_0  exp_1 ... exp_(length-1) )
+     where *op* is a string for a Venture SP and *exp_ind* is a
+     string containing the string *ind*.'''
+  return '(' + op + " " + " ".join([exp_ind.replace(ind, str(i)) for i in range(length)]) + ')'
+
 
 def tree(op, exp, counter, lower, upper):
   average = (lower + upper) / 2
@@ -201,6 +166,7 @@ def tree(op, exp, counter, lower, upper):
   else:
     return '(' + op + " " + tree(op, exp, counter, lower, average) + ' ' + tree(op, exp, counter, average, upper) + ')'
 
+    
 from subprocess import call
 
 def renderDot(dot,dirpath,i,fmt,colorIgnored):

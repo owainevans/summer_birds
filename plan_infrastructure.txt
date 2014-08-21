@@ -1,0 +1,263 @@
+8/20/2014
+plans for experiment-running infrastructure for birds:
+
+some links:
+
+http://machinelearningmastery.com/reproducible-machine-learning-results-by-default/ [jason, use build system to make easy to switch machines, automate production of reports with some markup]
+http://arkitus.com/patterns-for-research-in-machine-learning/ [eslami at MSR, separate code, working/temp files, data. save state as much as possible. if you have a pipeline, make it possible to run parts of pipeline independently.]
+http://www.theexclusive.org/2012/08/principles-of-research-code.html
+http://homepages.inf.ed.ac.uk/csutton/talks/software-engineering-cas.pdf
+charles sutton, edinburgh ML. always aim at being able to reproduce a few years from now. makefiles for preprocessing steps. pull out any parameters that you might want to vary when running experiment. never vary these ‘manually’; always use experiment runner script. plotting should all be automated (once substantive experiments are running) so that you don’t later have to search around for the plotting code. 
+
+
+general infrastructure:
+1. experiment running interface of the kind sketched by vkm in portland
+synthetically generated datasets are stored in /data directory (along with CP data). these datasets come with a set of parameters that may be needed to set the parameters for inference on that dataset. (e.g. parameters for size/dimensionality of the model).
+
+inference takes a dataset and a set of parameters for inference. we could distinguish between fixed/structural model parameters (e.g. dimension, size), model parameters that we put priors on and learn (as part of output), Venture inference program parameters (e.g. kernel, no_transitions), and then any additional parameters in Python that are relevant to inference. 
+
+inference produces a dict of results + all information needed to reproduce the experiment (given the current state of the rest of Venture + users’ machine). the information should be stored to make it easy to combine results from experiments that share some of their parameters. (either for looking at runs that only differ in their random seed -- to estimate variance of the inference, or to look at graphs of performance as some parameter varies).
+
+another feature: given a setting of inference parameters, you can search all past experiments to see if they match these parameters (or come close).
+
+2. infrastructure for making past experiments reproducible:
+pull out parameters that can vary and set them from a experiment_runner script. simple way to get relative reproducibility is to exploit VC. experiment runner can do ‘git status’ and see if there are changes in relevant directories. if so, it aborts experiments. you would then have to commit these changes and try again. if ‘git status’ test is passed, then SHA for commit is stored along with parameter data for the experiment. (you could also have a script that constructs part of a git commit message to be used for commits that directly precede experiment runs). 
+this is not robust to version skews in dependencies (e.g. numpy). you could have the xperiment running script check and store version info for all the dependencies. 
+one approach to experiments would be (a) make arbitrary change to code, (b) commit and run experiment, (c) repeat. problem: it’s a pain to go back to earlier commits (if you want to keep some of the changes you’ve made but not others). one hurdle is that over time you’ll forget what the code did earlier and you’ll have to relearn in order to rerun an old experiment. 
+
+another approach is to work with branches. if some random changes end up being good, you merge them into master. otherwise you just leave those branches. i’m not sure if there’s any cost in git to leaving around lots of dead-end branches that you might want to go back to at some point to re-run an experiment (or just look at exactly what state of code was when you ran it before). there’s still some hassle here of picking which changes to merge and which to discard.
+
+finally, you can try to make all changes to the code irreversible. that is, you always broaden functionality by adding more options, and then adding more parameters for ranging over the new options. this doesn’t mean you don’t use git branches. but idea is that branches are dispensable. all you need for reproducing all experiments is master. you never run an experiment on a branch. if the code-changes in a branch work, then you merge them to master, trying to maintain previous functionality when doing so. then you run the experiment from master. [one benefit of always broadening functionality is that you can easily reproduce old experiments without having to revert to an earlier commit. a major downside is that you may end up with lots of not-very-useful code. this may clutter your view of the more important code, unless you’re disciplined about hiding it. you will also need to maintain more code, which might not be worth the hassle.]
+
+3. venture specific issues: problem of random seeds. Lite and Puma have different systems. Problem that parallel traces in puma have own MT RNG which is probably not kosher. The seed isn’t enough for reproduction because different versions of Venture may make different number of calls to RNG. (can save the full state of MT in python. not sure about Puma - think it’s more problematic). 
+
+
+
+
+
+
+ARKITUS
+Separate code from data.
+
+Create spatial separation between your source code and your data files:
+
+project_name/code/ 
+project_name/data/
+
+This is useful because:
+
+    It makes it easier to share your code with others.
+    It makes it easier to swap between datasets.
+
+Even better would be to always assume that your code and your data are located independently:
+
+/path/to/code/ 
+/other/path/to/data/
+
+This is useful because:
+
+    It reinforces the separation.
+    It's an easy way of hiding your data from revision control.
+
+The data folder will often be too large to store on your machine, and you will have no choice but to separate the two.
+Separate input data, working data and output data.
+
+It can be useful to think of data as belonging to three distinct categories:
+
+    Input files come with the problem. They never change.
+    Working files are generated by your algorithms as they work. They always change.
+    Output files are generated by your algorithms when they finish work successfully. They rarely change.
+
+The directory structure will now look something like this:
+
+/path/to/code/ 
+/other/path/to/data/input/ 
+/other/path/to/data/working/ 
+/other/path/to/data/output/
+
+This is useful because:
+
+    You know that you can safely delete files from working/ (e.g. to save space). These files can, in theory, be regenerated simply by running your code again.
+    It makes it easy to share the results in output/ with others (e.g. in presentations, or as input to LaTeX documents).
+
+Modify input data with care.
+
+    Always keep the raw data as distributed. Keep a note of where you got it from, together with any read-me or licensing files that came with it.
+    Write a one-touch script to convert the raw data into whatever format you use for your own code.
+    Don't ever clean data by hand, and if you do, document it thoroughly, change by change.
+
+Save everything to disk frequently.
+
+    Save the model parameters to disk at suitable intervals.
+    If a figure is useful for run-time diagnosis, then it should probably be saved to disk too.
+    When you run your algorithm on different datasets, store the output in separate folders.
+    Store the output of each day's work in a separate folder.
+
+This is what the working folder might look like:
+
+working/18_07_2012/dataset_1/ 
+working/18_07_2012/dataset_2/ 
+working/19_07_2012/dataset_1/ 
+working/19_07_2012/dataset_2/ 
+
+Inside the 18_07_2012/dataset_1 folder you might find:
+
+dataset_1/likelihood_curve_iteration_100.eps 
+dataset_1/likelihood_curve_iteration_200.eps 
+dataset_1/likelihood_curve_iteration_300.eps 
+dataset_1/model_parameters_iteration_100.dat 
+dataset_1/model_parameters_iteration_200.dat 
+dataset_1/model_parameters_iteration_300.dat 
+
+Separate options from parameters.
+
+I often see code that stores algorithm parameters and model parameters in the same data structure. In my experience things work best when the two are separated.
+
+    Options specify how your algorithm should run.
+    Parameters specify the model, and are usually an output of your algorithm.
+
+% set the options
+options.run_name = '18_07_2012/dataset_1/';
+options.dataset_path = '/other/path/to/data/input/dataset_1.dat'; 
+options.working_path = ['/other/path/to/data/working/' options.run_name]; 
+options.output_path = ['/other/path/to/data/output/' options.run_name]; 
+options.learning_rate = 0.1; 
+options.num_iterations = 300; 
+
+% load the data 
+data = deserialise(options.dataset_path); 
+
+% learn the parameters 
+parameters = train_model(options, data);
+
+Some parameters will not be affected by the algorithm's execution, e.g. model size parameters or the model's hyper-parameters. I store these as parameters, but use values specified in options to initialise them.
+Do not use global variables.
+
+Whenever possible, communicate through function arguments:
+
+% set the options 
+options = ... 
+
+% load the data 
+data = ... 
+
+% learn the parameters 
+parameters = train_model(options, data);
+
+and not through global variables:
+
+global options, data; 
+
+% set the options 
+options = ... 
+
+% load the data 
+data = ... 
+
+% learn the parameters 
+parameters = train_model(); % assumes options and data have been set globally
+
+This is useful because:
+
+    It makes it much easier to debug your code.
+    It makes it easier to parallelise your code.
+
+Record the options used to generate each run of the algorithm.
+
+% set the options 
+options = ... 
+
+% load the data 
+data = ... 
+
+% learn the parameters 
+parameters = train_model(options, data); 
+
+% store the results 
+serialise(options, 'options.dat', options.working_path); 
+serialise(parameters, 'parameters.dat', options.working_path);
+
+This is useful because it makes it easier to reproduce results. For completeness you may also want to:
+
+    Consider setting the random number generator seed to a value specified in options.
+    Consider saving a copy of the code used to execute each run.
+
+Make it easy to sweep options.
+
+% set the options 
+options.learning_rate = 0.1; 
+options.latent_dimensions = {10, 20}; 
+options.num_iterations = {300, 600}; 
+
+% load the data 
+data = ... 
+
+% sweep the options 
+for options_configuration in get_configurations(options) 
+
+    % learn the parameters 
+    parameters = train_model(options, data); 
+
+    % store the results 
+    serialise(parameters, 'parameters.dat'], ... 
+              [options.working_path '_' options_configuration.name]); 
+
+end
+
+The function get_configurations() can be written in such a way to make the above code segment train 4 different models, one for each valid combination of variables that are being swept over, and store the results in separate directories:
+
+working/latent_dimensions_10_num_iterations_300/ 
+working/latent_dimensions_20_num_iterations_300/ 
+working/latent_dimensions_10_num_iterations_600/ 
+working/latent_dimensions_20_num_iterations_600/ 
+
+This is useful because it makes it easier to try out different algorithm options. If you have access to a cluster, you can easily use this to distribute each run to a different computer.
+Make it easy to execute only portions of the code.
+
+If your code can conceptually be thought of as some sort of pipeline where computations are made sequentially:
+
+Write your main script in such a way that you can specify which computations you want to execute. Store the results of each part of the computation to disk. For example, the following command runs the preprocess_data, initialise_model and train_model scripts.
+
+>> run_experiment('dataset_1_options', '|preprocess_data|initialise_model|train_model|');
+
+And this command runs the only the train_model script but also evaluates its performance:
+
+>> run_experiment('dataset_1_options', '|train_model|evaluate_model|');
+
+loading the preprocessed data and initialised model from disk.
+
+Since the run_experiment() function might potentially be performing complex tasks such as: loading options from disk, sweeping parameters, communicating with a cluster of computers or managing the storing of results, you do not want to have to run the script manually for every run.
+
+In my experience, commenting out segments of code to simulate this behaviour is a waste of time in the long-run. For complex projects you will constantly be switching between work on different parts of the pipeline.
+Use checkpointing.
+
+Your experiments will occasionally fail during execution. This is particularly true when many are run in parallel.
+
+    Store the entire state (counters and so on) to disk at suitable intervals.
+    Write code that, once activated, continues running the algorithm from the latest saved state.
+    Make sure it is clearly made visible that the algorithm is starting from a saved state.
+
+% set the options 
+options = ... 
+
+% load the data 
+data = ... 
+
+if saved_state_exists(options)
+
+    % load from disk 
+    [parameters, state] = deserialize_latest_params_state(options.working_path); 
+
+    % command line output 
+    disp(['Starting from iteration ' state.iteration]); 
+
+else 
+
+    % initialize 
+    parameters = init_parameters(); 
+    state = init_state(); 
+
+end 
+
+% learn the parameters 
+parameters = train_model(options, data, parameters, state);
