@@ -88,7 +88,6 @@ def from_cell_dist(height,width,ripl,cell_i,year,day,order='F'):
   'Given ripl, (year,day,cell_i), get simplex (unnormed) and grid with normed dist'
   simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
   p_dist = simplex / np.sum(simplex)
-  print 'simplex, pdist', simplex, p_dist
 
   grid = make_grid(height,width,lst=p_dist,order=order)
   ij_cell_i = ind_to_ij(height,width,cell_i,order=order)
@@ -110,23 +109,17 @@ def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F', name=''):
 
     im= ax[count].imshow(grid_from_cell_dist, cmap='hot', vmin=0, vmax=1,
                          interpolation='none', extent=[0,width,height,0]) 
-    ax[count].set_title('%s  P(i,j) for i=%i, day:%i'%(name,cell,day))
+    ax[count].set_title('%s  P(i,j) for Cell i=%i, day:%i'%(name,cell,day))
     ax[count].set_xticks(range(width+1))
     ax[count].set_yticks(range(height+1))
     
-    ax[count].annotate('Cell i', xy=ij_cell, xytext=ij_cell, color='c')
+    ij_cell = ij_cell[0]+.1, ij_cell[1]+.5
+    ax[count].annotate('Cell i', xy = ij_cell, xytext = ij_cell, color='c')
 
   fig.tight_layout()  
   fig.subplots_adjust(right=0.8)
   cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
   fig.colorbar(im, cax=cbar_ax)
-  
-## ALT that might work better
-# for ax in axes.flat:
-#     im = ax.imshow(np.random.random((10,10)), vmin=0, vmax=1)
-
-# cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-# plt.colorbar(im, cax=cax, **kw)
   
 
 

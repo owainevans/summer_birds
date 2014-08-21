@@ -116,6 +116,7 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
 
   # FIXME: bird_count is constant (for OneBird not Poisson)
   assert len( np.unique( map(np.sum, grids.values()) ) ) == 1
+  num_birds = np.sum( grids[(0,0)] )
 
   if plot:
     nrows,ncols = len(days), len(years)
@@ -130,8 +131,8 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
       else:
         ax_dy = ax[d][y]
       
-      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none',
-                                 extent=[0,width,height,width])
+      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none', vmin=0, vmax=num_birds,
+                                 extent=[0,width,height,0])
       ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))
       ax_dy.set_yticks(range(height+1))

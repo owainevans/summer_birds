@@ -148,16 +148,12 @@ if len(sys.argv)>1:
   test_inf_limit = int( sys.argv[1] )
   
 global_order='F'
-## need var for order. does make_features_dict order have to link 
-# up to order for displaying (order for display is completely
-# independent of inference, etc. just needed for visualization)
-# note that order could be a global for this script, while
-# the basic procedures used here (e.g. in feature_utils) would
-# all be functional. we just simplify this script by using a global
+## test for order: with C order, plots should have counts in C order
+## presumably we still want to leave the indices as they are
+## (i.e. matrix-style vs. graph style)
 
 
 
-## FIXME: something weird with not moving along diagonals. seems you sometimes can move along the diagonal.
 def filter_inf(unit, steps_iterations, filename=None, make_infer_string=None, record_prog=None, verbose=False):
   """Loop over days, add all of a day's observes to birds unit.ripl. Then do multiple loops (iterations)
      of inference on move(i,j) for the previous day and on the hypers. Optionally
@@ -314,16 +310,16 @@ def get_params(params_name='easy_hypers', model='poisson'):
     Y, D = 1, 4
     years,days = range(Y),range(D)
     maxDay = D
-    height,width = 3,3
+    height,width = 4,4
     functions = 'easy'
     features,features_dict = make_features_dict(height, width, years, days,
                                          order=global_order,functions=functions)
     num_features = len( features_dict[(0,0,0,0)] )
     learn_hypers = False
-    hypers = [1,0,0,0][:num_features]
+    hypers = [1,1,0,0][:num_features]
     hypers_prior = ['(gamma 6 1)']*num_features
-    num_birds = 6
-    softmax_beta = 6
+    num_birds = 20
+    softmax_beta = 4
     load_observes_file=False
     venture_random_seed = 1
     dataset = None
@@ -458,7 +454,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   # View the normalized dist on (0,0) for a few cells. Compare to
   # gtruth moves plots as check
   if plot:
-    check_cells = tuple(range(5))
+    check_cells = tuple(range(7))
     plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
                         check_cells, year=0, day=0, order= order, name='Gtruth')
 

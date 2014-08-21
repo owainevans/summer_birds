@@ -92,6 +92,12 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 
 
+## CELL NAMES (GRID REFS)
+# OneBird Venture prog just has integer cell indices
+# We only convert to ij for Python stuff that displays
+# (We use ij form for synthetic data generation also
+# and so that has to be converted to an index before conditioning)
+
 class OneBird(VentureUnit):
   
   def __init__(self, ripl, params):
@@ -314,7 +320,8 @@ class OneBird(VentureUnit):
       assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
 
       count = 0
-      from0 = range(self.cells) # list [features(0,j)[0]]
+     ## FIXME THIS FROM0 STUFF
+      # from0 = range(self.cells) # list [features(0,j)[0]]
       
       print '\n Features dict (up to 10th entry) for year,day = 0,0'
 
@@ -322,12 +329,14 @@ class OneBird(VentureUnit):
         if k[0]==0 and k[1]==0 and count<10: 
           print k[2:4],':',v
           count += 1
+          
+          #from[0] = [ v[0] for k,v in features_dict.iteritems() if k[0]==k[1]==k[2]==0 ]
 
-          if k[2] == 0:
-            from0[ k[3] ] = v[0]
+        #if k[2] == 0:
+         #   from0[ k[3] ] = v[0]
 
       print '\n feature0_j for y,d,i = (0,0,0), order=%s, 0 is at top \n'%order
-      print make_grid( self.height, self.width, lst=from0, order=order)
+     # print make_grid( self.height, self.width, lst=from0, order=order)
       
     return bitmaps
 
