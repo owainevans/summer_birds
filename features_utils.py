@@ -27,8 +27,8 @@ def one_step(cell1_ij, cell2_ij):
   return 1 if l2(cell1_ij, cell2_ij) == 1 else 0
 
 def distance(cell1_ij, cell2_ij):
-  d=l2(cell1_ij, cell2_ij)
-  return d**-1 if d!=0 else 1  # 1 could be set differently
+  d = l2(cell1_ij, cell2_ij)
+  return 1. if d==0 else d**(-1)  # 1 could be set differently
 
 def avoid_cells(cell1_ij, cell2_ij, avoid_cell):
   'Avoided cells get 0 and so are neutral over all. Other cells are "goal" cells.'
