@@ -14,6 +14,9 @@ import matplotlib.pylab as plt
 # if not, then for a feature_i to not have impact, we need to have
 # hyper_i = 0. 
 
+
+
+### Functions for generating features
 def l2(cell1_ij,cell2_ij ):
     return ((cell1_ij[0] - cell2_ij[0])**2 + (cell1_ij[1] - cell2_ij[1])**2)**.5
 
@@ -27,9 +30,15 @@ def distance(cell1_ij, cell2_ij):
   d=l2(cell1_ij, cell2_ij)
   return d**-1 if d!=0 else 1  # 1 could be set differently
 
-def avoid_cells(cell1_ij, cell2_ij, avoided_cells):
+def avoid_cells(cell1_ij, cell2_ij, avoid_cell):
   'Avoided cells get 0 and so are neutral over all. Other cells are "goal" cells.'
-  return 0 if list(cell2_ij) in map(list,avoided_cells) else 1
+  assert isinstance( cell2_ij, (tuple,list) )
+
+  return 0 if avoid_cell( cell2_ij ) else 1
+
+diagonal = lambda ij: ij[0]==ij[1]
+color_diag = lambda c1,c2: avoid_cells(c1,c2,diagonal)
+
 
 def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
   dx = cell2_ij[1]-cell1_ij[1] ## TODO get this working 
@@ -40,38 +49,41 @@ def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
   return angle - goal_direction     # find angle between cells
 
   
-def ind_to_ij(height,width,index,order='F'):
+### Store named sets of feature_functions
+name_to_feature_functions = {'uniform':( lambda cell1_ij, cell2_ij: 0, ),
+                             'one_step_and_not_diagonal': (one_step,color_diag),
+                             'distance': (distance,),
+                             'not_diagonal': (color_diag,) }
+assert all( [isinstance(v,tuple) for k,v in name_to_feature_functions.items()] )
+
+
+### Generate Python and Venture dict of features from *functions*                        
+def ind_to_ij(height, width, index, order='F'):
   'Convert flat index to (i,j), depending on order'
   grid = make_grid(height,width=width,order=order)
   return map(int,np.where(grid==index))
 
-
-# Generate Python and Venture dict of features from *functions*                        
-def make_features_dict(height,width,years,days,order='F',functions='easy'):
+  
+def make_features_dict(height,width,years,days,feature_functions_name='distance', order='F'):
     
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
-  
-  diagonal = [(i,i) for i in range(min(height,width))]
-  color_diag = lambda c1,c2: avoid_cells(c1,c2,diagonal)
-  
 
-  if functions=='easy':
-      feature_functions =  (one_step, color_diag)#,lambda c1,c2: within_d( c1,c2, d=.33), within_d, color_diag, uniform_feature )
-  else:
-      feature_functions = (distance,color_diag)
-
+  feature_functions = name_to_feature_functions[feature_functions_name]
   feature_dict = {}
+
   for (y,d,cell1,cell2) in latents:
     feature_dict[(y,d,cell1,cell2)] = []
     cell1_ij,cell2_ij = map(lambda index:ind_to_ij(height,width,index, order),
                             (cell1,cell2))
     
     for f in feature_functions:
-    
-      feature_dict[(y,d,cell1,cell2)].append( f(cell1_ij, cell2_ij) )
+      feature_value = f(cell1_ij, cell2_ij)
+      assert isinstance(feature_value,(int,float))
+      feature_dict[(y,d,cell1,cell2)].append( feature_value )
 
   return toVenture(feature_dict),feature_dict
+
 
 
 

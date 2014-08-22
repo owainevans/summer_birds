@@ -41,6 +41,31 @@ def test_make_features_dict():
   eq_( venture_dict['type'], 'dict' )
   assert isinstance(venture_dict['value'],dict)
 
+
+def test_features_functions():
+  args_names = ( ('height',2), ('width',3), ('years',range(1)), ('days',range(1)), )
+  _, args = zip(*args_names)
+  num_cells = args[0] + args[1]
+
+  feature_functions_names = ('uniform', 'distance', 'not_diagonal')
+  feature_dicts = {}
+  for name in feature_functions_names:
+    feature_dicts[name] = make_features_dict( *args, feature_functions_name = name)[1]
+
+  is_constant = lambda seq: len( np.unique( seq) ) == 1
+  assert is_constant( [v[0] for v in feature_dicts['uniform'].values()] )
+
+  assert is_constant( [v[0] for (k,v) in feature_dicts['not_diagonal'].items() if k[2]!=k[3] ] )
+
+
+  def distances_from_i(i):
+    distance_dict = feature_dicts['distance']
+    return [distance_dict[(0,0,i,j)] for j in range(num_cells)]
+
+  sum_distances = [sum(distances_from_i(i)) for i in (0, num_cells-1) ]  
+  eq_( *sum_distances )
+
+  
 def make_multinomial_unit():
   params = get_multinomial_params(params_name = 'easy_hypers' )
   unit =  Multinomial(mk_p_ripl(),params)
@@ -102,8 +127,14 @@ def test_save_images(del_images=True):
 def all_tests():
   test_cell_to_prob_dist()
   test_make_features_dict()
+  test_
   test_ind_to_ij()
   test_make_grid()
   test_model_multinomial()
   test_save_images()
+  
+
+
+
+
 
