@@ -84,36 +84,42 @@ def cell_to_feature(height, width, state, python_features_dict, feature_ind):
   
 
 
-def from_cell_dist(height,width,ripl,cell_i,year,day,order='F'):
-  'Given ripl, (year,day,cell_i), get simplex (unnormed) and grid with normed dist'
-  simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,cell_i))
+def cell_to_prob_dist(height, width, ripl, source_cell, year, day,order='F'):
+  '''Given *cell_i* get normalized grid for probability
+     of moving to each cell from *cell_i*'''
+  simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,source_cell))
+
+  phi= lambda j: ripl.sample('(phi %s %s %s %s)' % (year,day,source_cell,j) )
+  simplex_from_phi = [ phi(j) for j in range(height*width) ]
+
+  assert (np.array(simplex) == np.array(simplex_from_phi)).all()
+                                       
   p_dist = simplex / np.sum(simplex)
-
-  grid = make_grid(height,width,lst=p_dist,order=order)
-  ij_cell_i = ind_to_ij(height,width,cell_i,order=order)
-  return simplex,grid, cell_i, ij_cell_i
+  grid = make_grid( height, width, lst=p_dist, order=order )
+  return grid
 
 
 
-def plot_from_cell_dist(params,ripl,cells,year=0,day=0,order='F', name=''):
+def plot_cell_to_prob_dist(height, width, ripl, source_cells, year=0, day=0, order='F', name=''):
 
-  height,width =params['height'],params['width']
+  assert isinstance( source_cells, (list,tuple) )
+  assert isinstance( source_cells[0], int)
 
-  fig,ax = plt.subplots(len(cells),1,figsize=(5,2.5*len(cells)))
   
-  for count,cell in enumerate(cells):
+  fig,ax = plt.subplots(len(source_cells), 1, figsize=(5,2.5*len(source_cells)))
+  
+  for count, cell in enumerate(source_cells):
 
-    out = from_cell_dist( height,width,ripl,cell,year,day,order)
-    simplex, grid_from_cell_dist, _, ij_cell = out
-    ij_cell = ij_cell[1],ij_cell[0] # flip order for annotate
+    grid_cell_to_prob_dist = cell_to_prob_dist(height, width, ripl, cell,year,day,order)
 
-    im= ax[count].imshow(grid_from_cell_dist, cmap='hot', vmin=0, vmax=1,
+    im= ax[count].imshow(grid_cell_to_prob_dist, cmap='hot', vmin=0, vmax=1,
                          interpolation='none', extent=[0,width,height,0]) 
     ax[count].set_title('%s  P(i,j) for Cell i=%i, day:%i'%(name,cell,day))
     ax[count].set_xticks(range(width+1))
     ax[count].set_yticks(range(height+1))
-    
-    ij_cell = ij_cell[0]+.1, ij_cell[1]+.5
+
+    ij_cell = ind_to_ij( height, width, cell, order=order)
+    ij_cell = ij_cell[1]+.1, ij_cell[0]+.5 # switch order for annotation
     ax[count].annotate('Cell i', xy = ij_cell, xytext = ij_cell, color='c')
 
   fig.tight_layout()  

@@ -99,7 +99,7 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
     return grid_mat
 
 def plot_save_bird_locations(bird_locs, name, years, days, height, width,
-                         save=None, plot=None, order=None, print_features_info=None):
+                             save=None, plot=None, order=None, print_features_info=None,multinomial=True):
 
   if print_features_info:
     indices = range(len(bird_locs[years[0]][days[0]]))
@@ -114,9 +114,10 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
   for y,d in product(years,days):
     grids[(y,d)] = make_grid(height, width, lst=bird_locs[y][d], order=order)
 
-  # FIXME: bird_count is constant (for OneBird not Poisson)
-  assert len( np.unique( map(np.sum, grids.values()) ) ) == 1
-  num_birds = np.sum( grids[(0,0)] )
+  grid_to_num_birds = map(np.sum, grids.values())
+  if multinomial:
+    assert len( np.unique( grid_to_num_birds ) ) == 1
+  max_num_birds =  np.max( grid_to_num_birds )
 
   if plot:
     nrows,ncols = len(days), len(years)
@@ -131,7 +132,7 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
       else:
         ax_dy = ax[d][y]
       
-      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none', vmin=0, vmax=num_birds,
+      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none', vmin=0, vmax=max_num_birds,
                                  extent=[0,width,height,0])
       ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
       ax_dy.set_xticks(range(width+1))

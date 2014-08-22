@@ -7,7 +7,7 @@ import cPickle as pickle
 import numpy as np
 num_features = 4
     
-#### OneBirds and Poisson Dataset Loading Functions
+#### Multinomials and Poisson Dataset Loading Functions
 
 def day_features(features,width,y=0,d=0):
   'Python dict of features to features vals for the day'
@@ -40,7 +40,7 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
-## OneBird & Poisson functions for saving synthetic Observes and 
+## Multinomial & Poisson functions for saving synthetic Observes and 
 ## loading and running unit.ripl.observe(loaded_observe)
 
 
@@ -93,12 +93,12 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 
 ## CELL NAMES (GRID REFS)
-# OneBird Venture prog just has integer cell indices
+# Multinomial Venture prog just has integer cell indices
 # We only convert to ij for Python stuff that displays
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
 
-class OneBird(VentureUnit):
+class Multinomial(VentureUnit):
   
   def __init__(self, ripl, params):
 
@@ -131,7 +131,7 @@ class OneBird(VentureUnit):
     self.softmax_beta=params.get('softmax_beta',1)
     self.observed_counts_filename = params.get('observed_counts_filename',None)
     
-    super(OneBird, self).__init__(ripl, params)
+    super(Multinomial, self).__init__(ripl, params)
 
 
   def makeAssumes(self):
@@ -319,29 +319,25 @@ class OneBird(VentureUnit):
       features_dict = venturedict_to_pythondict(self.features)
       assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
 
-      count = 0
-     ## FIXME THIS FROM0 STUFF
-      # from0 = range(self.cells) # list [features(0,j)[0]]
+
       
       print '\n Features dict (up to 10th entry) for year,day = 0,0'
-
+      count = 0
       for k,v in features_dict.iteritems():
         if k[0]==0 and k[1]==0 and count<10: 
           print k[2:4],':',v
+          assert isinstance(v[0],(int,float))
           count += 1
           
-          #from[0] = [ v[0] for k,v in features_dict.iteritems() if k[0]==k[1]==k[2]==0 ]
+      feature0_from0 = [features_dict[(0,0,0,j)][0] for j in range(self.cells)]
 
-        #if k[2] == 0:
-         #   from0[ k[3] ] = v[0]
-
-      print '\n feature0_j for y,d,i = (0,0,0), order=%s, 0 is at top \n'%order
-     # print make_grid( self.height, self.width, lst=from0, order=order)
+      print '\n feature_0 for jth cell for y,d,i = (0,0,0), order=%s, 0 at top \n'%order
+      print make_grid( self.height, self.width, lst=feature0_from0, order=order)
       
     return bitmaps
 
     
-# loadObserves for onebird dataset (prepare for pgibbs inference)
+# loadObserves for multinomial dataset (prepare for pgibbs inference)
   def loadObserves(self, ripl = None):
     if ripl is None:
       ripl = self.ripl

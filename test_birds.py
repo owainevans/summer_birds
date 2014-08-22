@@ -4,21 +4,30 @@ from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from nose.tools import eq_, assert_almost_equal
 
 from utils import make_grid
-from features_utils import ind_to_ij, make_features_dict, from_cell_dist
-from synthetic import get_onebird_params
-from model import OneBird, Poisson
+from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
+from synthetic import get_multinomial_params
+from model import Multinomial, Poisson
 
 def test_make_grid():
-  cf = []
-  cf.append(  np.array( ([0,3],[1,4],[2,5]),np.int32 ) == make_grid(3,2,True,None,'F') )
-  cf.append(  np.array( ([1,3],[0,2]),np.int32 ) == make_grid(2,2,False,None,'F') )
-  cf.append(  np.array( ([0,1],[2,3]),np.int32 ) == make_grid(2,2,True,None,'C') )
-  cf.append(  np.array( ([0,0,0],[0,0,0]),np.int32 ) == make_grid(2,3,True,np.zeros(6,np.int32),'F') )  
-  assert all( [ ar.all() for ar in cf ] )  
+  mk_array = lambda ar: np.array(ar,np.int32)
+
+  def ar_eq_(ar1,ar2):
+    for pair in zip( ar1.flatten(), ar2.flatten() ):
+      eq_(*pair)
+  
+  pairs = ( ( ([0,3],[1,4],[2,5]), 
+              make_grid(3,2, top0=True, lst = range(6), order='F') ),
+            ( ([1,3],[0,2]),
+              make_grid( 2, 2,top0=False, lst = range(4), order='F') ),
+            ( ([0,1],[2,3]),
+              make_grid( 2, 2, top0=True, lst = range(4), order='C') ) )
+  for ar,grid in pairs:
+    ar_eq_( mk_array(ar), grid)
+
   
 def test_ind_to_ij():
   height, width = 3,2
-  grid = make_grid(height,width,True,range(height*width),'F')
+  grid = make_grid(height,width,lst=range(height*width),order='F')
   for ind in range(height*width):
     ij = tuple( ind_to_ij(height,width,ind,'F') )
     eq_( grid[ij], ind )
@@ -32,35 +41,36 @@ def test_make_features_dict():
   eq_( venture_dict['type'], 'dict' )
   assert isinstance(venture_dict['value'],dict)
 
-def make_onebird_unit():
-  params = get_onebird_params(params_name = 'easy_hypers' )
-  unit =  OneBird(mk_p_ripl(),params)
+def make_multinomial_unit():
+  params = get_multinomial_params(params_name = 'easy_hypers' )
+  unit =  Multinomial(mk_p_ripl(),params)
   unit.loadAssumes()
   return unit
 
   
-def test_from_cell_dist():
-  unit = make_onebird_unit()
+def test_cell_to_prob_dist():
+  unit = make_multinomial_unit()
   height, width, ripl = unit.height, unit.width, unit.ripl
   cells = height * width
   for cell in range(cells):
-    _,grid,_,_ = from_cell_dist( height, width, ripl, cell, 0, 0, order='F' )
+    grid = cell_to_prob_dist( height, width, ripl, cell, 0, 0, order='F' )
     assert_almost_equal( np.sum(grid), 1)
     
-def test_model_onebird():
-  unit = make_onebird_unit()
+def test_model_multinomial():
+  unit = make_multinomial_unit()
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
   eq_( len( simplex['value'] ), unit.cells)
 
-  # bird0 is at pos_day1 on day 1, so total birds
-  # at cell is => 1
+  # bird with bird_id=0 is at pos_day1 on day 1, so total birds
+  # at cell is >= 1
   pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
   count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
   assert 1 <= count_pos_day1 <= unit.num_birds
 
-  # if all birds start at zero on d=0
+  # assuming all birds start at zero on d=0
   eq_( unit.ripl.predict('(move 0 0 0 0)'), pos_day1 )
+
 
   # observe and infer should change position of bird0
   # - observe no bird at pos_day1
@@ -78,7 +88,7 @@ def test_model_onebird():
     
 
 def test_save_images(del_images=True):
-  unit = make_onebird_unit()
+  unit = make_multinomial_unit()
   years = range(1)
   days = range(3)
   name = 'temp_test_save'
@@ -90,10 +100,10 @@ def test_save_images(del_images=True):
   
 
 def all_tests():
-  test_from_cell_dist()
+  test_cell_to_prob_dist()
   test_make_features_dict()
   test_ind_to_ij()
   test_make_grid()
-  test_model_onebird()
+  test_model_multinomial()
   test_save_images()
 

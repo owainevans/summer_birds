@@ -1,5 +1,5 @@
-from features_utils import make_features_dict, from_cell_dist, plot_from_cell_dist
-from model import OneBird,Poisson
+from features_utils import make_features_dict, cell_to_prob_dist, plot_cell_to_prob_dist
+from model import Multinomial,Poisson
 from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl
 from venture.unit import Analytics
 import matplotlib.pylab as plt
@@ -33,8 +33,8 @@ def compare_hypers(gtruth_unit,inferred_unit):
 ### Basic procedure for simulating from prior, saving, doing inference.
 
 
-def onebird_synthetic_infer(*args,**kwargs):
-  return synthetic_infer('onebird',*args,**kwargs)
+def multinomial_synthetic_infer(*args,**kwargs):
+  return synthetic_infer('multinomial',*args,**kwargs)
 
 
 def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
@@ -45,7 +45,7 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
      for inference.
      *save/plot* is whether to save/plot bird locations images.'''
 
-  makeUnit = OneBird if model == 'onebird' else Poisson
+  makeUnit = Multinomial if model == 'multinomial' else Poisson
   
   # years and days are common to gtruth and infer unit objects
   years,days = gtruth_params['years'], gtruth_params['days']
@@ -100,14 +100,14 @@ def make_poisson_infer_string( day, steps, day_to_hypers=None):
   s='(cycle ((mh hypers all %i) (mh %i one %i)) 1)'%args
   return s
 
-def make_onebird_infer_string( day, steps, day_to_hypers=None):
+def make_multinomial_infer_string( day, steps, day_to_hypers=None):
   s='(cycle ((mh hypers all 10) (mh move %i %i)) 1)'%(day,steps)
   #s='(cycle ((mh hypers all 10) (mh move one %i)) 1)'%steps
   #s='(mh default one %i)'%steps
   try:
-    s=onebird_string[0]%(day,steps)
+    s=multinomial_string[0]%(day,steps)
   except:
-    s=onebird_string[0]%steps
+    s=multinomial_string[0]%steps
   return s
 
 
@@ -123,11 +123,11 @@ def test_inf():
 
   mses = {}
   for infer_prog in infer_prog_list:
-    onebird_string[0] = infer_prog
+    multinomial_string[0] = infer_prog
     print '\n-------\n infer_prog: ', infer_prog
     for steps in steps_list:
       print '\n------\n steps', steps
-      ou = test_onebird_reconstruction( steps, True, plot=False)
+      ou = test_multinomial_reconstruction( steps, True, plot=False)
       mses[(infer_prog,steps)] = ou[-2]
 
   mses_seq = {'steps_list':steps_list} # recon mse only
@@ -141,7 +141,7 @@ def test_inf():
 
 
 ## GLOBAL VARS
-onebird_string=['(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
+multinomial_string=['(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
 
 test_inf_limit = 20
 if len(sys.argv)>1:
@@ -297,11 +297,11 @@ def test_persistent_ripl_analytics(mripl=False):
 # Produce a params dict for testing inference
 # (be wary of mutating entries without copying first)
 
-def get_onebird_params(params_name='easy_hypers'):
-  return get_params( params_name='easy_hypers', model='onebird')
+def get_multinomial_params(params_name='easy_hypers'):
+  return get_params( params_name='easy_hypers', model='multinomial')
 
 def get_params(params_name='easy_hypers', model='poisson'):
-  'Function for producing params for OneBird Unit object'
+  'Function for producing params for Multinomial Unit object'
   
 # 'easy_hypers', currently uses 'must move exactly onestep away'
 # and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
@@ -310,7 +310,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     Y, D = 1, 4
     years,days = range(Y),range(D)
     maxDay = D
-    height,width = 4,4
+    height,width = 3,2
     functions = 'easy'
     features,features_dict = make_features_dict(height, width, years, days,
                                          order=global_order,functions=functions)
@@ -369,15 +369,15 @@ def poi(params_name='easy_hypers'):
 # General version would generate some hypers and then test
 # the learning of them. But working with fixed params is ok also.
 
-def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
+def test_easy_hypers_multinomial(use_analytics=False, steps_iterations=None):
   steps_iterations = (20,2) if not steps_iterations else steps_iterations
-  easy_params = get_onebird_params('easy_hypers')
-  out = test_onebird_reconstruction( steps_iterations, test_hypers=True,
+  easy_params = get_multinomial_params('easy_hypers')
+  out = test_multinomial_reconstruction( steps_iterations, test_hypers=True,
                                      plot=True, infer_prog = filter_inf, use_analytics=use_analytics)
   unit_objects, params, all_locs, all_figs, mses, all_hypers = out
 
   gtruth_unit =  unit_objects[0]
-  assert isinstance(gtruth_unit,OneBird)
+  assert isinstance(gtruth_unit,Multinomial)
   assert not gtruth_unit.learn_hypers
   assert gtruth_unit.hypers == easy_params['hypers']
   
@@ -405,18 +405,18 @@ def test_easy_hypers_onebird(use_analytics=False, steps_iterations=None):
     assert 0.1 > abs( hists_stitched.nameToSeries['hypers0'][0].values[-1] - all_hypers[-1][0] )
     assert -2 < hists_stitched.averageValue('hypers0') < 5
 
-  print '\n\n Passed "test_easy_hypers_onebird"'
+  print '\n\n Passed "test_easy_hypers_multinomial"'
 
   return out,ana,hists
 
     
 ## Test non-Analytics reconstruction AND hypers inference. MH-Filter is *filter_inf* vs. *smooth_inf*.
 ## Testing involves computing mse for latents and hypers.
-## Gets params from *get_onebird_params*
-def test_onebird_reconstruction(steps_iterations, test_hypers=False, plot=True,
+## Gets params from *get_multinomial_params*
+def test_multinomial_reconstruction(steps_iterations, test_hypers=False, plot=True,
                                 infer_prog=filter_inf, use_analytics=False):
   return test_reconstruction(steps_iterations, test_hypers, plot,infer_prog,
-                             use_analytics, model = 'onebird')
+                             use_analytics, model = 'multinomial')
 
 
 def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
@@ -438,7 +438,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   if model=='poisson':
     make_infer_string = lambda d,s: make_poisson_infer_string(d,s,None)
   else:
-    make_infer_string = make_onebird_infer_string 
+    make_infer_string = make_multinomial_infer_string 
     
                               
   # generate synthetic data and do inference                                                 
@@ -454,8 +454,9 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   # View the normalized dist on (0,0) for a few cells. Compare to
   # gtruth moves plots as check
   if plot:
-    check_cells = tuple(range(7))
-    plot_from_cell_dist(gtruth_params, gtruth_unit.ripl,
+    num_cells = gtruth_params['height']*gtruth_params['width']
+    check_cells = range( min( num_cells, 5) )
+    plot_cell_to_prob_dist(gtruth_params['height'],gtruth_params['width'], gtruth_unit.ripl,
                         check_cells, year=0, day=0, order= order, name='Gtruth')
 
   # compute test statistics
@@ -480,15 +481,15 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
   return unit_objects, params, all_locs, all_figs, mses, all_hypers
 
 
-###  Tests for Analytics OneBird Incremental Inference
-# 1. Series of basic unit tests for OneBird in Analytics
-# 2. Filter OneBirds hypers inference using *ana_filter_inf* above.
+###  Tests for Analytics Multinomial Incremental Inference
+# 1. Series of basic unit tests for Multinomial in Analytics
+# 2. Filter Multinomials hypers inference using *ana_filter_inf* above.
 def test_ana_inf(mripl=False):
-  'Series of tests for inference on analytics object for OneBird'
-  params = get_onebird_params()
+  'Series of tests for inference on analytics object for Multinomial'
+  params = get_multinomial_params()
   params['learn_hypers'] = True
   
-  unit = OneBird(mk_p_ripl(),params)
+  unit = Multinomial(mk_p_ripl(),params)
   unit.loadAssumes()
 
   ripl_mripl = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
@@ -524,12 +525,12 @@ def test_ana_inf(mripl=False):
   # create gtruth uni object and run incremental inference
   gt_params = params.copy()
   gt_params['learn_hypers'] = False  ## TODO make params code clearer (safer)
-  gt_unit = OneBird(mk_p_ripl(),gt_params)
+  gt_unit = Multinomial(mk_p_ripl(),gt_params)
   gt_unit.loadAssumes()
   filename = gt_unit.store_observes(gt_unit.years,gt_unit.days)
 
   inf_params = params.copy()  # which must have *learn_hypers*=True
-  inf_unit = OneBird(mk_p_ripl(),inf_params)
+  inf_unit = Multinomial(mk_p_ripl(),inf_params)
   inf_unit.loadAssumes()
   inf_ana = inf_unit.getAnalytics(ripl_mripl,mutateRipl=True)
 
@@ -559,7 +560,7 @@ def run_all_tests(plot=False):
   settings = product(steps_iterations, test_hypers, infer_prog )
   for steps_iterations, test_hypers, infer_prog in settings:
     print 'steps_iterations, test_hypers, infer_prog', steps_iterations, test_hypers, infer_prog
-    test_onebird_reconstruction(  steps_iterations, test_hypers, plot, infer_prog)
+    test_multinomial_reconstruction(  steps_iterations, test_hypers, plot, infer_prog)
 
 
 
