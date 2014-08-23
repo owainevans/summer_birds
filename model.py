@@ -50,6 +50,14 @@ def store_observes(unit,years=None,days=None,filename=None):
   if days is None: days = unit.days
 
   observed_counts={}
+  observed_counts2={}
+
+
+  for y,d,i in product(years,days,range(unit.cells)):
+    observed_counts2[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+
+  store_dict = {'unit_parameters':unit.parameters, 'observed_counts':observed_counts2}
+
   for y in years:
     for d in days:
       counts  = []
@@ -100,36 +108,82 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 class Multinomial(VentureUnit):
   
+
+
+  def get_params(self):
+    self.params['ripl_directives'] = self.ripl.list_directives()
+    return self.params
+
   def __init__(self, ripl, params):
 
-    ## FIXME, loop over setattr(k,v) for most of these
-    self.name = params['name']
-    self.width = params['width']
-    self.height = params['height']
+    self.params = params
+    for k,v in self.params.iteritems():
+      setattr(self,k,v)
+
     self.cells = self.width * self.height
-    assert isinstance(self.cells,int) and self.cells > 1
+    assert self.cells > 1
+    types = dict(cells=int,
+                 years=list,
+                 days=list,
+                 max_day=int,
+                 features=dict,
+                 num_features=int,
+                 hypers=list,
+                 learn_hypers=bool,
+                 hypers_prior=list,
+                 softmax_beta=int,
+                 venture_random_seed=int,
+                 dataset=int,
+                 load_observes_file=bool,
+                 observed_counts_filename=str,)
+
+    for attr,t in types.items():
+      assert isinstance(getattr(self,attr), t)
     
-    self.years = params['years']
-    assert isinstance(self.years, list)
-    self.days = params['days']
-    assert isinstance(self.days, list)
+    
+    
+    # to recreate the model, we just need the params dict
+    # later on, to recreate whole thing, we'd like the serialized ripl
+    # but a good alternative is just to store the ripl's list_directives in params
 
-    if 'features' in params:
-      self.features = params['features']
-      self.num_features = params['num_features']
-    else:
-      self.features = loadFeatures(1, self.name, self.years, self.days)
-      self.num_features = num_features
+    # for reproduction, it's probably best to send features directly, rather than
+    # generating them via the models init (want to separate the venture model
+    # from the code that calls in some stored features)
 
-    self.learn_hypers = params['learn_hypers']
-    if not self.learn_hypers:
-      self.hypers = params['hypers']
+    # should we have some default values for features in the init, or should 
+    # we be strict about requiring all features to be entered from the outside
+    # - probably better to modularize these. to have the init be clean.
+    # we already need a separate script which generates params by calling feature_utils (potentially)
+    # one use is generating data. for that we turn learn_hypers off. another is observed. for that
+    # we need the feature_dict that generated the data (so that table needs to be easy to pull out)
+    
+    # self.name = params['name']
+    # self.width = params['width']
+    # self.height = params['height']
+    # self.cells = self.width * self.height
+    # assert isinstance(self.cells,int) and self.cells > 1
+    
+    # self.years = params['years']
+    # assert isinstance(self.years, list)
+    # self.days = params['days']
+    # assert isinstance(self.days, list)
+
+    # if 'features' in params:
+    #   self.features = params['features']
+    #   self.num_features = params['num_features']
+    # else:
+    #   self.features = loadFeatures(1, self.name, self.years, self.days)
+    #   self.num_features = num_features
+
+    # self.learn_hypers = params['learn_hypers']
+    # if not self.learn_hypers:
+    #   self.hypers = params['hypers']
       
-    self.load_observes_file=params.get('load_observes_file',True)
-    self.num_birds=params.get('num_birds',1)
+    # self.load_observes_file=params.get('load_observes_file',True)
+    # self.num_birds=params.get('num_birds',1)
 
-    self.softmax_beta=params.get('softmax_beta',1)
-    self.observed_counts_filename = params.get('observed_counts_filename',None)
+    # self.softmax_beta=params.get('softmax_beta',1)
+    # self.observed_counts_filename = params.get('observed_counts_filename',None)
     
     super(Multinomial, self).__init__(ripl, params)
 
@@ -149,8 +203,9 @@ class Multinomial(VentureUnit):
   def loadAssumes(self, ripl = None): ## see point under *makeAssumes*
     if ripl is None:  # allows loading of assumes on an alternative ripl
       ripl = self.ripl
-    
+                                  
     print "Loading assumes"
+
 
 ## UTILITY FUNCTIONS
     ripl.assume('filter',"""
@@ -165,7 +220,7 @@ class Multinomial(VentureUnit):
           (pair (f (first lst)) (map f (rest lst))) ) )""")
 
 
-## PARAMS FOR SINGLE / MULTIBIRD MODEL
+## PARAMS FOR SINGLE AND MULTIBIRD MODEL
     if not self.learn_hypers:
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
@@ -319,8 +374,6 @@ class Multinomial(VentureUnit):
       features_dict = venturedict_to_pythondict(self.features)
       assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
 
-
-      
       print '\n Features dict (up to 10th entry) for year,day = 0,0'
       count = 0
       for k,v in features_dict.iteritems():

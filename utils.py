@@ -85,6 +85,7 @@ def ensure(path):
 
 
 def make_grid(height,width,top0=True,lst=None,order='F'):
+  '''Turn *lst* into np.array, optionally having 0 start at top/bottom. *lst* defaults to range(width*height)'''
   if lst is not None:
     assert isinstance( lst[0] , (int,float) )
     

@@ -145,7 +145,8 @@ multinomial_string=['(cycle ((mh hypers all 10) (mh move %i %i)) 1)']
 
 test_inf_limit = 20
 if len(sys.argv)>1:
-  test_inf_limit = int( sys.argv[1] )
+  pass
+  #test_inf_limit = int( sys.argv[1] )
   
 global_order='F'
 ## test for order: with C order, plots should have counts in C order
@@ -309,13 +310,14 @@ def get_params(params_name='easy_hypers', model='poisson'):
     name = 'easy_hypers'
     Y, D = 1, 4
     years,days = range(Y),range(D)
-    maxDay = D
+    max_day = D
     height,width = 3,2
     feature_functions_name = 'one_step_and_not_diagonal'
-    features,features_dict = make_features_dict(height, width, years, days,
-                                                feature_functions_name = feature_functions_name,
-                                                order = global_order)
-    num_features = len( features_dict[(0,0,0,0)] )
+    features,python_features_dict = make_features_dict(height, width, years,
+                                                       days,
+                                                       feature_functions_name = feature_functions_name,
+                                                       order = global_order)
+    num_features = len( python_features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,1,0,0][:num_features]
     hypers_prior = ['(gamma 6 1)']*num_features
@@ -323,7 +325,8 @@ def get_params(params_name='easy_hypers', model='poisson'):
     softmax_beta = 4
     load_observes_file=False
     venture_random_seed = 1
-    dataset = None
+    dataset = 0
+    observed_counts_filename = ''
 
 
   elif params_name in ('ds2','ds3'):
@@ -334,7 +337,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     Y,D = 1, 4
     years = range(Y)
     days = []
-    maxDay = D
+    max_day = D
     hypers = [5, 10, 10, 10] 
     num_features = len(hypers)
     hypers_prior = ['(gamma 6 1)']*num_features
@@ -345,13 +348,14 @@ def get_params(params_name='easy_hypers', model='poisson'):
     venture_random_seed = 1
 
   params = dict(name = name, dataset = dataset,
-                years=years,  days = days, maxDay = maxDay,
+                years=years,  days = days, max_day = max_day,
                 height=height, width=width,
                 features=features, num_features = num_features,
                 learn_hypers=learn_hypers, hypers = hypers, hypers_prior = hypers_prior,
                 num_birds = num_birds, softmax_beta = softmax_beta,
                 load_observes_file = load_observes_file,
-                venture_random_seed = venture_random_seed)
+                venture_random_seed = venture_random_seed,
+                observed_counts_filename = observed_counts_filename)
 
   return params
 
