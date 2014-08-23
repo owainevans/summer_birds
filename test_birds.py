@@ -40,7 +40,7 @@ def test_make_features_dict():
   years,days = range(2), range(2)
   args = (height, width, years, days)
   name = 'one_step_and_not_diagonal'
-  venture_dict, python_dict = make_features_dict(*args, feature_functions_name=name, order='F')
+  venture_dict, python_dict = make_features_dict(*args, feature_functions_name=name )
   eq_( len(python_dict), (height*width)**2 * ( len(years)*len(days) ) )
   assert isinstance( python_dict[ (0,0,0,0) ], (list,tuple) )
   eq_( venture_dict['type'], 'dict' )

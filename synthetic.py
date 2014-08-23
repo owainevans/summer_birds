@@ -315,8 +315,7 @@ def get_params(params_name='easy_hypers', model='poisson'):
     feature_functions_name = 'one_step_and_not_diagonal'
     features,python_features_dict = make_features_dict(height, width, years,
                                                        days,
-                                                       feature_functions_name = feature_functions_name,
-                                                       order = global_order)
+                                                       feature_functions_name = feature_functions_name)
     num_features = len( python_features_dict[(0,0,0,0)] )
     learn_hypers = False
     hypers = [1,1,0,0][:num_features]

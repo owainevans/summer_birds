@@ -1,4 +1,5 @@
 from utils import *
+from features_utils import make_features_dict
 from venture.unit import VentureUnit
 from venture.ripl.utils import strip_types
 from itertools import product
@@ -45,35 +46,32 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 # TODO: less hackish way of storing in unique file/directory for parallel runs
-def store_observes(unit,years=None,days=None,filename=None):
+def store_observes(unit,years=None,days=None, path = None):
   if years is None: years = unit.years
   if days is None: days = unit.days
 
   observed_counts={}
-  observed_counts2={}
-
 
   for y,d,i in product(years,days,range(unit.cells)):
-    observed_counts2[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+    observed_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
 
-  store_dict = {'unit_parameters':unit.parameters, 'observed_counts':observed_counts2}
+  params = unit.get_params()
+  store_dict = {'unit_params':params, 'observed_counts':observed_counts2}
+  filename = params['long_name']
 
-  for y in years:
-    for d in days:
-      counts  = []
-      for i in range(unit.cells):
-        counts.append( unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i)) )
-      observed_counts[(y,d)] = counts
-      
-  if filename is None:
-    path = 'synthetic/%s/%s'%(unit.name, str(np.random.randint(10**9))) ## TODO random dir name
+  if path is None:
+    date = '21_08_14' ## FIXME ADD DATE
+    path = 'synthetic/%s/' % date
     ensure(path)
-    filename = path + 'observes.dat'
+    path_filename = path + filename
   
-  with open(filename,'w') as f:
-    pickle.dump(observed_counts,f)
-  print 'Stored observes in %s.'%filename
-  return filename
+  with open(path_filename,'w') as f:
+    pickle.dump(store_dict,f)
+  print 'Stored observes in %s.'%path_filename
+
+  return path_filename
+
+
 
 
 def observe_from_file(unit,years_range,days_range,filename=None, no_observe_directives=False):
@@ -99,6 +97,111 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
   return observes
 
 
+# NOTES:
+# we want a function that takes filename, hyperpriors, poiss/multi and 
+# outputs a unit object with the features loaded. you then can 
+# incrementally load whichever observes you want from same filename (which
+# should probably be a fixed param -- which is null for synthetic generator)
+
+# then write some python functions that do inference on generic unit objects
+# (by doing inference on its constituent ripl). may want to be able to save
+# state at any stage, for interactive work.
+
+# then combine these in a function that runs a full experiment. 
+
+
+def make_params():  
+# 'easy_hypers', currently uses 'must move exactly onestep away'
+# and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
+  params = {
+    'short_name': 'onestepdiag10',
+    'years': range(1),
+    'days': range(3),
+    'height': 3,
+    'width': 2,
+    'feature_functions_name': 'one_step_and_not_diagonal',
+    'learn_hypers': False,
+    'num_birds': 20,
+    'softmax_beta': 4,
+    'observes_loaded_from': None,
+    'venture_random_seed': 1,
+    'dataset': None,
+    'observes_saved_to': None }
+
+  params['max_day'] = max( params['days'] )
+  
+  # Generate features dicts
+  args = params['height'], params['width'], params['years'], params['days']
+  kwargs = dict( feature_functions_name = params['feature_functions_name'] )
+  venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
+                                                 
+  params['features'] = venture_features_dict  
+  params['num_features'] = len( python_features_dict[(0,0,0,0)] )
+  params['hypers_prior'] = ['(gamma 6 1)'] * params['num_features']                                  
+  params['hypers'] = [1,0,0,0][:params['num_features']]
+
+
+  def make_long_name( params ):
+    s0 = 'gen__' if not params['observes_loaded_from'] else 'inf__'
+    s1 = 'features-%s' % params['feature_functions_name']
+    s2 = 'hypers-%s' %  '_'.join( map(str, params['hypers']) )
+    s3 = 'cells-%s' % params['height']*params['width']
+    s4 = 'days-%s' % len( params['days'] ) * len( params['years'] )
+    return '__'.join( [s0,s1,s2,s3,s4] )
+    
+  params['long_name'] = make_long_name( params )
+
+  # Check types
+  types = dict(
+               short_name = str,
+               height=int,
+               width=int,
+               years=list,
+               days=list,
+               max_day=int,
+               features=dict,
+               num_features=int,
+               hypers=list,
+               learn_hypers=bool,
+               hypers_prior=list,
+               softmax_beta=int,
+               venture_random_seed=int,)
+  
+  for k,v in types.items():
+    assert isinstance(params[k],v)
+
+  if params['observes_loaded_from']:
+    assert isintance( params['observes_loaded_from'], str)
+
+  if params['observes_saved_to']:
+    assert isintance( params['observes_saved_to'], str)
+    
+  assert isinstance( params['hypers'][0], (int,float) )
+  
+
+  ## FIXME ADD PARAMS FOR DATASET AND FUNC FOR ADDING MORE PARAMS
+
+  # elif params_name in ('ds2','ds3'):
+  #   dataset = 2 if params_name=='ds2' else 3
+  #   width,height = 10,10
+  #   num_birds = 1000 if dataset == 2 else 1000000
+  #   name = "%dx%dx%d-train" % (width, height, num_birds)
+  #   Y,D = 1, 4
+  #   years = range(Y)
+  #   days = []
+  #   max_day = D
+  #   hypers = [5, 10, 10, 10] 
+  #   num_features = len(hypers)
+  #   hypers_prior = ['(gamma 6 1)']*num_features
+  #   learn_hypers = False
+  #   features = None
+  #   softmax_beta = None
+  #   load_observes_file = None
+  #   venture_random_seed = 1
+
+
+  return params
+
 
 ## CELL NAMES (GRID REFS)
 # Multinomial Venture prog just has integer cell indices
@@ -108,12 +211,6 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 class Multinomial(VentureUnit):
   
-
-
-  def get_params(self):
-    self.params['ripl_directives'] = self.ripl.list_directives()
-    return self.params
-
   def __init__(self, ripl, params):
 
     self.params = params
@@ -121,26 +218,7 @@ class Multinomial(VentureUnit):
       setattr(self,k,v)
 
     self.cells = self.width * self.height
-    assert self.cells > 1
-    types = dict(cells=int,
-                 years=list,
-                 days=list,
-                 max_day=int,
-                 features=dict,
-                 num_features=int,
-                 hypers=list,
-                 learn_hypers=bool,
-                 hypers_prior=list,
-                 softmax_beta=int,
-                 venture_random_seed=int,
-                 dataset=int,
-                 load_observes_file=bool,
-                 observed_counts_filename=str,)
-
-    for attr,t in types.items():
-      assert isinstance(getattr(self,attr), t)
-    
-    
+ 
     
     # to recreate the model, we just need the params dict
     # later on, to recreate whole thing, we'd like the serialized ripl
@@ -157,35 +235,11 @@ class Multinomial(VentureUnit):
     # one use is generating data. for that we turn learn_hypers off. another is observed. for that
     # we need the feature_dict that generated the data (so that table needs to be easy to pull out)
     
-    # self.name = params['name']
-    # self.width = params['width']
-    # self.height = params['height']
-    # self.cells = self.width * self.height
-    # assert isinstance(self.cells,int) and self.cells > 1
-    
-    # self.years = params['years']
-    # assert isinstance(self.years, list)
-    # self.days = params['days']
-    # assert isinstance(self.days, list)
-
-    # if 'features' in params:
-    #   self.features = params['features']
-    #   self.num_features = params['num_features']
-    # else:
-    #   self.features = loadFeatures(1, self.name, self.years, self.days)
-    #   self.num_features = num_features
-
-    # self.learn_hypers = params['learn_hypers']
-    # if not self.learn_hypers:
-    #   self.hypers = params['hypers']
-      
-    # self.load_observes_file=params.get('load_observes_file',True)
-    # self.num_birds=params.get('num_birds',1)
-
-    # self.softmax_beta=params.get('softmax_beta',1)
-    # self.observed_counts_filename = params.get('observed_counts_filename',None)
-    
     super(Multinomial, self).__init__(ripl, params)
+
+  def get_params(self):
+    self.params['ripl_directives'] = self.ripl.list_directives()
+    return self.params
 
 
   def makeAssumes(self):
@@ -194,11 +248,9 @@ class Multinomial(VentureUnit):
     # the unit object's *assumes* attribute. this way, when we call *getAnalytics*
     # all the assumes are sent in the Kwargs. 
   
-  def makeObserves(self):
-    if self.load_observes_file:
-      self.loadObserves(ripl=self)
-    else:
-      pass
+  # def makeObserves(self):
+  #   self.loadObserves(ripl=self)
+    
   
   def loadAssumes(self, ripl = None): ## see point under *makeAssumes*
     if ripl is None:  # allows loading of assumes on an alternative ripl
@@ -308,8 +360,8 @@ class Multinomial(VentureUnit):
     ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001)))')
 
   
-  def store_observes(self,years=None,days=None,filename=None):
-    return store_observes(self,years,days,filename)
+  def store_observes(self,years=None,days=None,path=None):
+    return store_observes(self,years,days,path)
      
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
@@ -390,40 +442,40 @@ class Multinomial(VentureUnit):
     return bitmaps
 
     
-# loadObserves for multinomial dataset (prepare for pgibbs inference)
-  def loadObserves(self, ripl = None):
-    if ripl is None:
-      ripl = self.ripl
-  
-    observations_file = "data/input/dataset%d/%s-observations.csv" % (1, self.name)
-    observations = readObservations(observations_file)
+# # loadObserves for multinomial dataset (prepare for pgibbs inference)
+#   def loadObserves(self, ripl = None):
+#     if ripl is None:
+#       ripl = self.ripl
+#     ## FIXME STUFF FOR DATASET LOADING
+#     #observations_file = "data/input/dataset%d/%s-observations.csv" % (1, self.name)
+#     #observations = readObservations(observations_file)
 
-    self.unconstrained = []
+#     self.unconstrained = []
 
-    for y in self.years:
-      for (d, ns) in observations[y]:
-        if d not in self.days: continue
-        if d == 0: continue
+#     for y in self.years:
+#       for (d, ns) in observations[y]:
+#         if d not in self.days: continue
+#         if d == 0: continue
         
-        loc = None
+#         loc = None
         
-        for i, n in enumerate(ns):
-          if n > 0:
-            loc = i
-            break
+#         for i, n in enumerate(ns):
+#           if n > 0:
+#             loc = i
+#             break
         
-        if loc is None:
-          self.unconstrained.append((y, d-1))
-          #ripl.predict('(get_bird_pos %d %d)' % (y, d))
-        else:
-          ripl.observe('(get_bird_pos %d %d)' % (y, d), loc)
+#         if loc is None:
+#           self.unconstrained.append((y, d-1))
+#           #ripl.predict('(get_bird_pos %d %d)' % (y, d))
+#         else:
+#           ripl.observe('(get_bird_pos %d %d)' % (y, d), loc)
   
-  def inferMove(self, ripl = None):
-    if ripl is None:
-      ripl = self.ripl
+#   def inferMove(self, ripl = None):
+#     if ripl is None:
+#       ripl = self.ripl
     
-    for block in self.unconstrained:
-      ripl.infer({'kernel': 'gibbs', 'scope': 'move', 'block': block, 'transitions': 1})
+#     for block in self.unconstrained:
+#       ripl.infer({'kernel': 'gibbs', 'scope': 'move', 'block': block, 'transitions': 1})
   
 
 

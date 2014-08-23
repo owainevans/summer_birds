@@ -64,7 +64,7 @@ def ind_to_ij(height, width, index, order='F'):
   return map(int,np.where(grid==index))
 
   
-def make_features_dict(height,width,years,days,feature_functions_name='distance', order='F'):
+def make_features_dict(height, width, years, days, feature_functions_name='distance'):
     
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
@@ -74,7 +74,8 @@ def make_features_dict(height,width,years,days,feature_functions_name='distance'
 
   for (y,d,cell1,cell2) in latents:
     feature_dict[(y,d,cell1,cell2)] = []
-    cell1_ij,cell2_ij = map(lambda index:ind_to_ij(height,width,index, order),
+    # assume all feature functions work on F order arrays
+    cell1_ij,cell2_ij = map(lambda index:ind_to_ij(height, width, index, order='F'),
                             (cell1,cell2))
     
     for f in feature_functions:
