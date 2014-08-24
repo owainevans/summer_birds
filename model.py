@@ -1,12 +1,13 @@
 from utils import *
 from features_utils import make_features_dict
 from venture.unit import VentureUnit
+from venture.venturemagics.ip_parallel import mk_p_ripl, mk_l_ripl
 from venture.ripl.utils import strip_types
 from itertools import product
 import matplotlib.pylab as plt
 import cPickle as pickle
 import numpy as np
-num_features = 4
+
     
 #### Multinomials and Poisson Dataset Loading Functions
 
@@ -44,26 +45,68 @@ def loadObservations(ripl, dataset, name, years, days):
 ## Multinomial & Poisson functions for saving synthetic Observes and 
 ## loading and running unit.ripl.observe(loaded_observe)
 
+def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
+  infer_params = generate_data_params.copy()
+  assert len( prior_on_hypers ) == len( infer_params['num_features'] )
+  assert isinstance( prior_on_hypers[0], str )
+  
+  return new_params.update( {'learn_hypers':True, 'prior_on_hypers': prior_on_hypers,
+                             'observes_loaded_from': observes_loaded_from } )
 
-# TODO: less hackish way of storing in unique file/directory for parallel runs
-def store_observes(unit,years=None,days=None, path = None):
+
+def make_infer_unit( generate_data_path, prior_on_hypers, multinomial_or_poisson=True):
+
+  with open(generate_data_path,'r') as f:
+    store_dict = pickle.load(f)
+
+  generate_data_params = store_dict['generate_data_params']
+  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
+                                                      generate_data_path)
+
+  model_constructor = Multinomial if multinomial_or_poisson else Poisson
+  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
+
+  return infer_unit
+  
+def test_make_infer():
+  generate_data_params = make_params()
+  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
+  path_filename = generate_data_unit.store_observes(range(1),range(1))
+
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
+  infer_params = infer_unit.make_params()
+
+  for k,v in generate_data_params.items():
+    if k not in ('prior_on_hypers','learn_hypers','observes_loaded_from'):
+      assert v == infer_params[k]
+
+
+
+def store_observes(unit,years=None,days=None):
   if years is None: years = unit.years
   if days is None: days = unit.days
 
+  assert isinstance(years,list) and max(years) <= max(unit.years)
+  assert isinstance(days,list) and max(days) <= max(unit.days)
+
+  if not unit.assumes_loaded:
+    unit.loadAssumes()
+  
   observed_counts={}
 
-  for y,d,i in product(years,days,range(unit.cells)):
+  for y,d,i in product(years, days, range(unit.cells)):
     observed_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
 
   params = unit.get_params()
-  store_dict = {'unit_params':params, 'observed_counts':observed_counts2}
-  filename = params['long_name']
+  store_dict = {'generate_data_params':params, 'observed_counts':observed_counts}
+  filename = params['long_name'] + '.dat'
 
-  if path is None:
-    date = '21_08_14' ## FIXME ADD DATE
-    path = 'synthetic/%s/' % date
-    ensure(path)
-    path_filename = path + filename
+ 
+  date = '21_08_14' ## FIXME ADD DATE
+  path = 'synthetic/%s/' % date
+  ensure(path)
+  path_filename = path + filename
   
   with open(path_filename,'w') as f:
     pickle.dump(store_dict,f)
@@ -109,6 +152,8 @@ def observe_from_file(unit,years_range,days_range,filename=None, no_observe_dire
 
 # then combine these in a function that runs a full experiment. 
 
+ # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need top actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
+
 
 def make_params():  
 # 'easy_hypers', currently uses 'must move exactly onestep away'
@@ -137,17 +182,29 @@ def make_params():
                                                  
   params['features'] = venture_features_dict  
   params['num_features'] = len( python_features_dict[(0,0,0,0)] )
-  params['hypers_prior'] = ['(gamma 6 1)'] * params['num_features']                                  
+  params['prior_on_hypers'] = ['(gamma 6 1)'] * params['num_features']                                  
   params['hypers'] = [1,0,0,0][:params['num_features']]
 
 
   def make_long_name( params ):
+    ## need to make long_name for inference jobs. need reference to dataset
+    # we are doing inference on. but also need info about inference program
+    # so that we can join identical inference progs. so defer till we 
+    # have set up 'inference_params'
+
+    keys = ('feature_functions_name','hypers',
+            'height','width','num_birds','softmax_beta',
+            'years','days' )
+
+    s = []
+    for k in keys:
+      sub = len(params[k]) if k in ('years','days') else params[k]
+      s.append( k+'-%s' % sub)
+    
     s0 = 'gen__' if not params['observes_loaded_from'] else 'inf__'
-    s1 = 'features-%s' % params['feature_functions_name']
-    s2 = 'hypers-%s' %  '_'.join( map(str, params['hypers']) )
-    s3 = 'cells-%s' % params['height']*params['width']
-    s4 = 'days-%s' % len( params['days'] ) * len( params['years'] )
-    return '__'.join( [s0,s1,s2,s3,s4] )
+    s = [s0] + s
+    
+    return '__'.join( s )
     
   params['long_name'] = make_long_name( params )
 
@@ -163,7 +220,7 @@ def make_params():
                num_features=int,
                hypers=list,
                learn_hypers=bool,
-               hypers_prior=list,
+               prior_on_hypers=list,
                softmax_beta=int,
                venture_random_seed=int,)
   
@@ -192,7 +249,7 @@ def make_params():
   #   max_day = D
   #   hypers = [5, 10, 10, 10] 
   #   num_features = len(hypers)
-  #   hypers_prior = ['(gamma 6 1)']*num_features
+  #   prior_on_hypers = ['(gamma 6 1)']*num_features
   #   learn_hypers = False
   #   features = None
   #   softmax_beta = None
@@ -219,6 +276,7 @@ class Multinomial(VentureUnit):
 
     self.cells = self.width * self.height
  
+    self.assumes_loaded = False
     
     # to recreate the model, we just need the params dict
     # later on, to recreate whole thing, we'd like the serialized ripl
@@ -273,14 +331,17 @@ class Multinomial(VentureUnit):
 
 
 ## PARAMS FOR SINGLE AND MULTIBIRD MODEL
-    if not self.learn_hypers:
-      for k, value_k in enumerate(self.hypers):
-        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
-    else:
+
+## FIXME incorporate *prior_on_hypers*
+    if self.learn_hypers:
       ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
       for k in range(self.num_features):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %d (* scale (normal 0 5) ))' % k)
+    else:
+      for k, value_k in enumerate(self.hypers):
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
 
+      
     
     ripl.assume('features', self.features)
     ripl.assume('num_birds',self.num_birds)
@@ -358,10 +419,12 @@ class Multinomial(VentureUnit):
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 ## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
     ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001)))')
+    
+    self.assumes_loaded = True
 
   
-  def store_observes(self,years=None,days=None,path=None):
-    return store_observes(self,years,days,path)
+  def store_observes(self,years=None,days=None):
+    return store_observes(self,years,days)
      
 
   def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
@@ -509,8 +572,8 @@ class Poisson(VentureUnit):
       assert isinstance( attr[0], (float,int) )
 
     self.hypers = params["hypers"]
-    self.hypers_prior = params['hypers_prior']
-    assert isinstance(self.hypers_prior[0],str)
+    self.prior_on_hypers = params['prior_on_hypers']
+    assert isinstance(self.prior_on_hypers[0],str)
     self.learn_hypers = params['learn_hypers']
     
     self.ground = readReconstruction(params) if 'ground' in params else None
@@ -574,7 +637,7 @@ class Poisson(VentureUnit):
       for k, k_value in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %i %f )'%(k, k_value) )
     else:
-      for k, k_prior in enumerate(self.hypers_prior):
+      for k, k_prior in enumerate(self.prior_on_hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %i %s )'%(k, k_prior) )
 
     ripl.assume('features', self.features)
