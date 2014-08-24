@@ -77,7 +77,7 @@ def test_features_functions():
 def make_multinomial_unit():
   params = get_multinomial_params(params_name = 'easy_hypers' )
   unit =  Multinomial(mk_p_ripl(),params)
-  unit.loadAssumes()
+  unit.load_assumes()
   return unit
 
   

@@ -1,5 +1,5 @@
 from features_utils import make_features_dict, cell_to_prob_dist, plot_cell_to_prob_dist
-from model import Multinomial,Poisson
+from model import Multinomial,Poisson, make_params
 from venture.venturemagics.ip_parallel import mk_p_ripl, MRipl
 from venture.unit import Analytics
 import matplotlib.pylab as plt
@@ -58,13 +58,13 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
     
   # Create gtruth_unit object with Puma ripl  
   uni = makeUnit(mk_p_ripl(),gtruth_params)
-  uni.loadAssumes()
+  uni.load_assumes()
   gtruth_locs,gtruth_fig = locs_fig(uni, gtruth_params['name'])
   filename = uni.store_observes(years,days)  # filename will use uni.name and random string
   
   # make inference model
   uni_inf = makeUnit(mk_p_ripl(),infer_params)
-  uni_inf.loadAssumes()
+  uni_inf.load_assumes()
   prior_locs,prior_fig = locs_fig(uni_inf,infer_params['name']+'_prior')
 
   # observe and infer (mutating the ripl in the Unit object)
@@ -81,7 +81,7 @@ def synthetic_infer( model, gtruth_params, infer_params, infer_prog,
 
   # make a fresh ripl to measure impact of inference
   uni_fresh = makeUnit(mk_p_ripl(),infer_params)
-  uni_fresh.loadAssumes()
+  uni_fresh.load_assumes()
   unit_objects = uni,uni_fresh,uni_inf, analytics_obj_hists
   
   all_locs = gtruth_locs, prior_locs, posterior_locs
@@ -299,68 +299,13 @@ def test_persistent_ripl_analytics(mripl=False):
 # (be wary of mutating entries without copying first)
 
 def get_multinomial_params(params_name='easy_hypers'):
-  return get_params( params_name='easy_hypers', model='multinomial')
-
-def get_params(params_name='easy_hypers', model='poisson'):
-  'Function for producing params for Multinomial Unit object'
-  
-# 'easy_hypers', currently uses 'must move exactly onestep away'
-# and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
-  if params_name in ('easy_hypers','easy_d4_s33_bi4_be10'):
-    name = 'easy_hypers'
-    Y, D = 1, 4
-    years,days = range(Y),range(D)
-    max_day = D
-    height,width = 3,2
-    feature_functions_name = 'one_step_and_not_diagonal'
-    features,python_features_dict = make_features_dict(height, width, years,
-                                                       days,
-                                                       feature_functions_name = feature_functions_name)
-    num_features = len( python_features_dict[(0,0,0,0)] )
-    learn_hypers = False
-    hypers = [1,1,0,0][:num_features]
-    hypers_prior = ['(gamma 6 1)']*num_features
-    num_birds = 20
-    softmax_beta = 4
-    load_observes_file=False
-    venture_random_seed = 1
-    dataset = 0
-    observed_counts_filename = ''
+  return make_params()
 
 
-  elif params_name in ('ds2','ds3'):
-    dataset = 2 if params_name=='ds2' else 3
-    width,height = 10,10
-    num_birds = 1000 if dataset == 2 else 1000000
-    name = "%dx%dx%d-train" % (width, height, num_birds)
-    Y,D = 1, 4
-    years = range(Y)
-    days = []
-    max_day = D
-    hypers = [5, 10, 10, 10] 
-    num_features = len(hypers)
-    hypers_prior = ['(gamma 6 1)']*num_features
-    learn_hypers = False
-    features = None
-    softmax_beta = None
-    load_observes_file = None
-    venture_random_seed = 1
-
-  params = dict(name = name, dataset = dataset,
-                years=years,  days = days, max_day = max_day,
-                height=height, width=width,
-                features=features, num_features = num_features,
-                learn_hypers=learn_hypers, hypers = hypers, hypers_prior = hypers_prior,
-                num_birds = num_birds, softmax_beta = softmax_beta,
-                load_observes_file = load_observes_file,
-                venture_random_seed = venture_random_seed,
-                observed_counts_filename = observed_counts_filename)
-
-  return params
 
  
 def poi(params_name='easy_hypers'):
-  params = get_params(params_name=params_name, model='poisson')
+  params = make_params()
   model = 'poisson'
   gtruth_params, infer_params = params.copy(), params.copy()
   out = synthetic_infer(model, gtruth_params, infer_params, smooth_inf, (0,0), False, True)
@@ -427,7 +372,7 @@ def test_reconstruction(steps_iterations, test_hypers=False, plot=True,
                         infer_prog=filter_inf, use_analytics=False, model='poisson'):
 
   plt.close('all')
-  params = get_params('easy_hypers', model)
+  params = make_params()
   order = global_order
 
   # copy and specialize params for gtruth and inference
@@ -494,7 +439,7 @@ def test_ana_inf(mripl=False):
   params['learn_hypers'] = True
   
   unit = Multinomial(mk_p_ripl(),params)
-  unit.loadAssumes()
+  unit.load_assumes()
 
   ripl_mripl = MRipl(2,local_mode=True) if mripl else mk_p_ripl()
   ana = unit.getAnalytics(ripl_mripl,mutateRipl=True)
@@ -530,12 +475,12 @@ def test_ana_inf(mripl=False):
   gt_params = params.copy()
   gt_params['learn_hypers'] = False  ## TODO make params code clearer (safer)
   gt_unit = Multinomial(mk_p_ripl(),gt_params)
-  gt_unit.loadAssumes()
+  gt_unit.load_assumes()
   filename = gt_unit.store_observes(gt_unit.years,gt_unit.days)
 
   inf_params = params.copy()  # which must have *learn_hypers*=True
   inf_unit = Multinomial(mk_p_ripl(),inf_params)
-  inf_unit.loadAssumes()
+  inf_unit.load_assumes()
   inf_ana = inf_unit.getAnalytics(ripl_mripl,mutateRipl=True)
 
   # check prior for inference doesn't know hypers

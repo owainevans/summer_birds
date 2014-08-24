@@ -47,10 +47,10 @@ def loadObservations(ripl, dataset, name, years, days):
 
 def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
   infer_params = generate_data_params.copy()
-  assert len( prior_on_hypers ) == len( infer_params['num_features'] )
+  assert len( prior_on_hypers ) ==  infer_params['num_features']
   assert isinstance( prior_on_hypers[0], str )
   
-  return new_params.update( {'learn_hypers':True, 'prior_on_hypers': prior_on_hypers,
+  return infer_params.update( {'learn_hypers':True, 'prior_on_hypers': prior_on_hypers,
                              'observes_loaded_from': observes_loaded_from } )
 
 
@@ -68,6 +68,7 @@ def make_infer_unit( generate_data_path, prior_on_hypers, multinomial_or_poisson
 
   return infer_unit
   
+
 def test_make_infer():
   generate_data_params = make_params()
   generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
@@ -75,10 +76,11 @@ def test_make_infer():
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
   infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
-  infer_params = infer_unit.make_params()
+  infer_params = infer_unit.get_params()
 
   for k,v in generate_data_params.items():
-    if k not in ('prior_on_hypers','learn_hypers','observes_loaded_from'):
+    if k not in ('ripl_directives','prior_on_hypers',
+                 'learn_hypers','observes_loaded_from'):
       assert v == infer_params[k]
 
 
@@ -91,7 +93,7 @@ def store_observes(unit,years=None,days=None):
   assert isinstance(days,list) and max(days) <= max(unit.days)
 
   if not unit.assumes_loaded:
-    unit.loadAssumes()
+    unit.load_assumes()
   
   observed_counts={}
 
@@ -161,12 +163,12 @@ def make_params():
   params = {
     'short_name': 'onestepdiag10',
     'years': range(1),
-    'days': range(3),
-    'height': 3,
+    'days': range(1),
+    'height': 2,
     'width': 2,
     'feature_functions_name': 'one_step_and_not_diagonal',
     'learn_hypers': False,
-    'num_birds': 20,
+    'num_birds': 2,
     'softmax_beta': 4,
     'observes_loaded_from': None,
     'venture_random_seed': 1,
@@ -266,10 +268,11 @@ def make_params():
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
 
-class Multinomial(VentureUnit):
+class Multinomial(object):
   
   def __init__(self, ripl, params):
 
+    self.ripl = ripl
     self.params = params
     for k,v in self.params.iteritems():
       setattr(self,k,v)
@@ -293,29 +296,17 @@ class Multinomial(VentureUnit):
     # one use is generating data. for that we turn learn_hypers off. another is observed. for that
     # we need the feature_dict that generated the data (so that table needs to be easy to pull out)
     
-    super(Multinomial, self).__init__(ripl, params)
 
   def get_params(self):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
 
-  def makeAssumes(self):
-    self.loadAssumes(self)
-    # ripl arg for *loadAssumes* =self so we use VUnit's *assume* method and mutate
-    # the unit object's *assumes* attribute. this way, when we call *getAnalytics*
-    # all the assumes are sent in the Kwargs. 
-  
-  # def makeObserves(self):
-  #   self.loadObserves(ripl=self)
+  def load_assumes(self):
     
-  
-  def loadAssumes(self, ripl = None): ## see point under *makeAssumes*
-    if ripl is None:  # allows loading of assumes on an alternative ripl
-      ripl = self.ripl
-                                  
+    ripl = self.ripl
+    
     print "Loading assumes"
-
 
 ## UTILITY FUNCTIONS
     ripl.assume('filter',"""
