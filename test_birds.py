@@ -2,11 +2,13 @@ import numpy as np
 import os, subprocess
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from nose.tools import eq_, assert_almost_equal
+import cPickle as pickle
 
+from itertools import product
 from utils import make_grid
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
-from model import Multinomial, Poisson
+from model import Multinomial, Poisson, make_params
 
 def test_make_grid():
   mk_array = lambda ar: np.array(ar,np.int32)
@@ -77,7 +79,7 @@ def test_features_functions():
 def make_multinomial_unit():
   params = get_multinomial_params(params_name = 'easy_hypers' )
   unit =  Multinomial(mk_p_ripl(),params)
-  unit.load_assumes()
+  
   return unit
 
   
@@ -120,6 +122,137 @@ def test_model_multinomial():
     if total_transitions >= 500:
       assert False,'Did total_transitions without changing bird_pos'
     
+
+
+# UTILS FOR MAKING INFER UNIT OBJECTS BASED ON SAVED OBSERVES
+def example_make_infer(observe_range = None):
+  generate_data_params = make_params()
+  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
+
+  if observe_range is None:
+    observe_range = dict(  years_list = range(1),
+                           days_list= range(1),
+                           cells_list = None )
+  
+  path_filename = generate_data_unit.store_observes(observe_range)
+
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
+
+  return observe_range, generate_data_unit, path_filename, infer_unit
+
+
+def update_names(generated_data_params):  
+  short_name = 'infer__' + generated_data_params['short_name']
+  long_name = generated_data_params['long_name'].replace('gen','infer')
+  
+  return short_name, long_name
+
+
+def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
+
+  infer_params = generate_data_params.copy()
+  assert len( prior_on_hypers ) ==  infer_params['num_features']
+  assert isinstance( prior_on_hypers[0], str )
+  
+  short_name, long_name = update_names(generate_data_params)
+
+  # NOTE: observes_loaded_from has full path
+  update_dict = {'learn_hypers':True,
+                 'prior_on_hypers': prior_on_hypers,
+                 'observes_loaded_from': observes_loaded_from,
+                 'short_name': short_name,
+                 'long_name': long_name}
+
+  return infer_params.update
+
+
+def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
+
+  with open(generate_data_path_filename,'r') as f:
+    store_dict = pickle.load(f)
+
+  generate_data_params = store_dict['generate_data_params']
+  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
+                                                      generate_data_path_filename)
+
+  model_constructor = Multinomial if multinomial_or_poisson else Poisson
+  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
+
+  return infer_unit
+
+  
+def test_make_infer():
+  _, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  generate_data_params = generate_data_unit.get_params()
+  infer_params = infer_unit.get_params()
+
+  # is infer_params mostly same as generate_data_params?
+  for k,v in generate_data_params.items():
+    if k not in ('ripl_directives','prior_on_hypers',
+                 'learn_hypers','observes_loaded_from'):
+      eq_( v, infer_params[k] )
+
+  infer_unit.load_assumes()
+
+  # do constants agree for generate_data_unit and infer_unit?
+  expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
+  for exp in expressions:
+    eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
+
+
+def compare_observes( first_unit, second_unit, triples ):
+  'Pass asserts if unit.ripls agree on all triples'
+  def predict_observe( unit,y,d,i):
+    return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+  
+  for y,d,i in triples:
+    print 'cf:',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
+
+    eq_( predict_observe( first_unit, y,d,i),
+         predict_observe( second_unit, y,d,i), )
+
+    
+def make_triples( observe_range ):
+  return product(observe_range['years_list'],
+                 observe_range['days_list'],
+                 observe_range['cells_list'] )
+
+## FIXME, failing, incremental is also
+def test_load_observations():
+  
+  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+
+  infer_unit.load_observes(observe_range, path_filename)
+
+  if observe_range['cells_list'] is None:
+    observe_range['cells_list'] = range( infer.unit.cells )
+    
+  ydi = make_triples( observe_range )
+  # do values for *observe_birds* agree for generate_data_unit
+  # and infer_unit?
+  compare_observes( generate_data_unit, infer_unit, ydi )
+
+
+    
+def test_incremental_load_observations():
+  ## FIXME
+  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+
+  for cell in range(infer_unit.cells):
+    updated_observe_range = observe_range.copy()
+    updated_observe_range.update( dict(cells_list = [cell] ) )
+    print updated_observe_range
+
+    ydi = make_triples(updated_observe_range)
+    print '\n',ydi
+    compare_observes( generate_data_unit, infer_unit, ydi)
+            
+    infer_unit.ripl.infer(10)
+    
+     
+
+
 
 def test_save_images(del_images=True):
   unit = make_multinomial_unit()

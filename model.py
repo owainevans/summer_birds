@@ -124,38 +124,59 @@ def test_make_infer():
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
 
+def compare_observes( first_unit, second_unit, triples ):
+  'Pass asserts if unit.ripls agree on all triples'
+  def predict_observe( unit,y,d,i):
+    return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+  
+  for y,d,i in triples:
+    print 'cf:',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
+
+    eq_( predict_observe( first_unit, y,d,i),
+         predict_observe( second_unit, y,d,i), )
+
+    
+def make_triples( observe_range ):
+  return product(observe_range['years_list'],
+                 observe_range['days_list'],
+                 observe_range['cells_list'] )
+
 def test_load_observations():
   observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
 
-  infer_unit.load_observes( observe_range , path_filename)
+  infer_unit.load_observes(observe_range, path_filename)
 
-  def sample_observe( unit,y,d,i):
-    return unit.ripl.sample('(observe_birds %i %i %i)'%(y,d,i))
-
-  ydi = product(observe_range['years_list'],
-                observe_range['days_list'],
-                range(infer_unit.cells))
+  if observe_range['cells_list'] is None:
+    observe_range['cells_list'] = range( infer.unit.cells )
     
+  ydi = make_triples( observe_range )
   # do values for *observe_birds* agree for generate_data_unit
   # and infer_unit?
-  for y,d,i in ydi:
-    eq_( sample_observe( generate_data_unit, y,d,i),
-         sample_observe( infer_unit, y,d,i), )
+  compare_observes( generate_data_unit, infer_unit, ydi )
 
+
+    
 def test_incremental_load_observations():
   observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
-  
+
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
-    infer_unit.load_observes(updated_observe_range, path_filename)
-    print observe_range.update( dict(cells_list = [cell] ) )
+    print updated_observe_range
+
+    ydi = make_triples(updated_observe_range)
+    print '\n',ydi
+    compare_observes( generate_data_unit, infer_unit, ydi)
+            
     infer_unit.ripl.infer(10)
-    print infer_unit.ripl.list_directives()[-1]
-                      
+    
+     
+    
+    
 
 
 def store_observes(unit, observe_range):
+  unit.ensure_assumes()
   
   observe_unit_pairs = ( ('years_list',unit.years),
                          ('days_list', unit.days),
@@ -168,10 +189,6 @@ def store_observes(unit, observe_range):
       observe_range[k] = unit_v
     else:
       assert set(v).issubset( set(unit_v) )
-  
-
-  if not unit.assumes_loaded:
-    unit.load_assumes()
   
   observe_counts={}
 
@@ -205,7 +222,8 @@ def store_observes(unit, observe_range):
 
 
 def load_observes(unit, load_observe_range, path_filename=None):
- 
+  unit.ensure_assumes()
+  
   assert isinstance(path_filename, str)
   
   with open(path_filename,'r') as f:
@@ -262,7 +280,7 @@ def make_params():
     'width': 2,
     'feature_functions_name': 'one_step_and_not_diagonal',
     'learn_hypers': False,
-    'num_birds': 2,
+    'num_birds': 6,
     'softmax_beta': 4,
     'observes_loaded_from': None,
     'venture_random_seed': 1,
@@ -364,7 +382,7 @@ def make_params():
 
 class Multinomial(object):
   
-  def __init__(self, ripl, params):
+  def __init__(self, ripl, params, delay_load_assumes=False):
 
     self.ripl = ripl
     self.params = params
@@ -372,9 +390,11 @@ class Multinomial(object):
       setattr(self,k,v)
 
     self.cells = self.width * self.height
- 
-    self.assumes_loaded = False
-    
+
+    if delay_load_assumes:
+      self.assumes_loaded = False
+    else:
+      self.load_assumes()
     # to recreate the model, we just need the params dict
     # later on, to recreate whole thing, we'd like the serialized ripl
     # but a good alternative is just to store the ripl's list_directives in params
@@ -395,6 +415,11 @@ class Multinomial(object):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
+  def ensure_assumes(self):
+    if self.assumes_loaded:
+      pass
+    else:
+      self.load_assumes()
 
   def load_assumes(self):
     
@@ -503,7 +528,9 @@ class Multinomial(object):
         (size (filter
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 ## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
-    ripl.assume('observe_birds', '(lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001)))')
+## we memoize this, so that observes are fixed for a given run of the model
+
+    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001))))')
     
     self.assumes_loaded = True
 
