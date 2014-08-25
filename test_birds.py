@@ -168,6 +168,9 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 
 def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
+  '''Utility takes synthetic data path, prior_on_hypers, model_type,
+     and then generates an inference with appropriate params'''
+  
 
   with open(generate_data_path_filename,'r') as f:
     store_dict = pickle.load(f)
@@ -203,6 +206,10 @@ def test_make_infer():
 
 def compare_observes( first_unit, second_unit, triples ):
   'Pass asserts if unit.ripls agree on all triples'
+
+  # one infer on each ripl to ensure observes are 'registered'
+  [unit.ripl.infer(1) for unit in (first_unit, second_unit) ]
+
   def predict_observe( unit,y,d,i):
     return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
   
@@ -218,7 +225,7 @@ def make_triples( observe_range ):
                  observe_range['days_list'],
                  observe_range['cells_list'] )
 
-## FIXME, failing, incremental is also
+
 def test_load_observations():
   
   observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
@@ -236,13 +243,14 @@ def test_load_observations():
 
     
 def test_incremental_load_observations():
-  ## FIXME
+
   observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
 
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
     print updated_observe_range
+    infer_unit.load_observes( updated_observe_range, path_filename)
 
     ydi = make_triples(updated_observe_range)
     print '\n',ydi
@@ -251,7 +259,6 @@ def test_incremental_load_observations():
     infer_unit.ripl.infer(10)
     
      
-
 
 
 def test_save_images(del_images=True):
