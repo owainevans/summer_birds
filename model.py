@@ -115,7 +115,7 @@ def test_make_infer():
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
     
-  infer_unit.load_observes( observe_range )
+  infer_unit.load_observes( observe_range , path_filename)
 
   def sample_observe( unit,y,d,i):
     return unit.ripl.sample('(observe_birds %i %i %i)'%(y,d,i))
@@ -154,6 +154,8 @@ def store_observes(unit, observe_range):
 
   for y,d,i in ydi:
     observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+    if (y,d,i) == (0,0,0):
+      print unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
 
   params = unit.get_params()
   
@@ -175,9 +177,7 @@ def store_observes(unit, observe_range):
 
 
 def load_observes(unit, load_observe_range, path_filename=None):
-  if path_filename is None: 
-    path_filename = unit.observes_loaded_from
-    
+ 
   assert isinstance(path_filename, str)
   
   with open(path_filename,'r') as f:
@@ -193,7 +193,7 @@ def load_observes(unit, load_observe_range, path_filename=None):
     else:
       assert set(v).issubset( set(observe_range_v) )
 
-  assert observe_counts[(0,0,0)] == unit.num_birds
+  #assert observe_counts[(0,0,0)] == unit.num_birds
 
 
   def unit_observe(unit, y, d, i, count_i):
@@ -484,8 +484,8 @@ class Multinomial(object):
     return store_observes(self, observe_range)
      
 
-  def load_observes(self, load_observe_range):
-    return load_observes(self, load_observe_range)
+  def load_observes(self, load_observe_range, path_filename):
+    return load_observes(self, load_observe_range, path_filename)
 
 
   def bird_to_pos(self,year,day,hist=False):
