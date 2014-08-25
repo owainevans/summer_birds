@@ -3,6 +3,8 @@ from features_utils import make_features_dict
 from venture.unit import VentureUnit
 from venture.venturemagics.ip_parallel import mk_p_ripl, mk_l_ripl
 from venture.ripl.utils import strip_types
+
+from nose.tools import eq_, assert_almost_equal
 from itertools import product
 import matplotlib.pylab as plt
 import cPickle as pickle
@@ -45,13 +47,29 @@ def loadObservations(ripl, dataset, name, years, days):
 ## Multinomial & Poisson functions for saving synthetic Observes and 
 ## loading and running unit.ripl.observe(loaded_observe)
 
+def update_names(generated_data_params):
+  
+  short_name = 'infer__' + generated_data_params['short_name']
+  long_name = generated_data_params['long_name'].replace('gen','infer')
+  
+  return short_name, long_name
+
+
 def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
+
   infer_params = generate_data_params.copy()
   assert len( prior_on_hypers ) ==  infer_params['num_features']
   assert isinstance( prior_on_hypers[0], str )
   
-  return infer_params.update( {'learn_hypers':True, 'prior_on_hypers': prior_on_hypers,
-                             'observes_loaded_from': observes_loaded_from } )
+  short_name, long_name = update_names(generate_data_params)
+
+  update_dict = {'learn_hypers':True,
+                 'prior_on_hypers': prior_on_hypers,
+                 'observes_loaded_from': observes_loaded_from,
+                 'short_name': short_name,
+                 'long_name': long_name}
+
+  return infer_params.update
 
 
 def make_infer_unit( generate_data_path, prior_on_hypers, multinomial_or_poisson=True):
@@ -72,7 +90,9 @@ def make_infer_unit( generate_data_path, prior_on_hypers, multinomial_or_poisson
 def test_make_infer():
   generate_data_params = make_params()
   generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
-  path_filename = generate_data_unit.store_observes(range(1),range(1))
+
+  years,days = range(1),range(1)
+  path_filename = generate_data_unit.store_observes(years, days)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
   infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
@@ -81,10 +101,26 @@ def test_make_infer():
   for k,v in generate_data_params.items():
     if k not in ('ripl_directives','prior_on_hypers',
                  'learn_hypers','observes_loaded_from'):
-      assert v == infer_params[k]
+      eq_( v, infer_params[k] )
 
+  infer_unit.load_assumes()
 
+  expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
+  for exp in expressions:
+    eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
+    
+  infer_unit.load_observes( years, days)
+
+  def sample_observe( unit,y,d,i):
+    return unit.ripl.sample('(observe_birds %i %i %i)'%(y,d,i))
+
+  for y,d,i in product(years,days, range(generate_data_unit.cells) ):
+    eq_( sample_observe( generate_data_unit, y,d,i),
+         sample_observe( infer_unit, y,d,i), )
+    
+  
+## FIXME should be years_range, days_range
 def store_observes(unit,years=None,days=None):
   if years is None: years = unit.years
   if days is None: days = unit.days
@@ -117,29 +153,27 @@ def store_observes(unit,years=None,days=None):
   return path_filename
 
 
+def load_observes(unit, years_range, days_range, filename=None):
+  if filename is None: 
+    path_filename = unit.observes_loaded_from
 
-
-def observe_from_file(unit,years_range,days_range,filename=None, no_observe_directives=False):
-  if filename is None: # uses attribute if no filename arg given
-    filename = unit.observed_counts_filename
-  assert isinstance(filename,str)
-  with open(filename,'r') as f:
-    unit.observed_counts = pickle.load(f)
-
-  assert len( unit.observed_counts[(0,0)] ) == unit.cells
-
-  observes = []
+  assert isinstance(path_filename,str)
   
-  for y in years_range:
-    for d in days_range:
-      for i,bird_count_i in enumerate(unit.observed_counts[(y,d)]):
-        
-        obs_tuple = ('(observe_birds %i %i %i)'%(y,d,i), bird_count_i )
-        if not no_observe_directives:
-          unit.ripl.observe( *obs_tuple )
-        observes.append( obs_tuple)
+  with open(filename,'r') as f:
+     store_dict = pickle.load(f)
+    
+  observed_counts = store_dict['observed_counts']
 
-  return observes
+  assert observed_counts[(0,0,0)] == unit.num_birds
+  
+
+  def unit_observe(unit, y, d, i,count_i):
+    unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
+
+  for y,d,i in product(years_range, days_range, unit.cells):
+    unit_observe(unit,y,d,i,observed_counts[(y,d,i)])
+  
+  
 
 
 # NOTES:
@@ -418,8 +452,8 @@ class Multinomial(object):
     return store_observes(self,years,days)
      
 
-  def observe_from_file(self, years_range, days_range,filename=None,no_observe_directives=False):
-    return observe_from_file(self,years_range,days_range,filename,no_observe_directives)
+  def load_observes(self, years_range, days_range,filename=None):
+    return load_observes(self, years_range ,days_range, filename)
 
 
   def bird_to_pos(self,year,day,hist=False):
