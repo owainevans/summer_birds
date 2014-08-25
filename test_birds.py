@@ -124,7 +124,7 @@ def test_model_multinomial():
 def test_save_images(del_images=True):
   unit = make_multinomial_unit()
   years = range(1)
-  days = range(3)
+  days = range(1)
   name = 'temp_test_save'
   path = 'bird_moves_' + name
   #os.chdir('~/summer_birds')

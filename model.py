@@ -88,21 +88,29 @@ def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_o
   return infer_unit
   
 
-def test_make_infer():
+def example_make_infer(observe_range = None):
   generate_data_params = make_params()
   generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
 
-
-  observe_range = dict(  years_list = range(1),
-                         days_list= range(1),
-                         cells_list = None )
+  if observe_range is None:
+    observe_range = dict(  years_list = range(1),
+                           days_list= range(1),
+                           cells_list = None )
   
   path_filename = generate_data_unit.store_observes(observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
   infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
+
+  return observe_range, generate_data_unit, path_filename, infer_unit
+
+
+def test_make_infer():
+  _, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
 
+  # is infer_params mostly same as generate_data_params?
   for k,v in generate_data_params.items():
     if k not in ('ripl_directives','prior_on_hypers',
                  'learn_hypers','observes_loaded_from'):
@@ -110,11 +118,15 @@ def test_make_infer():
 
   infer_unit.load_assumes()
 
+  # do constants agree for generate_data_unit and infer_unit?
   expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
   for exp in expressions:
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
-    
+
+def test_load_observations():
+  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+
   infer_unit.load_observes( observe_range , path_filename)
 
   def sample_observe( unit,y,d,i):
@@ -124,9 +136,23 @@ def test_make_infer():
                 observe_range['days_list'],
                 range(infer_unit.cells))
     
+  # do values for *observe_birds* agree for generate_data_unit
+  # and infer_unit?
   for y,d,i in ydi:
     eq_( sample_observe( generate_data_unit, y,d,i),
          sample_observe( infer_unit, y,d,i), )
+
+def test_incremental_load_observations():
+  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  
+  for cell in range(infer_unit.cells):
+    updated_observe_range = observe_range.copy()
+    updated_observe_range.update( dict(cells_list = [cell] ) )
+    infer_unit.load_observes(updated_observe_range, path_filename)
+    print observe_range.update( dict(cells_list = [cell] ) )
+    infer_unit.ripl.infer(10)
+    print infer_unit.ripl.list_directives()[-1]
+                      
 
 
 def store_observes(unit, observe_range):
@@ -174,6 +200,8 @@ def store_observes(unit, observe_range):
   print 'Stored observes in %s.'%path_filename
 
   return path_filename ## FIXME not sure about this
+
+
 
 
 def load_observes(unit, load_observe_range, path_filename=None):
