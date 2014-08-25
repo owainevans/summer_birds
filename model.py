@@ -63,6 +63,7 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   
   short_name, long_name = update_names(generate_data_params)
 
+  # NOTE: observes_loaded_from has full path
   update_dict = {'learn_hypers':True,
                  'prior_on_hypers': prior_on_hypers,
                  'observes_loaded_from': observes_loaded_from,
@@ -72,14 +73,14 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params.update
 
 
-def make_infer_unit( generate_data_path, prior_on_hypers, multinomial_or_poisson=True):
+def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
 
-  with open(generate_data_path,'r') as f:
+  with open(generate_data_path_filename,'r') as f:
     store_dict = pickle.load(f)
 
   generate_data_params = store_dict['generate_data_params']
   infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
-                                                      generate_data_path)
+                                                      generate_data_path_filename)
 
   model_constructor = Multinomial if multinomial_or_poisson else Poisson
   infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
@@ -91,8 +92,12 @@ def test_make_infer():
   generate_data_params = make_params()
   generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
 
-  years,days = range(1),range(1)
-  path_filename = generate_data_unit.store_observes(years, days)
+
+  observe_range = dict(  years_list = range(1),
+                         days_list= range(1),
+                         cells_list = None )
+  
+  path_filename = generate_data_unit.store_observes(observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
   infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
@@ -110,36 +115,52 @@ def test_make_infer():
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
     
-  infer_unit.load_observes( years, days)
+  infer_unit.load_observes( observe_range )
 
   def sample_observe( unit,y,d,i):
     return unit.ripl.sample('(observe_birds %i %i %i)'%(y,d,i))
 
-  for y,d,i in product(years,days, range(generate_data_unit.cells) ):
+  ydi = product(observe_range['years_list'],
+                observe_range['days_list'],
+                range(infer_unit.cells))
+    
+  for y,d,i in ydi:
     eq_( sample_observe( generate_data_unit, y,d,i),
          sample_observe( infer_unit, y,d,i), )
-    
-  
-## FIXME should be years_range, days_range
-def store_observes(unit,years=None,days=None):
-  if years is None: years = unit.years
-  if days is None: days = unit.days
 
-  assert isinstance(years,list) and max(years) <= max(unit.years)
-  assert isinstance(days,list) and max(days) <= max(unit.days)
+
+def store_observes(unit, observe_range):
+  
+  observe_unit_pairs = ( ('years_list',unit.years),
+                         ('days_list', unit.days),
+                         ('cells_list', range(unit.cells) ) )
+
+  for k,v in observe_range.items():
+    unit_v = dict(observe_unit_pairs)[k]
+
+    if v is None: 
+      observe_range[k] = unit_v
+    else:
+      assert set(v).issubset( set(unit_v) )
+  
 
   if not unit.assumes_loaded:
     unit.load_assumes()
   
-  observed_counts={}
+  observe_counts={}
 
-  for y,d,i in product(years, days, range(unit.cells)):
-    observed_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+  ydi = product( *map( lambda k: observe_range[k],
+                      ('years_list','days_list','cells_list') ) )
+
+  for y,d,i in ydi:
+    observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
 
   params = unit.get_params()
-  store_dict = {'generate_data_params':params, 'observed_counts':observed_counts}
+  
+  store_dict = {'generate_data_params':params,
+                'observe_counts':observe_counts,
+                'observe_range':observe_range}
   filename = params['long_name'] + '.dat'
-
  
   date = '21_08_14' ## FIXME ADD DATE
   path = 'synthetic/%s/' % date
@@ -150,28 +171,39 @@ def store_observes(unit,years=None,days=None):
     pickle.dump(store_dict,f)
   print 'Stored observes in %s.'%path_filename
 
-  return path_filename
+  return path_filename ## FIXME not sure about this
 
 
-def load_observes(unit, years_range, days_range, filename=None):
-  if filename is None: 
+def load_observes(unit, load_observe_range, path_filename=None):
+  if path_filename is None: 
     path_filename = unit.observes_loaded_from
-
-  assert isinstance(path_filename,str)
+    
+  assert isinstance(path_filename, str)
   
-  with open(filename,'r') as f:
+  with open(path_filename,'r') as f:
      store_dict = pickle.load(f)
     
-  observed_counts = store_dict['observed_counts']
+  observe_counts = store_dict['observe_counts']
+  observe_range = store_dict['observe_range']
 
-  assert observed_counts[(0,0,0)] == unit.num_birds
-  
+  for k,v in load_observe_range.items():
+    observe_range_v = observe_range[k]
+    if v is None:
+      load_observe_range[k] = observe_range_v
+    else:
+      assert set(v).issubset( set(observe_range_v) )
 
-  def unit_observe(unit, y, d, i,count_i):
+  assert observe_counts[(0,0,0)] == unit.num_birds
+
+
+  def unit_observe(unit, y, d, i, count_i):
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
 
-  for y,d,i in product(years_range, days_range, unit.cells):
-    unit_observe(unit,y,d,i,observed_counts[(y,d,i)])
+  ydi = product( *map( lambda k:load_observe_range[k],
+                      ('years_list','days_list','cells_list') ) )
+
+  for y,d,i in ydi:
+    unit_observe(unit,y,d,i,observe_counts[(y,d,i)])
   
   
 
@@ -448,12 +480,12 @@ class Multinomial(object):
     self.assumes_loaded = True
 
   
-  def store_observes(self,years=None,days=None):
-    return store_observes(self,years,days)
+  def store_observes(self,observe_range):
+    return store_observes(self, observe_range)
      
 
-  def load_observes(self, years_range, days_range,filename=None):
-    return load_observes(self, years_range ,days_range, filename)
+  def load_observes(self, load_observe_range):
+    return load_observes(self, load_observe_range)
 
 
   def bird_to_pos(self,year,day,hist=False):
