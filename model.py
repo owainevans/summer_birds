@@ -40,7 +40,6 @@ import numpy as np
 
 
                                                       
-
                                         
 #### Multinomials and Poisson Dataset Loading Functions
 
@@ -360,14 +359,33 @@ def test_save_load_multinomial():
   make_unit = lambda: Multinomial(mk_p_ripl(),params)
   unit = make_unit()
   filename = unit.save('temp_test')
-
+    
   unit_loader = make_unit()
   unit_copy = unit_loader.make_saved_model(filename)
   
-  assert unit.params == unit_copy.params
-  print 'compare beta(1 1)', unit.ripl.sample('(beta 1 1)'), unit_copy.ripl.sample('(beta 1 1)')
-  assert unit.ripl.list_directives() == unit_copy.ripl.list_directives()
-  #unit_loader.make_saved_model('temp_test')
+## FIXME
+  # def equality_multinomial(unit1, unit2):
+
+  #   test_lambdas = (lambda u: u.params,
+  #                   lambda u: u.ripl.list_directives()
+  #   bools= []
+  #   for lam in test_lambdas:
+  #     map( lam , (unit1, unit2) )
+
+  # def print_random_draws(unit1, unit2):
+  #   print 'compare beta(1 1)',
+  #   print map( lambda u: u.ripl.sample('(beta 1 1)'), (unit1,unit2) )
+         
+  # assert_equality_multinomial( unit, unit_copy)
+  # print_random_draws( unit, unit_copy)
+
+  # distinct_unit = make_unit()
+  # distinct_unit_filename = distinct_unit.save('temp_test_distinct')
+           
+  
+  
+
+  # want to show 
 
 
 ## CELL NAMES (GRID REFS)
