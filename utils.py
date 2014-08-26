@@ -120,6 +120,7 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
     assert len( np.unique( grid_to_num_birds ) ) == 1
   max_num_birds =  np.max( grid_to_num_birds )
 
+  ## FIXME what about large num days/years. need multiple plots
   if plot:
     nrows,ncols = len(days), len(years)
     fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
@@ -153,7 +154,7 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
       misc.imsave(path+'%02d.png'%d, big_im)
       print '\n Saved bird location images in %s \n'%path
 
-  return fig if plot else None
+  return (fig,ax) if plot else None
 
 
 

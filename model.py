@@ -10,7 +10,38 @@ import matplotlib.pylab as plt
 import cPickle as pickle
 import numpy as np
 
-    
+
+### PLAN NOTES
+
+# 1. Add method for serializing whole unit object. Main thing is to serialize
+# its ripl. Then we can store intermediate state of inference (as well 
+# as an easy way to store all the state of unit object for generating 
+# synthetic data. [Saving ripl: simple way is using ripl method. if so,
+# we probably need to save ripl in a separate file (as with figures)
+# which is annoying, vs. just pickling everything in a table. ]
+
+# 2. Should be able to save infer/observe ripl at any stage. For example,
+# might want to save after loading assumes/observes (which could take
+# 30 seconds). Then want to save at any point along. Need to decide on
+# system for where to keep pre and post inference models.
+
+# 3. Pull out certain params to be controlled from experiment runner.
+# Place to store synthetic data.
+# Optionally place to get
+# stored data. 
+# Place to save inference results. 
+# Optional params for synth data generation.
+# Which venture backend to use.
+# Params for hyper_prior and inference Venture model.
+# Params (i.e. inference progs) for inference itself.
+# Maybe some params for how many repeats / parallel runs to do.
+
+# 4. Exp_runner needs to join and commit features discussed in lab notebook 10 days or so ago.
+
+
+                                                      
+
+                                        
 #### Multinomials and Poisson Dataset Loading Functions
 
 def day_features(features,width,y=0,d=0):
@@ -49,7 +80,7 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
-def store_observes(unit, observe_range):
+def store_observes(unit, observe_range, path='synthetic'):
 
   unit.ensure_assumes()
   
@@ -88,7 +119,9 @@ def store_observes(unit, observe_range):
   for y,d,i in year_day_cell():
     assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
    
-  # idea that we use bird_locs to store gtruth. might want to be able to easily go from locs to images, or to just store images. so should have option to save images along with store observes. (need to tie this in to inference. when you do inference, you'd like to plot your guesses of bird locs against the real gtruth bird locs. so you need to be able to get saved fig of bird locs, display it, and then generate and display the new bird locs plot. we can store the fig in store dict. then when we build an infer, we can easily go back to it. atm plot_save_bird_locs can be used to save in arbitrary location. but here a good starting point is just to store the serialized figures together with the observes. (another option is to save the figs separately to a file. then they easy to access without going thru python pickling. should be easy to add this, as it's already built in t plot_save.)
+
+  fig_ax = unit.draw_bird_locations( unit.years, unit.days, plot=True, save=False, order='F', print_features_info=True)
+)
 
   params = unit.get_params()
   
@@ -96,13 +129,17 @@ def store_observes(unit, observe_range):
                 'observe_counts':observe_counts,
                 'observe_range':observe_range,
                 'bird_locs':bird_locs}
+                #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
 
   filename = params['long_name'] + '.dat'
  
   date = '21_08_14' ## FIXME ADD DATE
-  path = 'synthetic/%s/' % date
+  path = '%s/%s/' % (path,date)
   ensure(path)
   path_filename = path + filename
+
+  with open(path_filename+'test','w') as f:
+    pickle.dump(fig_ax,f)
   
   with open(path_filename,'w') as f:
     pickle.dump(store_dict,f)
@@ -131,8 +168,6 @@ def load_observes(unit, load_observe_range, path_filename=None):
     else:
       assert set(v).issubset( set(observe_range_v) )
 
-  #assert observe_counts[(0,0,0)] == unit.num_birds
-
 
   def unit_observe(unit, y, d, i, count_i):
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
@@ -147,16 +182,6 @@ def load_observes(unit, load_observe_range, path_filename=None):
 
 
 # NOTES:
-# we want a function that takes filename, hyperpriors, poiss/multi and 
-# outputs a unit object with the features loaded. you then can 
-# incrementally load whichever observes you want from same filename (which
-# should probably be a fixed param -- which is null for synthetic generator)
-
-# then write some python functions that do inference on generic unit objects
-# (by doing inference on its constituent ripl). may want to be able to save
-# state at any stage, for interactive work.
-
-# then combine these in a function that runs a full experiment. 
 
  # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need top actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
@@ -272,6 +297,17 @@ def make_params():
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
 
+def load_saved_model(filename):
+  with open(filename + 'params.dat','r') as f:
+    params = pickle.load(f)
+  
+  ripl = mk_p_ripl()
+  ripl.load( filename + 'ripl.dat')
+    
+  return Multinomial( ripl, params)
+  
+
+
 class Multinomial(object):
   
   def __init__(self, ripl, params, delay_load_assumes=False):
@@ -282,25 +318,26 @@ class Multinomial(object):
       setattr(self,k,v)
 
     self.cells = self.width * self.height
-
-    if delay_load_assumes:
+    
+    if self.ripl.list_directives() != []:
+      self.assumes_loaded = True # If ripl pre-loaded, don't load assumes
+    elif delay_load_assumes:
       self.assumes_loaded = False
     else:
       self.load_assumes()
-    # to recreate the model, we just need the params dict
-    # later on, to recreate whole thing, we'd like the serialized ripl
-    # but a good alternative is just to store the ripl's list_directives in params
 
-    # for reproduction, it's probably best to send features directly, rather than
-    # generating them via the models init (want to separate the venture model
-    # from the code that calls in some stored features)
+    
+  def save(self, directory):
+    hash_ripl = 33333 # FIXME
+    filename = directory + '/%s/%s' % ( self.long_name, hash_ripl )
+    ensure(filename)
+    
+    with open(filename + 'params.dat','w') as f:
+      pickle.dump(self.params,f)
 
-    # should we have some default values for features in the init, or should 
-    # we be strict about requiring all features to be entered from the outside
-    # - probably better to modularize these. to have the init be clean.
-    # we already need a separate script which generates params by calling feature_utils (potentially)
-    # one use is generating data. for that we turn learn_hypers off. another is observed. for that
-    # we need the feature_dict that generated the data (so that table needs to be easy to pull out)
+    self.ripl.save( filename + 'ripl.dat')
+    print 'Saved to %s' % filename
+  
     
 
   def get_params(self):
@@ -427,8 +464,9 @@ class Multinomial(object):
     self.assumes_loaded = True
 
   
-  def store_observes(self,observe_range):
-    return store_observes(self, observe_range)
+  def store_observes(self,observe_range, path=None):
+    if path is None:
+    return store_observes(self, observe_range, path)
      
 
   def load_observes(self, load_observe_range, path_filename):
@@ -475,17 +513,18 @@ class Multinomial(object):
     return bird_locations
 
 
-  def draw_bird_locations(self, years, days, name=None, plot=True, save=True, order='F',
+  def draw_bird_locations(self, years, days, title=None, plot=True, save=True, order='F',
                           print_features_info=True):
 
     assert isinstance(years,list)
     assert isinstance(days,list)
     assert order in ('F','C')
-    name = self.name if name is None else name
+    title = self.short_name if name is None else title
+    path = self.long_
     bird_locs = self.get_bird_locations(years,days)
 
 
-    bitmaps = plot_save_bird_locations(bird_locs, name, years, days, self.height, self.width,
+    bitmaps = plot_save_bird_locations(bird_locs, path, title, years, days, self.height, self.width,
                                    plot=plot, save=save, order=order,
                                    print_features_info = print_features_info)
     
@@ -509,41 +548,6 @@ class Multinomial(object):
     return bitmaps
 
     
-# # loadObserves for multinomial dataset (prepare for pgibbs inference)
-#   def loadObserves(self, ripl = None):
-#     if ripl is None:
-#       ripl = self.ripl
-#     ## FIXME STUFF FOR DATASET LOADING
-#     #observations_file = "data/input/dataset%d/%s-observations.csv" % (1, self.name)
-#     #observations = readObservations(observations_file)
-
-#     self.unconstrained = []
-
-#     for y in self.years:
-#       for (d, ns) in observations[y]:
-#         if d not in self.days: continue
-#         if d == 0: continue
-        
-#         loc = None
-        
-#         for i, n in enumerate(ns):
-#           if n > 0:
-#             loc = i
-#             break
-        
-#         if loc is None:
-#           self.unconstrained.append((y, d-1))
-#           #ripl.predict('(get_bird_pos %d %d)' % (y, d))
-#         else:
-#           ripl.observe('(get_bird_pos %d %d)' % (y, d), loc)
-  
-#   def inferMove(self, ripl = None):
-#     if ripl is None:
-#       ripl = self.ripl
-    
-#     for block in self.unconstrained:
-#       ripl.infer({'kernel': 'gibbs', 'scope': 'move', 'block': block, 'transitions': 1})
-  
 
 
 
