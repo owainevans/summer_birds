@@ -8,7 +8,7 @@ from itertools import product
 from utils import make_grid
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
-from model import Multinomial, Poisson, make_params
+from model import *
 
 def test_make_grid():
   mk_array = lambda ar: np.array(ar,np.int32)
@@ -122,65 +122,7 @@ def test_model_multinomial():
     
 
 
-# UTILS FOR MAKING INFER UNIT OBJECTS BASED ON SAVED OBSERVES
-def example_make_infer(observe_range = None):
-  generate_data_params = make_params()
-  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
 
-  if observe_range is None:
-    observe_range = dict(  years_list = range(1),
-                           days_list= range(1),
-                           cells_list = None )
-  
-  path_filename = generate_data_unit.store_observes(observe_range)
-
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
-
-  return observe_range, generate_data_unit, path_filename, infer_unit
-
-
-def update_names(generated_data_params):  
-  short_name = 'infer__' + generated_data_params['short_name']
-  long_name = generated_data_params['long_name'].replace('gen','infer')
-  
-  return short_name, long_name
-
-
-def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
-
-  infer_params = generate_data_params.copy()
-  assert len( prior_on_hypers ) ==  infer_params['num_features']
-  assert isinstance( prior_on_hypers[0], str )
-  
-  short_name, long_name = update_names(generate_data_params)
-
-  # NOTE: observes_loaded_from has full path
-  update_dict = {'learn_hypers':True,
-                 'prior_on_hypers': prior_on_hypers,
-                 'observes_loaded_from': observes_loaded_from,
-                 'short_name': short_name,
-                 'long_name': long_name}
-
-  return infer_params.update
-
-
-def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
-  '''Utility takes synthetic data path, prior_on_hypers, model_type,
-     and then generates an inference with appropriate params'''
-  
-
-  with open(generate_data_path_filename,'r') as f:
-    store_dict = pickle.load(f)
-
-  generate_data_params = store_dict['generate_data_params']
-  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
-                                                      generate_data_path_filename)
-
-  model_constructor = Multinomial if multinomial_or_poisson else Poisson
-  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
-
-  return infer_unit
 
   
 def test_make_infer():

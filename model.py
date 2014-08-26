@@ -121,7 +121,7 @@ def store_observes(unit, observe_range, path='synthetic'):
    
 
   fig_ax = unit.draw_bird_locations( unit.years, unit.days, plot=True, save=False, order='F', print_features_info=True)
-)
+
 
   params = unit.get_params()
   
@@ -291,22 +291,91 @@ def make_params():
   return params
 
 
+
+
+# UTILS FOR MAKING INFER UNIT OBJECTS BASED ON SAVED OBSERVES
+def example_make_infer(observe_range = None):
+  generate_data_params = make_params()
+  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
+
+  if observe_range is None:
+    observe_range = dict(  years_list = range(1),
+                           days_list= range(1),
+                           cells_list = None )
+  
+  path_filename = generate_data_unit.store_observes(observe_range)
+
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
+
+  return observe_range, generate_data_unit, path_filename, infer_unit
+
+
+def update_names(generated_data_params):  
+  short_name = 'infer__' + generated_data_params['short_name']
+  long_name = generated_data_params['long_name'].replace('gen','infer')
+  
+  return short_name, long_name
+
+
+def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
+
+  infer_params = generate_data_params.copy()
+  assert len( prior_on_hypers ) ==  infer_params['num_features']
+  assert isinstance( prior_on_hypers[0], str )
+  
+  short_name, long_name = update_names(generate_data_params)
+
+  # NOTE: observes_loaded_from has full path
+  update_dict = {'learn_hypers':True,
+                 'prior_on_hypers': prior_on_hypers,
+                 'observes_loaded_from': observes_loaded_from,
+                 'short_name': short_name,
+                 'long_name': long_name}
+
+  return infer_params.update
+
+
+def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
+  '''Utility takes synthetic data path, prior_on_hypers, model_type,
+     and then generates an inference with appropriate params'''
+  
+
+  with open(generate_data_path_filename,'r') as f:
+    store_dict = pickle.load(f)
+
+  generate_data_params = store_dict['generate_data_params']
+  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
+                                                      generate_data_path_filename)
+
+  model_constructor = Multinomial if multinomial_or_poisson else Poisson
+  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
+
+  return infer_unit
+
+
+
+def test_save_load_multinomial():
+  params = make_params()
+  make_unit = lambda: Multinomial(mk_p_ripl(),params)
+  unit = make_unit()
+  filename = unit.save('temp_test')
+
+  unit_loader = make_unit()
+  unit_copy = unit_loader.make_saved_model(filename)
+  
+  assert unit.params == unit_copy.params
+  print 'compare beta(1 1)', unit.ripl.sample('(beta 1 1)'), unit_copy.ripl.sample('(beta 1 1)')
+  assert unit.ripl.list_directives() == unit_copy.ripl.list_directives()
+  #unit_loader.make_saved_model('temp_test')
+
+
 ## CELL NAMES (GRID REFS)
 # Multinomial Venture prog just has integer cell indices
 # We only convert to ij for Python stuff that displays
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
-
-def load_saved_model(filename):
-  with open(filename + 'params.dat','r') as f:
-    params = pickle.load(f)
   
-  ripl = mk_p_ripl()
-  ripl.load( filename + 'ripl.dat')
-    
-  return Multinomial( ripl, params)
-  
-
 
 class Multinomial(object):
   
@@ -326,10 +395,10 @@ class Multinomial(object):
     else:
       self.load_assumes()
 
-    
+
   def save(self, directory):
-    hash_ripl = 33333 # FIXME
-    filename = directory + '/%s/%s' % ( self.long_name, hash_ripl )
+    random_directory_name = np.random.randint(10**9) ## FIXME
+    filename = directory + '/%s/%s' % ( self.long_name, str(random_directory_name) )
     ensure(filename)
     
     with open(filename + 'params.dat','w') as f:
@@ -337,7 +406,18 @@ class Multinomial(object):
 
     self.ripl.save( filename + 'ripl.dat')
     print 'Saved to %s' % filename
+    return filename
+
+  def make_saved_model(self,filename):
+    with open(filename + 'params.dat','r') as f:
+      params = pickle.load(f)
+      
+    ripl = mk_p_ripl()
+    ripl.load( filename + 'ripl.dat')
   
+    return Multinomial( ripl, params)
+    
+
     
 
   def get_params(self):
@@ -465,9 +545,9 @@ class Multinomial(object):
 
   
   def store_observes(self,observe_range, path=None):
-    if path is None:
+    ## FIXME
     return store_observes(self, observe_range, path)
-     
+    
 
   def load_observes(self, load_observe_range, path_filename):
     return load_observes(self, load_observe_range, path_filename)
