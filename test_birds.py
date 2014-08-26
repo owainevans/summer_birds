@@ -14,6 +14,7 @@ def test_make_grid():
   mk_array = lambda ar: np.array(ar,np.int32)
 
   def ar_eq_(ar1,ar2):
+    'Asssert equality of two arrays'
     for pair in zip( ar1.flatten(), ar2.flatten() ):
       eq_(*pair)
   
@@ -77,11 +78,8 @@ def test_features_functions():
 
   
 def make_multinomial_unit():
-  params = get_multinomial_params(params_name = 'easy_hypers' )
-  unit =  Multinomial(mk_p_ripl(),params)
+  return Multinomial(mk_p_ripl(), make_params() )
   
-  return unit
-
   
 def test_cell_to_prob_dist():
   unit = make_multinomial_unit()
@@ -196,13 +194,41 @@ def test_make_infer():
                  'learn_hypers','observes_loaded_from'):
       eq_( v, infer_params[k] )
 
-  infer_unit.load_assumes()
+  infer_unit.ensure_assumes()
 
   # do constants agree for generate_data_unit and infer_unit?
   expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
   for exp in expressions:
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
+
+
+def test_memoization_observe():
+  
+  num_tries = 100
+  
+  for _ in range(num_tries):
+    unit = make_multinomial_unit()
+    r = unit.ripl
+
+    pred_val = r.predict('(observe_birds 0 0 0)')
+    eq_( pred_val, r.predict('(observe_birds 0 0 0)') )
+    
+    obs_val = 5
+    if obs_val != pred_val:
+      r.observe('(observe_birds 0 0 0)', obs_val)
+      eq_( pred_val, r.predict('(observe_birds 0 0 0)') )
+
+      r.infer(1)
+      eq_( obs_val, r.predict('(observe_birds 0 0 0)') )
+
+      r.infer(100)
+      eq_( obs_val, r.predict('(observe_birds 0 0 0)') )
+
+      break
+  
+
+ 
 
 def compare_observes( first_unit, second_unit, triples ):
   'Pass asserts if unit.ripls agree on all triples'

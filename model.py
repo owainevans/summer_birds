@@ -47,143 +47,18 @@ def loadObservations(ripl, dataset, name, years, days):
 ## Multinomial & Poisson functions for saving synthetic Observes and 
 ## loading and running unit.ripl.observe(loaded_observe)
 
-def update_names(generated_data_params):
-  
-  short_name = 'infer__' + generated_data_params['short_name']
-  long_name = generated_data_params['long_name'].replace('gen','infer')
-  
-  return short_name, long_name
-
-
-def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, observes_loaded_from):
-
-  infer_params = generate_data_params.copy()
-  assert len( prior_on_hypers ) ==  infer_params['num_features']
-  assert isinstance( prior_on_hypers[0], str )
-  
-  short_name, long_name = update_names(generate_data_params)
-
-  # NOTE: observes_loaded_from has full path
-  update_dict = {'learn_hypers':True,
-                 'prior_on_hypers': prior_on_hypers,
-                 'observes_loaded_from': observes_loaded_from,
-                 'short_name': short_name,
-                 'long_name': long_name}
-
-  return infer_params.update
-
-
-def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
-
-  with open(generate_data_path_filename,'r') as f:
-    store_dict = pickle.load(f)
-
-  generate_data_params = store_dict['generate_data_params']
-  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
-                                                      generate_data_path_filename)
-
-  model_constructor = Multinomial if multinomial_or_poisson else Poisson
-  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
-
-  return infer_unit
-  
-
-def example_make_infer(observe_range = None):
-  generate_data_params = make_params()
-  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
-
-  if observe_range is None:
-    observe_range = dict(  years_list = range(1),
-                           days_list= range(1),
-                           cells_list = None )
-  
-  path_filename = generate_data_unit.store_observes(observe_range)
-
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
-
-  return observe_range, generate_data_unit, path_filename, infer_unit
-
-
-def test_make_infer():
-  _, generate_data_unit, path_filename, infer_unit = example_make_infer()
-  generate_data_params = generate_data_unit.get_params()
-  infer_params = infer_unit.get_params()
-
-  # is infer_params mostly same as generate_data_params?
-  for k,v in generate_data_params.items():
-    if k not in ('ripl_directives','prior_on_hypers',
-                 'learn_hypers','observes_loaded_from'):
-      eq_( v, infer_params[k] )
-
-  infer_unit.load_assumes()
-
-  # do constants agree for generate_data_unit and infer_unit?
-  expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
-  for exp in expressions:
-    eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
-
-
-def compare_observes( first_unit, second_unit, triples ):
-  'Pass asserts if unit.ripls agree on all triples'
-  def predict_observe( unit,y,d,i):
-    return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
-  
-  for y,d,i in triples:
-    print 'cf:',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
-
-    eq_( predict_observe( first_unit, y,d,i),
-         predict_observe( second_unit, y,d,i), )
-
-    
-def make_triples( observe_range ):
-  return product(observe_range['years_list'],
-                 observe_range['days_list'],
-                 observe_range['cells_list'] )
-
-def test_load_observations():
-  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
-
-  infer_unit.load_observes(observe_range, path_filename)
-
-  if observe_range['cells_list'] is None:
-    observe_range['cells_list'] = range( infer.unit.cells )
-    
-  ydi = make_triples( observe_range )
-  # do values for *observe_birds* agree for generate_data_unit
-  # and infer_unit?
-  compare_observes( generate_data_unit, infer_unit, ydi )
-
-
-    
-def test_incremental_load_observations():
-  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
-
-  for cell in range(infer_unit.cells):
-    updated_observe_range = observe_range.copy()
-    updated_observe_range.update( dict(cells_list = [cell] ) )
-    print updated_observe_range
-
-    ydi = make_triples(updated_observe_range)
-    print '\n',ydi
-    compare_observes( generate_data_unit, infer_unit, ydi)
-            
-    infer_unit.ripl.infer(10)
-    
-     
-    
-    
 
 
 def store_observes(unit, observe_range):
+
   unit.ensure_assumes()
   
-  observe_unit_pairs = ( ('years_list',unit.years),
-                         ('days_list', unit.days),
-                         ('cells_list', range(unit.cells) ) )
+  observe_unit_pairs = { 'years_list': unit.years,
+                         'days_list': unit.days,
+                         'cells_list': range(unit.cells) }
 
   for k,v in observe_range.items():
-    unit_v = dict(observe_unit_pairs)[k]
+    unit_v = observe_unit_pairs[k]
 
     if v is None: 
       observe_range[k] = unit_v
@@ -191,20 +66,37 @@ def store_observes(unit, observe_range):
       assert set(v).issubset( set(unit_v) )
   
   observe_counts={}
+  gtruth_counts={}
 
-  ydi = product( *map( lambda k: observe_range[k],
-                      ('years_list','days_list','cells_list') ) )
+  year_day_cell = lambda: product( *map( lambda k: observe_range[k],
+                                 ('years_list','days_list','cells_list') ) )
 
-  for y,d,i in ydi:
+  
+  for y,d,i in year_day_cell():
+
+    gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds_v2 %i %i %i)'%(y,d,i))
+
     observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
-    if (y,d,i) == (0,0,0):
-      print unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+    
+    if gtruth_counts[(y,d,i)] == 0 and observe_counts[(y,d,i)] > 0:
+      assert False, 'gtruth_counts[%s] == 0 and observe_counts[%s] > 0' % str((y,d,i) )
+
+  
+  # compare gtruth_counts to bird_locations
+  bird_locs = unit.get_bird_locations( unit.years, unit.days)
+  
+  for y,d,i in year_day_cell():
+    assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
+   
+  # idea that we use bird_locs to store gtruth. might want to be able to easily go from locs to images, or to just store images. so should have option to save images along with store observes. (need to tie this in to inference. when you do inference, you'd like to plot your guesses of bird locs against the real gtruth bird locs. so you need to be able to get saved fig of bird locs, display it, and then generate and display the new bird locs plot. we can store the fig in store dict. then when we build an infer, we can easily go back to it. atm plot_save_bird_locs can be used to save in arbitrary location. but here a good starting point is just to store the serialized figures together with the observes. (another option is to save the figs separately to a file. then they easy to access without going thru python pickling. should be easy to add this, as it's already built in t plot_save.)
 
   params = unit.get_params()
   
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
-                'observe_range':observe_range}
+                'observe_range':observe_range,
+                'bird_locs':bird_locs}
+
   filename = params['long_name'] + '.dat'
  
   date = '21_08_14' ## FIXME ADD DATE
@@ -492,7 +384,7 @@ class Multinomial(object):
       (lambda (y d i)
         (if (= (single_get_bird_pos y d) i) 1 0))""")
 
-    ripl.assume('single_observe_birds', '(lambda (y d i) (poisson (+ (single_count_birds y d i) 0.0001)))')
+    ripl.assume('single_observe_birds', '(lambda (y d i) (poisson (+ (single_count_birds y d i) 0.00001)))')
 
 
 ### MULTIBIRD MODEL
@@ -530,7 +422,7 @@ class Multinomial(object):
 ## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
 ## we memoize this, so that observes are fixed for a given run of the model
 
-    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.0001))))')
+    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.00001))))')
     
     self.assumes_loaded = True
 
