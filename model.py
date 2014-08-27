@@ -1,3 +1,4 @@
+#!
 from utils import *
 from features_utils import make_features_dict
 from venture.unit import VentureUnit
@@ -31,7 +32,7 @@ import numpy as np
 # stored data. 
 # Place to save inference results. 
 # Optional params for synth data generation.
-# Which venture backend to use.
+# Which venture backend to use. IMP FIXME
 # Params for hyper_prior and inference Venture model.
 # Params (i.e. inference progs) for inference itself.
 # Maybe some params for how many repeats / parallel runs to do.
@@ -188,35 +189,48 @@ def load_observes(unit, load_observe_range, path_filename=None):
  # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need top actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
-def make_params():  
+def make_params( param_set = 'onestepdiag10'):  
 # 'easy_hypers', currently uses 'must move exactly onestep away'
 # and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
+  
   params = {
-    'short_name': 'onestepdiag10',
-    'years': range(1),
-    'days': range(3),
-    'height': 2,
-    'width': 2,
-    'feature_functions_name': 'one_step_and_not_diagonal',
-    'learn_hypers': False,
-    'num_birds': 6,
-    'softmax_beta': 4,
-    'observes_loaded_from': None,
-    'venture_random_seed': 1,
-    'dataset': None,
-    'observes_saved_to': None }
+      'short_name': 'onestepdiag10',
+      'years': range(1),
+      'days': range(3),
+      'height': 2,
+      'width': 2,
+      'feature_functions_name': 'one_step_and_not_diagonal',
+      'num_features': 2,
+      'prior_on_hypers': ['(gamma 6 1)'] * 2,
+      'hypers': [1,0],
+      'learn_hypers': False,
+      'num_birds': 6,
+      'softmax_beta': 4,
+      'observes_loaded_from': None,
+      'venture_random_seed': 1,
+      'dataset': None,
+      'observes_saved_to': None }
 
+  if param_set == 'params_new':
+    params_new = params.copy()
+    changes = {'short_name':'d',}
+    params_new.update( changes )
+    params = params_new
+
+
+  # FIXME all below just takes a params dict. So we should copy the original
+  # mutate it, and then do the stuff below
   params['max_day'] = max( params['days'] )
   
   # Generate features dicts
   args = params['height'], params['width'], params['years'], params['days']
   kwargs = dict( feature_functions_name = params['feature_functions_name'] )
   venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
-                                                 
   params['features'] = venture_features_dict  
-  params['num_features'] = len( python_features_dict[(0,0,0,0)] )
-  params['prior_on_hypers'] = ['(gamma 6 1)'] * params['num_features']                                  
-  params['hypers'] = [1,0,0,0][:params['num_features']]
+
+  assert params['num_features'] == len( python_features_dict[(0,0,0,0)] )
+  assert len( params['prior_on_hypers'] ) == len( params['hypers'] ) ==  params['num_features']
+  
 
 
   def make_long_name( params ):
@@ -240,6 +254,8 @@ def make_params():
     return '__'.join( s )
     
   params['long_name'] = make_long_name( params )
+
+
 
   # Check types
   types = dict(
