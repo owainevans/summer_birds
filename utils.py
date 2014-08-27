@@ -99,8 +99,8 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
       grid_mat[:,i] = grid[:,i][::-1]
     return grid_mat
 
-def plot_save_bird_locations(bird_locs, name, years, days, height, width,
-                             save=None, plot=None, order=None, print_features_info=None,multinomial=True):
+def plot_save_bird_locations(bird_locs, title, years, days, height, width,
+                             save=None, plot=None, order=None, print_features_info=None, multinomial=True, filename=None):
 
   if print_features_info:
     indices = range(len(bird_locs[years[0]][days[0]]))
@@ -120,32 +120,46 @@ def plot_save_bird_locations(bird_locs, name, years, days, height, width,
     assert len( np.unique( grid_to_num_birds ) ) == 1
   max_num_birds =  np.max( grid_to_num_birds )
 
+
   ## FIXME what about large num days/years. need multiple plots
-  if plot:
-    nrows,ncols = len(days), len(years)
-    fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
 
-    for y,d in product(years,days):
-      grid = grids[(y,d)]
-      if ncols==1 and nrows==1:
-        ax_dy = ax
-      elif ncols==1:
-        ax_dy = ax[d]
-      else:
-        ax_dy = ax[d][y]
-      
-      my_imshow = ax_dy.imshow(grid,cmap='copper', interpolation='none', vmin=0, vmax=max_num_birds,
-                                 extent=[0,width,height,0])
-      ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(name,y,d))
-      ax_dy.set_xticks(range(width+1))
-      ax_dy.set_yticks(range(height+1))
+  nrows,ncols = len(days), len(years)
+  fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
 
-    fig.tight_layout()  
-    fig.subplots_adjust(right=0.67)
-    cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
-    fig.colorbar(my_imshow, cax=cbar_ax)
+  for y,d in product(years,days):
+    grid = grids[(y,d)]
+    if ncols==1 and nrows==1:
+      ax_dy = ax
+    elif ncols==1:
+      ax_dy = ax[d]
+    else:
+      ax_dy = ax[d][y]
+
+    my_imshow = ax_dy.imshow(grid,cmap='copper',
+                             interpolation='none',
+                             vmin=0, vmax=max_num_birds,
+                             extent=[0,width,height,0])
+    ax_dy.set_title('Bird counts: %s- y:%i d:%i'%(title,y,d))
+    ax_dy.set_xticks(range(width+1))
+    ax_dy.set_yticks(range(height+1))
+
+  fig.tight_layout()  
+  fig.subplots_adjust(right=0.67)
+  cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
+  fig.colorbar(my_imshow, cax=cbar_ax)
+
+  if filename is None:
+    directory = 'bird_moves/'
+    filename = directory + title + '.png'
+
+  ensure(
+  directory = 'bird_moves' if directory is None else directory
+  ensure(directory)
+  filename = '%s/
 
   if save:    ## FIXME make images look better!
+    fig.savefig(
+
     for y,d in product(years,days):
       grid = grids[(y,d)]
       path = 'bird_moves_%s/%d/' % (name, y)
