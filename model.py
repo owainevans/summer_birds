@@ -119,31 +119,33 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
     assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
    
 
-  fig_ax = unit.draw_bird_locations( unit.years, unit.days, plot=True, save=False, order='F', print_features_info=True)
-
-
   params = unit.get_params()
-  
+  date = '21_08_14' ## FIXME ADD DATE
+  full_directory = '%s/%s/' % (synthetic_directory,date)
+  ensure(full_directory)
+  store_dict_filename = full_directory + params['long_name'] + '.dat'
+  draw_bird_filename =  full_directory + params['long_name'] + '.png'
+
+  fig_ax = unit.draw_bird_locations( unit.years, unit.days,
+                                     plot=True, save=True, order='F',
+                                     print_features_info=True,
+                                     directory_filename = (full_directory,draw_bird_filename) )
+
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
                 'observe_range':observe_range,
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
 
- 
-  date = '21_08_14' ## FIXME ADD DATE
-  full_directory = '%s/%s/' % (synthetic_directory,date)
-  ensure(full_directory)
-  filename = full_directory + params['long_name'] + '.dat'
-
+                                    
   # with open(filename+'test','w') as f:
   #   pickle.dump(fig_ax,f)
   
-  with open(filename,'w') as f:
+  with open(store_dict_filename,'w') as f:
     pickle.dump(store_dict,f)
-  print 'Stored observes in %s.'%path_filename
+  print 'Stored observes in %s.'% store_dict_filename
 
-  return filename ## FIXME not sure about this
+  return store_dict_filename, draw_bird_filename ## FIXME not sure about this
 
 
 
@@ -301,12 +303,14 @@ def example_make_infer(observe_range = None):
                            days_list= range(1),
                            cells_list = None )
   
-  path_filename = generate_data_unit.store_observes(observe_range)
+  out = generate_data_unit.store_observes(observe_range)
+  generate_data_store_dict_filename, generate_data_draw_bird_filename = out
+  ## FIXME, we don't need draw_bird_filename and so can ignore this
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( path_filename, prior_on_hypers, True)
+  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, True)
 
-  return observe_range, generate_data_unit, path_filename, infer_unit
+  return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
 
 
 def update_names(generated_data_params):  
@@ -334,17 +338,17 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params.update
 
 
-def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_or_poisson=True):
+def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson=True):
   '''Utility takes synthetic data path, prior_on_hypers, model_type,
      and then generates an inference with appropriate params'''
   
 
-  with open(generate_data_path_filename,'r') as f:
+  with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
 
   generate_data_params = store_dict['generate_data_params']
   infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
-                                                      generate_data_path_filename)
+                                                      generate_data_filename)
 
   model_constructor = Multinomial if multinomial_or_poisson else Poisson
   infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
@@ -644,19 +648,19 @@ class Multinomial(object):
 
 
   def draw_bird_locations(self, years, days, title=None, plot=True, save=True, order='F',
-                          print_features_info=True):
+                          print_features_info=True, directory_filename=None):
 
     assert isinstance(years,list)
     assert isinstance(days,list)
     assert order in ('F','C')
     title = self.short_name if title is None else title
-    path = self.long_
     bird_locs = self.get_bird_locations(years,days)
 
 
-    bitmaps = plot_save_bird_locations(bird_locs, path, title, years, days, self.height, self.width,
-                                   plot=plot, save=save, order=order,
-                                   print_features_info = print_features_info)
+    bitmaps = plot_save_bird_locations(bird_locs, title, years, days, self.height, self.width,
+                                       plot=plot, save=save, order=order,
+                                       print_features_info = print_features_info,
+                                       directory_filename = directory_filename)
     
     if print_features_info:
       features_dict = venturedict_to_pythondict(self.features)

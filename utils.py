@@ -99,8 +99,9 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
       grid_mat[:,i] = grid[:,i][::-1]
     return grid_mat
 
+
 def plot_save_bird_locations(bird_locs, title, years, days, height, width,
-                             save=None, plot=None, order=None, print_features_info=None, multinomial=True, filename=None):
+                             save=None, plot=None, order=None, print_features_info=None, multinomial=True, directory_filename=None):
 
   if print_features_info:
     indices = range(len(bird_locs[years[0]][days[0]]))
@@ -148,25 +149,26 @@ def plot_save_bird_locations(bird_locs, title, years, days, height, width,
   cbar_ax = fig.add_axes([0.75, 0.7, 0.05, 0.2])
   fig.colorbar(my_imshow, cax=cbar_ax)
 
-  if filename is None:
+  
+  if directory_filename is None:
     directory = 'bird_moves/'
     filename = directory + title + '.png'
-
-  ensure(
-  directory = 'bird_moves' if directory is None else directory
+  else:
+    directory, filename = directory_filename
+  
   ensure(directory)
-  filename = '%s/
-
+  assert filename.startswith( directory )
+  
   if save:    ## FIXME make images look better!
-    fig.savefig(
+    fig.savefig( filename )
+    print '\n Saved bird location images in %s \n'%filename
+
 
     for y,d in product(years,days):
       grid = grids[(y,d)]
-      path = 'bird_moves_%s/%d/' % (name, y)
-      ensure(path)
       big_im = misc.imresize(grid,(200,200))
-      misc.imsave(path+'%02d.png'%d, big_im)
-      print '\n Saved bird location images in %s \n'%path
+      misc.imsave(directory+'imsave_%02d.png'%d, big_im)
+      print '\n Saved bird location images in %s \n'%directory
 
   return (fig,ax) if plot else None
 
