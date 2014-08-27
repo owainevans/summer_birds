@@ -79,7 +79,7 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
-def store_observes(unit, observe_range, path='synthetic'):
+def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
   unit.ensure_assumes()
   
@@ -130,21 +130,20 @@ def store_observes(unit, observe_range, path='synthetic'):
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
 
-  filename = params['long_name'] + '.dat'
  
   date = '21_08_14' ## FIXME ADD DATE
-  path = '%s/%s/' % (path,date)
-  ensure(path)
-  path_filename = path + filename
+  full_directory = '%s/%s/' % (synthetic_directory,date)
+  ensure(full_directory)
+  filename = full_directory + params['long_name'] + '.dat'
 
-  with open(path_filename+'test','w') as f:
-    pickle.dump(fig_ax,f)
+  # with open(filename+'test','w') as f:
+  #   pickle.dump(fig_ax,f)
   
-  with open(path_filename,'w') as f:
+  with open(filename,'w') as f:
     pickle.dump(store_dict,f)
   print 'Stored observes in %s.'%path_filename
 
-  return path_filename ## FIXME not sure about this
+  return filename ## FIXME not sure about this
 
 
 
@@ -445,7 +444,8 @@ class Multinomial(object):
 
 
   def save(self, directory):
-    random_directory_name = np.random.randint(10**9) ## FIXME
+    ## FIXME random_directory should be ripl hash
+    random_directory_name = np.random.randint(10**9) 
     filename = directory + '/%s/%s' % ( self.long_name, str(random_directory_name) )
     ensure(filename)
     
@@ -456,6 +456,7 @@ class Multinomial(object):
     print 'Saved to %s' % filename
     return filename
 
+
   def make_saved_model(self,filename):
     with open(filename + 'params.dat','r') as f:
       params = pickle.load(f)
@@ -465,18 +466,19 @@ class Multinomial(object):
   
     return Multinomial( ripl, params)
     
-
     
 
   def get_params(self):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
+
   def ensure_assumes(self):
     if self.assumes_loaded:
       pass
     else:
       self.load_assumes()
+
 
   def load_assumes(self):
     
@@ -647,7 +649,7 @@ class Multinomial(object):
     assert isinstance(years,list)
     assert isinstance(days,list)
     assert order in ('F','C')
-    title = self.short_name if name is None else title
+    title = self.short_name if title is None else title
     path = self.long_
     bird_locs = self.get_bird_locations(years,days)
 
