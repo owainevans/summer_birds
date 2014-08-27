@@ -36,7 +36,9 @@ import numpy as np
 # Params (i.e. inference progs) for inference itself.
 # Maybe some params for how many repeats / parallel runs to do.
 
-# 4. Exp_runner needs to join and commit features discussed in lab notebook 10 days or so ago.
+# 4 consider getting rid of store_observes and draw_birds as methods. just
+# have them as functions. too much hassle having to switch between scripts as is. 
+
 
 
                                                       

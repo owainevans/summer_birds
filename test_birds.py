@@ -122,11 +122,9 @@ def test_model_multinomial():
     
 
 
-
-
   
 def test_make_infer():
-  _, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  _, generate_data_unit, generate_data_filename, infer_unit = example_make_infer()
   generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
 
@@ -233,12 +231,13 @@ def test_save_images(del_images=True):
   unit = make_multinomial_unit()
   years = range(1)
   days = range(1)
-  name = 'temp_test_save'
-  path = 'bird_moves_' + name
+  directory = 'tmp_test_bird_moves_/'
+  filename = directory + 'temp_test_save.png'
   #os.chdir('~/summer_birds')
-  unit.draw_bird_locations(years, days, name, save=True, order='F', print_features_info=True)
-  assert os.path.exists( path )
-  if del_images: subprocess.call(['rm','-r',path])
+  unit.draw_bird_locations(years, days, 'test', save=True, order='F', print_features_info=True,
+                           directory_filename = (directory, filename) )
+  assert os.path.exists( directory)
+  if del_images: subprocess.call(['rm','-r',directory])
   
 
 def all_tests():
@@ -249,6 +248,13 @@ def all_tests():
   test_make_grid()
   test_model_multinomial()
   test_save_images()
+
+  test_make_infer()
+  test_memoization_observe()
+  test_load_observations()
+  test_incremental_load_observations()
+
+  print 'passed all tests'
   
 
 
