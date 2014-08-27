@@ -191,7 +191,7 @@ def make_params():
   params = {
     'short_name': 'onestepdiag10',
     'years': range(1),
-    'days': range(1),
+    'days': range(3),
     'height': 2,
     'width': 2,
     'feature_functions_name': 'one_step_and_not_diagonal',
@@ -355,37 +355,67 @@ def make_infer_unit( generate_data_path_filename, prior_on_hypers, multinomial_o
 
 
 def test_save_load_multinomial():
-  params = make_params()
-  make_unit = lambda: Multinomial(mk_p_ripl(),params)
-  unit = make_unit()
-  filename = unit.save('temp_test')
+  
+  def equality_multinomial(u1, u2):
+    'Equality for Multinomial objects with predict'
+    test_lambdas = (lambda u: u.params,
+                    lambda u: u.ripl.list_directives())
+
+    bools = [ f(u1)==f(u2) for f in test_lambdas ]
+    return all(bools)
+
+  def print_random_draws(u1, u2):
+    print 'compare beta(1 1)',
+    print map( lambda u: u.ripl.sample('(beta 1 1)'), (u1,u2) )
+
+
+  def make_unit_with_predict():
+    unit = Multinomial(mk_p_ripl(),make_params() )
+    predicts = ( '(observe_birds 0 0 0)',
+                 '(observe_birds 0 1 0)',
+                 '(observe_birds 0 1 1)',
+                 '(observe_birds 0 1 2)',
+                 '(observe_birds 0 2 0)', )
+    [unit.ripl.predict(exp) for exp in predicts]
+    return unit
     
-  unit_loader = make_unit()
-  unit_copy = unit_loader.make_saved_model(filename)
+  original_unit = make_unit_with_predict()
+  original_unit.ripl.infer(20)
+  original_filename = original_unit.save('temp_test')
+    
+  copy_unit = make_unit_with_predict().make_saved_model(original_filename)
   
-## FIXME
-  # def equality_multinomial(unit1, unit2):
+  # loaded copy equals original
+  assert equality_multinomial( original_unit, original_unit)
+  assert equality_multinomial( original_unit, copy_unit)
+  print_random_draws( original_unit, copy_unit)
 
-  #   test_lambdas = (lambda u: u.params,
-  #                   lambda u: u.ripl.list_directives()
-  #   bools= []
-  #   for lam in test_lambdas:
-  #     map( lam , (unit1, unit2) )
+  # do more inference on original unit. save and load. assert unequal.
+  original_unit.ripl.infer(20)
+  filename_more_infer = original_unit.save('temp_test_more_infer')
+  copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
-  # def print_random_draws(unit1, unit2):
-  #   print 'compare beta(1 1)',
-  #   print map( lambda u: u.ripl.sample('(beta 1 1)'), (unit1,unit2) )
-         
-  # assert_equality_multinomial( unit, unit_copy)
-  # print_random_draws( unit, unit_copy)
+  # updated original unit equals loaded copy of it
+  assert equality_multinomial( original_unit, copy_unit_more_infer)
+  print_random_draws( original_unit, copy_unit_more_infer)
 
-  # distinct_unit = make_unit()
-  # distinct_unit_filename = distinct_unit.save('temp_test_distinct')
-           
+  # copy of updated original unit not equal to copy of non-updated
+  assert not equality_multinomial( copy_unit, copy_unit_more_infer)
+  print_random_draws( copy_unit, copy_unit_more_infer)
+  
+  # but they do have same params and all but predicts
+  copies = ( copy_unit, copy_unit_more_infer )
+  assert copies[0].params == copies[1].params
+  
+  directives = [u.ripl.list_directives() for u in copies]
+                                                  
+  for d1,d2 in zip(*directives):
+    if d1['instruction']!='predict':
+      assert d1 == d2
   
   
 
-  # want to show 
+ 
 
 
 ## CELL NAMES (GRID REFS)
