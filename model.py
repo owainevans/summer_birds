@@ -153,12 +153,13 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
 
 
-def load_observes(unit, load_observe_range, path_filename=None):
+def load_observes(unit, load_observe_range, store_dict_filename=None):
+
   unit.ensure_assumes()
   
-  assert isinstance(path_filename, str)
+  assert isinstance(store_dict_filename, str)
   
-  with open(path_filename,'r') as f:
+  with open(store_dict_filename,'r') as f:
      store_dict = pickle.load(f)
     
   observe_counts = store_dict['observe_counts']

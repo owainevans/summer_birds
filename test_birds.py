@@ -77,8 +77,11 @@ def test_features_functions():
 
 
   
-def make_multinomial_unit():
-  return Multinomial(mk_p_ripl(), make_params() )
+def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10'):
+  names = ['minimal_onestepdiag10', 'bigger_onestep_diag105']
+  params_short_name = names[ np.random.randint(0, len(names) ) ]
+  print '\n----------',params_short_name,'\n----------'
+  return Multinomial(mk_p_ripl(), make_params( params_short_name) )
   
   
 def test_cell_to_prob_dist():
@@ -194,9 +197,9 @@ def make_triples( observe_range ):
 
 def test_load_observations():
   
-  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer()
 
-  infer_unit.load_observes(observe_range, path_filename)
+  infer_unit.load_observes(observe_range, store_dict_filename)
 
   if observe_range['cells_list'] is None:
     observe_range['cells_list'] = range( infer.unit.cells )
@@ -210,13 +213,13 @@ def test_load_observations():
     
 def test_incremental_load_observations():
 
-  observe_range, generate_data_unit, path_filename, infer_unit = example_make_infer()
+  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer()
 
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
     print updated_observe_range
-    infer_unit.load_observes( updated_observe_range, path_filename)
+    infer_unit.load_observes( updated_observe_range, store_dict_filename)
 
     ydi = make_triples(updated_observe_range)
     print '\n',ydi
