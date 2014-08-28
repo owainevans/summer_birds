@@ -14,6 +14,16 @@ import numpy as np
 
 ### PLAN NOTES
 
+# redoing tests, want to have tests that loop
+# over different settings, e.g. different params_instances,
+# maybe different ripls, etc. using product(). 
+
+# still in the process of having all tests that use unit
+# objects have this flexibility.
+
+
+
+
 # 1. Add method for serializing whole unit object. Main thing is to serialize
 # its ripl. Then we can store intermediate state of inference (as well 
 # as an easy way to store all the state of unit object for generating 
@@ -331,23 +341,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
 
 
 # UTILS FOR MAKING INFER UNIT OBJECTS BASED ON SAVED OBSERVES
-def example_make_infer(observe_range = None):
-  generate_data_params = make_params()
-  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
 
-  if observe_range is None:
-    observe_range = dict(  years_list = range(1),
-                           days_list= range(1),
-                           cells_list = None )
-  
-  out = generate_data_unit.store_observes(observe_range)
-  generate_data_store_dict_filename, generate_data_draw_bird_filename = out
-  ## FIXME, we don't need draw_bird_filename and so can ignore this
-
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, True)
-
-  return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
 
 
 def update_names(generated_data_params):  
@@ -635,9 +629,9 @@ class Multinomial(object):
     self.assumes_loaded = True
 
   
-  def store_observes(self,observe_range, path=None):
-    ## FIXME
-    return store_observes(self, observe_range, path)
+  def store_observes(self,observe_range, synthetic_directory = 'synthetic'):
+    ## FIXME get rid of me
+    return store_observes(self, observe_range, synthetic_directory)
     
 
   def load_observes(self, load_observe_range, path_filename):

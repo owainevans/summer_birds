@@ -78,14 +78,31 @@ def test_features_functions():
 
   
 def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10'):
-  names = ['minimal_onestepdiag10', 'bigger_onestep_diag105']
-  params_short_name = names[ np.random.randint(0, len(names) ) ]
   print '\n----------',params_short_name,'\n----------'
   return Multinomial(mk_p_ripl(), make_params( params_short_name) )
+
+
+def example_make_infer(observe_range = None, params_short_name = 'minimal_onestepdiag10'):
+  generate_data_params = make_params( params_short_name )
+  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
+
+  if observe_range is None:
+    observe_range = dict(  years_list = range(1),
+                           days_list= range(1),
+                           cells_list = None )
+  
+  out = generate_data_unit.store_observes(observe_range)
+  generate_data_store_dict_filename, generate_data_draw_bird_filename = out
+  ## FIXME, we don't need draw_bird_filename and so can ignore this
+
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, True)
+
+  return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
+
   
   
-def test_cell_to_prob_dist():
-  unit = make_multinomial_unit()
+def test_cell_to_prob_dist( unit ):
   height, width, ripl = unit.height, unit.width, unit.ripl
   cells = height * width
   for cell in range(cells):
@@ -93,8 +110,8 @@ def test_cell_to_prob_dist():
     assert_almost_equal( np.sum(grid), 1)
 
     
-def test_model_multinomial():
-  unit = make_multinomial_unit()
+def test_model_multinomial( unit ):
+  
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
   eq_( len( simplex['value'] ), unit.cells)
@@ -126,8 +143,8 @@ def test_model_multinomial():
 
 
   
-def test_make_infer():
-  _, generate_data_unit, generate_data_filename, infer_unit = example_make_infer()
+def test_make_infer( params_short_name):
+  _, generate_data_unit, generate_data_filename, infer_unit = example_make_infer( params_short_name = params_short_name)
   generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
 
@@ -243,13 +260,23 @@ def test_save_images(del_images=True):
   if del_images: subprocess.call(['rm','-r',directory])
   
 
+def test_all_multinomial_unit_params():
+  tests =  (test_model_multinomial,   test_cell_to_prob_dist)
+  params_short_names = ['minimal_onestepdiag10', 'bigger_onestep_diag105']
+  for test,params_short_name in product(tests,params_short_names):
+    test( make_multinomial_unit( params_short_name ) )
+
+  tests = (test_make_infer,)
+  for test,params_short_name in product(tests,params_short_names):
+    test( params_short_name )
+
 def all_tests():
-  test_cell_to_prob_dist()
+ 
   test_make_features_dict()
   test_features_functions()
   test_ind_to_ij()
   test_make_grid()
-  test_model_multinomial()
+ 
   test_save_images()
 
   test_make_infer()
