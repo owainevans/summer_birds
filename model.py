@@ -189,14 +189,25 @@ def load_observes(unit, load_observe_range, path_filename=None):
  # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need top actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
-def make_params( param_set = 'onestepdiag10'):  
+def make_params( params_short_name = 'minimal_onestepdiag10' ):
 # 'easy_hypers', currently uses 'must move exactly onestep away'
 # and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
   
-  params = {
-      'short_name': 'onestepdiag10',
+  def new_params_from_base( changes, base_params ):
+    assert all( [k in base_params.keys() for k in changes.keys()] )
+    if changes:
+      assert 'short_name' in changes.keys()
+    
+    params_new = base_params.copy()
+    params_new.update( changes )
+    
+    return params_new
+
+  
+  base_params = {
+      'short_name': 'minimal_onestepdiag10',
       'years': range(1),
-      'days': range(3),
+      'days': range(1),
       'height': 2,
       'width': 2,
       'feature_functions_name': 'one_step_and_not_diagonal',
@@ -204,22 +215,29 @@ def make_params( param_set = 'onestepdiag10'):
       'prior_on_hypers': ['(gamma 6 1)'] * 2,
       'hypers': [1,0],
       'learn_hypers': False,
-      'num_birds': 6,
+      'num_birds': 1,
       'softmax_beta': 4,
       'observes_loaded_from': None,
       'venture_random_seed': 1,
       'dataset': None,
       'observes_saved_to': None }
 
-  if param_set == 'params_new':
-    params_new = params.copy()
-    changes = {'short_name':'d',}
-    params_new.update( changes )
-    params = params_new
+  short_name_to_changes = {'minimal_onestepdiag10':
+                           {},
 
+                           'bigger_onestep_diag105':
+                           {'short_name': 'bigger_onestep_diag105',
+                            'years': range(2),
+                            'days': range(3),
+                            'height': 4,
+                            'width': 3,
+                            'hypers':[1,0.5],
+                            'num_birds': 6 } }
 
-  # FIXME all below just takes a params dict. So we should copy the original
-  # mutate it, and then do the stuff below
+  params = new_params_from_base( short_name_to_changes[ params_short_name ],
+                                 base_params )
+  
+
   params['max_day'] = max( params['days'] )
   
   # Generate features dicts
