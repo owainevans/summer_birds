@@ -1,6 +1,7 @@
 import numpy as np
 import os, subprocess
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
+from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from nose.tools import eq_, assert_almost_equal
 import cPickle as pickle
 
@@ -75,16 +76,16 @@ def test_features_functions():
   # sum_distances = [sum(distances_from_i(i)) for i in (0, num_cells-1) ]  
   # eq_( *sum_distances )
 
-
   
-def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10'):
-  print '\n----------',params_short_name,'\n----------'
-  return Multinomial(mk_p_ripl(), make_params( params_short_name) )
+def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10', ripl_thunk = None):
+  if ripl_thunk is None:
+    ripl_thunk = mk_p_ripl
+  
+  return Multinomial( ripl_thunk(), make_params( params_short_name) )
 
 
-def example_make_infer(observe_range = None, params_short_name = 'minimal_onestepdiag10'):
-  generate_data_params = make_params( params_short_name )
-  generate_data_unit = Multinomial(mk_p_ripl(),generate_data_params)
+def example_make_infer(generate_data_unit, observe_range = None ):
+  generate_data_params = generate_data_unit.params
 
   if observe_range is None:
     observe_range = dict(  years_list = range(1),
@@ -99,7 +100,6 @@ def example_make_infer(observe_range = None, params_short_name = 'minimal_oneste
   infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, True)
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
-
   
   
 def test_cell_to_prob_dist( unit ):
@@ -140,11 +140,10 @@ def test_model_multinomial( unit ):
     if total_transitions >= 500:
       assert False,'Did total_transitions without changing bird_pos'
     
-
-
   
-def test_make_infer( params_short_name):
-  _, generate_data_unit, generate_data_filename, infer_unit = example_make_infer( params_short_name = params_short_name)
+def test_make_infer( generate_data_unit ):
+  out = example_make_infer( generate_data_unit )
+  _, generate_data_unit, generate_data_filename, infer_unit = out
   generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
 
@@ -163,12 +162,11 @@ def test_make_infer( params_short_name):
 
 
 
-def test_memoization_observe():
+def test_memoization_observe( unit ):
   
   num_tries = 100
   
   for _ in range(num_tries):
-    unit = make_multinomial_unit()
     r = unit.ripl
 
     pred_val = r.predict('(observe_birds 0 0 0)')
@@ -189,7 +187,6 @@ def test_memoization_observe():
   
 
  
-
 def compare_observes( first_unit, second_unit, triples ):
   'Pass asserts if unit.ripls agree on all triples'
 
@@ -212,9 +209,11 @@ def make_triples( observe_range ):
                  observe_range['cells_list'] )
 
 
-def test_load_observations():
+
+def test_load_observations( generate_data_unit ):
   
-  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer()
+  out = example_make_infer( generate_data_unit )
+  observe_range, generate_data_unit, store_dict_filename, infer_unit = out
 
   infer_unit.load_observes(observe_range, store_dict_filename)
 
@@ -228,9 +227,9 @@ def test_load_observations():
 
 
     
-def test_incremental_load_observations():
+def test_incremental_load_observations( generate_data_unit):
 
-  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer()
+  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer( generate_data_unit)
 
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
@@ -245,10 +244,7 @@ def test_incremental_load_observations():
     infer_unit.ripl.infer(10)
     
      
-
-
-def test_save_images(del_images=True):
-  unit = make_multinomial_unit()
+def test_save_images(unit, del_images=True):
   years = range(1)
   days = range(1)
   directory = 'tmp_test_bird_moves_/'
@@ -260,15 +256,93 @@ def test_save_images(del_images=True):
   if del_images: subprocess.call(['rm','-r',directory])
   
 
-def test_all_multinomial_unit_params():
-  tests =  (test_model_multinomial,   test_cell_to_prob_dist)
-  params_short_names = ['minimal_onestepdiag10', 'bigger_onestep_diag105']
-  for test,params_short_name in product(tests,params_short_names):
-    test( make_multinomial_unit( params_short_name ) )
 
-  tests = (test_make_infer,)
-  for test,params_short_name in product(tests,params_short_names):
-    test( params_short_name )
+def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
+
+  
+  def equality_multinomial(u1, u2):
+    'Equality for Multinomial objects with predict'
+    test_lambdas = (lambda u: u.params,
+                    lambda u: u.ripl.list_directives())
+
+    bools = [ f(u1)==f(u2) for f in test_lambdas ]
+    return all(bools)
+
+  def print_random_draws(u1, u2):
+    print 'compare beta(1 1)',
+    print map( lambda u: u.ripl.sample('(beta 1 1)'), (u1,u2) )
+
+
+  def make_unit_with_predict():
+    unit = Multinomial( ripl_thunk(), make_params_thunk() )
+    predicts = ( '(observe_birds 0 0 0)',
+                 '(observe_birds 0 1 0)',
+                 '(observe_birds 0 1 1)',
+                 '(observe_birds 0 1 2)',
+                 '(observe_birds 0 2 0)', )
+    [unit.ripl.predict(exp) for exp in predicts]
+    return unit
+    
+  original_unit = make_unit_with_predict()
+  original_unit.ripl.infer(20)
+  original_filename = original_unit.save('temp_test')
+    
+  copy_unit = make_unit_with_predict().make_saved_model(original_filename)
+  
+  # loaded copy equals original
+  assert equality_multinomial( original_unit, original_unit)
+  assert equality_multinomial( original_unit, copy_unit)
+  print_random_draws( original_unit, copy_unit)
+
+  # do more inference on original unit. save and load. assert unequal.
+  original_unit.ripl.infer(20)
+  filename_more_infer = original_unit.save('temp_test_more_infer')
+  copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
+
+  # updated original unit equals loaded copy of it
+  assert equality_multinomial( original_unit, copy_unit_more_infer)
+  print_random_draws( original_unit, copy_unit_more_infer)
+
+  # copy of updated original unit not equal to copy of non-updated
+  assert not equality_multinomial( copy_unit, copy_unit_more_infer)
+  print_random_draws( copy_unit, copy_unit_more_infer)
+  
+  # but they do have same params and all but predicts
+  copies = ( copy_unit, copy_unit_more_infer )
+  assert copies[0].params == copies[1].params
+  
+  directives = [u.ripl.list_directives() for u in copies]
+                                                  
+  for d1,d2 in zip(*directives):
+    if d1['instruction']!='predict':
+      assert d1 == d2
+
+
+
+
+def test_all_multinomial_unit_params( puma = None):
+  tests =  (test_model_multinomial,
+            test_cell_to_prob_dist,
+            test_make_infer,
+            test_memoization_observe,
+            test_load_observations,
+            test_incremental_load_observations,
+            test_save_images, )
+  
+  ripl_thunks = (mk_p_ripl, mk_l_ripl)
+  if puma: ripl_thunks = (mk_p_ripl,)
+  
+  params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
+
+  for test, params_short_name, ripl_thunk in product(tests,params_short_names, ripl_thunks):
+    test( make_multinomial_unit( params_short_name, ripl_thunk) )
+
+  make_params_thunks = [ lambda:make_params( name ) for name in params_shot_names ]
+  
+  for ripl_thunk, make_params_thunk in product( ripl_thunks, make_params_thunk):
+    test_save_load_multinomial( ripl_thunk, make_params_thunk )
+
+
 
 def all_tests():
  
@@ -277,12 +351,7 @@ def all_tests():
   test_ind_to_ij()
   test_make_grid()
  
-  test_save_images()
-
-  test_make_infer()
-  test_memoization_observe()
-  test_load_observations()
-  test_incremental_load_observations()
+  test_all_multinomial_unit_params()
 
   print 'passed all tests'
   

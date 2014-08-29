@@ -1,4 +1,3 @@
-#!
 from utils import *
 from features_utils import make_features_dict
 from venture.unit import VentureUnit
@@ -21,15 +20,14 @@ import numpy as np
 # still in the process of having all tests that use unit
 # objects have this flexibility.
 
-
+# 4 consider getting rid of store_observes and draw_birds as methods. just
+# have them as functions. too much hassle having to switch between scripts as is. 
 
 
 # 1. Add method for serializing whole unit object. Main thing is to serialize
 # its ripl. Then we can store intermediate state of inference (as well 
 # as an easy way to store all the state of unit object for generating 
-# synthetic data. [Saving ripl: simple way is using ripl method. if so,
-# we probably need to save ripl in a separate file (as with figures)
-# which is annoying, vs. just pickling everything in a table. ]
+# synthetic data.
 
 # 2. Should be able to save infer/observe ripl at any stage. For example,
 # might want to save after loading assumes/observes (which could take
@@ -47,8 +45,33 @@ import numpy as np
 # Params (i.e. inference progs) for inference itself.
 # Maybe some params for how many repeats / parallel runs to do.
 
-# 4 consider getting rid of store_observes and draw_birds as methods. just
-# have them as functions. too much hassle having to switch between scripts as is. 
+# 4. Add more realistic features. THings like wind-direction
+
+#  5. play with experiment runner and see if there's any issues with integrating. 
+#     some functionality that it doesn't have (scaling/timing info for particular
+#     elements of inference, e.g. loading vs. single step of MH, etc.) might be 
+#     necessary to write into birds using the timeit module. 
+
+
+
+# ASK AXCH, VLAD, ANTHONY
+# 1. better way of serializing figures (so you can unpickle and display the figure in figure window). ideally
+# we would just pickle one table containing observes, params, unit.ripl and figures. then loading is simply
+# one unpickling. anthony: can we use save/load methods to define a pickling method for ripls?
+
+# 2. use of dates for naming, use of long_names. what symbols are ok. should we try compress long names.
+# long_name vs. short_name. should be sub-divide the synthetic params dict more. 
+
+# probably should also think about what the inference params should look like. need a template
+# for parameterizing inference programs of the kind we want to run. 
+
+# 3. conventions for directories vs. filenames (for store_observes, save_images)
+
+# 4. ask about best way of pulling out params. current idea is to use no global variables at all 
+# in all utilities for manipulating the venture prog. we then control via a script which defines
+# a 'global' set of params (backend, params for synth data or filename, inference_prog_params).
+# this is different from what dan lovell did for slam and vlad did. so what is best way here?
+
 
 
 
@@ -197,7 +220,7 @@ def load_observes(unit, load_observe_range, store_dict_filename=None):
 
 # NOTES:
 
- # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need top actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
+ # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need to actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
 def make_params( params_short_name = 'minimal_onestepdiag10' ):
@@ -369,10 +392,13 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params.update
 
 
-def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson=True):
+def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson=True, ripl=None):
   '''Utility takes synthetic data path, prior_on_hypers, model_type,
      and then generates an inference with appropriate params'''
-  
+
+  if ripl is None:
+    ripl = mk_p_ripl()
+
 
   with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
@@ -382,70 +408,12 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poi
                                                       generate_data_filename)
 
   model_constructor = Multinomial if multinomial_or_poisson else Poisson
-  infer_unit = model_constructor( mk_p_ripl(), generate_data_params) # FIXME, lite option
+  infer_unit = model_constructor( ripl, generate_data_params) 
 
   return infer_unit
 
 
 
-def test_save_load_multinomial():
-  
-  def equality_multinomial(u1, u2):
-    'Equality for Multinomial objects with predict'
-    test_lambdas = (lambda u: u.params,
-                    lambda u: u.ripl.list_directives())
-
-    bools = [ f(u1)==f(u2) for f in test_lambdas ]
-    return all(bools)
-
-  def print_random_draws(u1, u2):
-    print 'compare beta(1 1)',
-    print map( lambda u: u.ripl.sample('(beta 1 1)'), (u1,u2) )
-
-
-  def make_unit_with_predict():
-    unit = Multinomial(mk_p_ripl(),make_params() )
-    predicts = ( '(observe_birds 0 0 0)',
-                 '(observe_birds 0 1 0)',
-                 '(observe_birds 0 1 1)',
-                 '(observe_birds 0 1 2)',
-                 '(observe_birds 0 2 0)', )
-    [unit.ripl.predict(exp) for exp in predicts]
-    return unit
-    
-  original_unit = make_unit_with_predict()
-  original_unit.ripl.infer(20)
-  original_filename = original_unit.save('temp_test')
-    
-  copy_unit = make_unit_with_predict().make_saved_model(original_filename)
-  
-  # loaded copy equals original
-  assert equality_multinomial( original_unit, original_unit)
-  assert equality_multinomial( original_unit, copy_unit)
-  print_random_draws( original_unit, copy_unit)
-
-  # do more inference on original unit. save and load. assert unequal.
-  original_unit.ripl.infer(20)
-  filename_more_infer = original_unit.save('temp_test_more_infer')
-  copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
-
-  # updated original unit equals loaded copy of it
-  assert equality_multinomial( original_unit, copy_unit_more_infer)
-  print_random_draws( original_unit, copy_unit_more_infer)
-
-  # copy of updated original unit not equal to copy of non-updated
-  assert not equality_multinomial( copy_unit, copy_unit_more_infer)
-  print_random_draws( copy_unit, copy_unit_more_infer)
-  
-  # but they do have same params and all but predicts
-  copies = ( copy_unit, copy_unit_more_infer )
-  assert copies[0].params == copies[1].params
-  
-  directives = [u.ripl.list_directives() for u in copies]
-                                                  
-  for d1,d2 in zip(*directives):
-    if d1['instruction']!='predict':
-      assert d1 == d2
   
   
 
