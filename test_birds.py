@@ -84,7 +84,7 @@ def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10', ripl_thu
   return Multinomial( ripl_thunk(), make_params( params_short_name) )
 
 
-def example_make_infer(generate_data_unit, observe_range = None ):
+def example_make_infer(generate_data_unit, observe_range = None, ripl_thunk=None ):
   generate_data_params = generate_data_unit.params
 
   if observe_range is None:
@@ -97,7 +97,9 @@ def example_make_infer(generate_data_unit, observe_range = None ):
   ## FIXME, we don't need draw_bird_filename and so can ignore this
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, True)
+  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers,
+                                multinomial_or_poisson='multinomial',
+                                ripl_thunk = ripl_thunk)
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
@@ -141,8 +143,10 @@ def test_model_multinomial( unit ):
       assert False,'Did total_transitions without changing bird_pos'
     
   
-def test_make_infer( generate_data_unit ):
-  out = example_make_infer( generate_data_unit )
+def test_make_infer( generate_data_unit, ripl_thunk ):
+  observe_range = generate_data_unit.get_full_observe_range()
+  
+  out = example_make_infer( generate_data_unit, ripl_thunk = ripl_thunk )
   _, generate_data_unit, generate_data_filename, infer_unit = out
   generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
@@ -209,36 +213,44 @@ def make_triples( observe_range ):
                  observe_range['cells_list'] )
 
 
+def load_observations_vars(generate_data_unit, ripl_thunk):
 
-def test_load_observations( generate_data_unit ):
+  observe_range = generate_data_unit.get_full_observe_range()
+
+  out = example_make_infer( generate_data_unit, observe_range = observe_range,
+                            ripl_thunk = ripl_thunk)
+  observe_range, _, store_dict_filename, infer_unit = out
+
+  return observe_range, store_dict_filename, infer_unit
+
   
-  out = example_make_infer( generate_data_unit )
-  observe_range, generate_data_unit, store_dict_filename, infer_unit = out
+def test_load_observations( generate_data_unit, ripl_thunk ):
+                                                                            
+  observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
+                                                                           ripl_thunk )
 
   infer_unit.load_observes(observe_range, store_dict_filename)
-
-  if observe_range['cells_list'] is None:
-    observe_range['cells_list'] = range( infer.unit.cells )
     
   ydi = make_triples( observe_range )
+
   # do values for *observe_birds* agree for generate_data_unit
   # and infer_unit?
   compare_observes( generate_data_unit, infer_unit, ydi )
 
 
     
-def test_incremental_load_observations( generate_data_unit):
+def test_incremental_load_observations( generate_data_unit, ripl_thunk):
 
-  observe_range, generate_data_unit, store_dict_filename, infer_unit = example_make_infer( generate_data_unit)
+  observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
+                                                                           ripl_thunk )
 
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
-    print updated_observe_range
+                                                                              
     infer_unit.load_observes( updated_observe_range, store_dict_filename)
 
     ydi = make_triples(updated_observe_range)
-    print '\n',ydi
     compare_observes( generate_data_unit, infer_unit, ydi)
             
     infer_unit.ripl.infer(10)
@@ -321,25 +333,37 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
 
 
 def test_all_multinomial_unit_params( puma = None):
-  tests =  (test_model_multinomial,
-            test_cell_to_prob_dist,
-            test_make_infer,
-            test_memoization_observe,
-            test_load_observations,
-            test_incremental_load_observations,
-            test_save_images, )
+
+  # tests that take unit object (with ripl) as input
+  tests_unit =  (test_model_multinomial,
+                 test_cell_to_prob_dist,
+                 test_memoization_observe,
+                 test_save_images, )
   
-  ripl_thunks = (mk_p_ripl, mk_l_ripl)
-  if puma: ripl_thunks = (mk_p_ripl,)
-  
+  # tests that take unit object and a separate ripl_thunk
+  # e.g. for loading saved observes onto a new ripl
+  # -- allows for mixing up backends (which we don't test currently)
+  tests_unit_ripl_thunk = (test_load_observations,
+                           test_incremental_load_observations,
+                           test_make_infer)
+
+
+  ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
   params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
 
-  for test, params_short_name, ripl_thunk in product(tests,params_short_names, ripl_thunks):
+  unit_product = product( tests_unit,params_short_names, ripl_thunks)
+  for test,params_short_name,ripl_thunk in unit_product:
     test( make_multinomial_unit( params_short_name, ripl_thunk) )
 
-  make_params_thunks = [ lambda:make_params( name ) for name in params_shot_names ]
+  unit_thunk_product = product( tests_unit_ripl_thunk, params_short_names, ripl_thunks)
+  for test,params_short_name,ripl_thunk in unit_thunk_product:
+    test( make_multinomial_unit( params_short_name, ripl_thunk), ripl_thunk )
+
+
+  # special case test that takes ripl_thunk and make_params_thunk
+  make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
   
-  for ripl_thunk, make_params_thunk in product( ripl_thunks, make_params_thunk):
+  for ripl_thunk, make_params_thunk in product( ripl_thunks, make_params_thunks):
     test_save_load_multinomial( ripl_thunk, make_params_thunk )
 
 

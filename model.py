@@ -392,13 +392,13 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params.update
 
 
-def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson=True, ripl=None):
+def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson='multinomial',
+                     ripl_thunk=None):
   '''Utility takes synthetic data path, prior_on_hypers, model_type,
      and then generates an inference with appropriate params'''
 
-  if ripl is None:
-    ripl = mk_p_ripl()
-
+  if ripl_thunk is None:
+    ripl_thunk = mk_p_ripl
 
   with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
@@ -407,8 +407,8 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poi
   infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
                                                       generate_data_filename)
 
-  model_constructor = Multinomial if multinomial_or_poisson else Poisson
-  infer_unit = model_constructor( ripl, generate_data_params) 
+  model_constructor = Multinomial if multinomial_or_poisson=='multinomial' else Poisson
+  infer_unit = model_constructor( ripl_thunk(), generate_data_params) 
 
   return infer_unit
 
@@ -475,6 +475,9 @@ class Multinomial(object):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
+  def get_full_observe_range(self):
+    return {'days_list': self.days, 'years_list': self.years,
+            'cells_list': range(self.cells)}
 
   def ensure_assumes(self):
     if self.assumes_loaded:
@@ -597,13 +600,12 @@ class Multinomial(object):
     self.assumes_loaded = True
 
   
-  def store_observes(self,observe_range, synthetic_directory = 'synthetic'):
-    ## FIXME get rid of me
-    return store_observes(self, observe_range, synthetic_directory)
+  def store_observes(self, *args, **kwargs):
+    return store_observes(self, *args, **kwargs)
     
 
-  def load_observes(self, load_observe_range, path_filename):
-    return load_observes(self, load_observe_range, path_filename)
+  def load_observes(self, *args, **kwargs):
+    return load_observes(self, *args, **kwargs)
 
 
   def bird_to_pos(self,year,day,hist=False):
@@ -894,8 +896,8 @@ class Poisson(VentureUnit):
     #self.ripl.predict(fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1), label='bird_moves')
   
 
-## TODO Should this be sample or predict
-  def getBirdLocations(self, years=None, days=None, predict=False):
+## FIXME predict
+  def getBirdLocations(self, years=None, days=None, predict=True):
     if years is None: years = self.years
     if days is None: days = self.days
     
