@@ -13,6 +13,9 @@ import numpy as np
 
 ### PLAN NOTES
 
+# NOSIFY tests. should use yield to get good printing when nose runs
+# DEBUG whatever is going wrong with lite, which may be a general issue (could be due to dodgy install)
+
 # redoing tests, want to have tests that loop
 # over different settings, e.g. different params_instances,
 # maybe different ripls, etc. using product(). 
