@@ -220,7 +220,7 @@ def load_observes(unit, load_observe_range, store_dict_filename=None):
  # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need to actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
-def make_params( params_short_name = 'minimal_onestepdiag10' ):
+def make_params( params_short_name = 'minimal_onestepdiag10', make_features_dict_string='dict' ):
 # 'easy_hypers', currently uses 'must move exactly onestep away'
 # and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
   
@@ -299,7 +299,8 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
   # Generate features dicts
   if not features_loaded_from:
     args = params['height'], params['width'], params['years'], params['days']
-    kwargs = dict( feature_functions_name = params['feature_functions_name'] )
+    kwargs = dict( feature_functions_name = params['feature_functions_name'],
+                   dict_string = make_features_dict_string )
     venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
     params['features'] = venture_features_dict  
 
@@ -546,7 +547,6 @@ class Multinomial(object):
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
 
-      
     
     ripl.assume('features', self.features)
     ripl.assume('num_birds',self.num_birds)

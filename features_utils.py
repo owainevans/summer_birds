@@ -63,7 +63,7 @@ def ind_to_ij(height, width, index, order='F'):
   return map(int,np.where(grid==index))
 
   
-def make_features_dict(height, width, years, days, feature_functions_name='distance'):
+def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='string'):
     
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
@@ -82,7 +82,30 @@ def make_features_dict(height, width, years, days, feature_functions_name='dista
       assert isinstance(feature_value,(int,float))
       feature_dict[(y,d,cell1,cell2)].append( feature_value )
 
-  return toVenture(feature_dict),feature_dict
+  if dict_string=='string':
+      venture_exp = features_python_to_venture_string( feature_dict)
+  else:
+      venture_exp = toVenture( feature_dict)
+  return venture_exp, feature_dict
+
+
+def test_load_features_multinomial(  ):
+
+  units = []
+  for dict_string in ('dict','string'):
+    params = make_params( make_features_dict_string = dict_string) )
+    units.append( Multinomial( mk_p_ripl(), params ) )
+
+  
+  unit = units[0]
+  test_keys = product(unit.years, unit.days, unit.cells, unit.cells)
+  key_to_string = lambda k: '%i %i %i %i'%k
+  
+  for k in test_keys():
+    test_string = '(lookup features (array %s))' % key_to_string
+    values = [u.ripl.sample(test_string) for u in units]
+    eq_( *values )
+    
 
 
 def cell_to_feature(height, width, state, python_features_dict, feature_ind):

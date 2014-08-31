@@ -368,6 +368,26 @@ def test_all_multinomial_unit_params( puma = None):
 
 
 
+def test_load_features_multinomial(  ):
+
+  units = []
+  for dict_string in ('dict','string'):
+    params = make_params( make_features_dict_string = dict_string) )
+    units.append( Multinomial( mk_p_ripl(), params ) )
+
+  
+  unit = units[0]
+  test_keys = product(unit.years, unit.days, unit.cells, unit.cells)
+  key_to_string = lambda k: '%i %i %i %i'%k
+  
+  for k in test_keys():
+    test_string = '(lookup features (array %s))' % key_to_string
+    values = [u.ripl.sample(test_string) for u in units]
+    eq_( *values )
+    
+
+
+
 def all_tests():
  
   test_make_features_dict()
