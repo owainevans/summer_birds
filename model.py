@@ -87,17 +87,6 @@ def day_features(features,width,y=0,d=0):
   lst = [features[(y,d,i,j)] for (i,j) in product(range(cells),range(cells))]
   return lst
 
-def loadFeatures(dataset, name, years, days, maxDay=None):
-  'Load features from Birds datasets and convert to Venture dict'
-  features_file = "data/input/dataset%d/%s-features.csv" % (dataset, name)
-  print "Loading features from %s" % features_file  
-  features = readFeatures(features_file, maxYear= max(years)+1, maxDay=maxDay)
-  
-  for (y, d, i, j) in features.keys():
-    if y not in years:
-      del features[(y, d, i, j)]
-  
-  return toVenture(features)
 
 
 def loadObservations(ripl, dataset, name, years, days):
@@ -256,8 +245,11 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
       'softmax_beta': 4,
       'observes_loaded_from': None,
       'venture_random_seed': 1,
-      'dataset': None,
-      'observes_saved_to': None }
+      'features_loaded_from': None,
+      'observes_saved_to': None,
+      'max_years': None,
+    'max_days': None,
+  }
 
   short_name_to_changes = {'minimal_onestepdiag10':
                            {},
@@ -269,19 +261,49 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                             'height': 4,
                             'width': 3,
                             'hypers':[1,0.5],
-                            'num_birds': 6 } }
+                            'num_birds': 6 },
+
+                           'dataset2':
+                           {'short_name':'dataset2',
+                            'years': range(3),
+                            'days': range(20),
+                            'width':10,
+                            'height':10,
+                            'num_birds': 1000,
+                            'num_features': 4,
+                            'hypers': [5,10,10,10],
+                            'prior_on_hypers': ['(gamma 6 1)'] * 4,
+                            'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv"},
+                          'max_years': 0, # FOR NOW WE LIMIT TO year 0 and day 5
+                           'max_days': 5, 
+
+                         }
+
+                            
 
   params = new_params_from_base( short_name_to_changes[ params_short_name ],
                                  base_params )
   
+  for max_param, param in zip( ('max_days','max_years'), ('days','years') ):
+    if params[ max_param ] is None:
+      params[ max_param ] = max( params[ param ] )
+    else:
+      assert max_param <=  max( params[ param ] )
 
-  params['max_day'] = max( params['days'] )
   
   # Generate features dicts
-  args = params['height'], params['width'], params['years'], params['days']
-  kwargs = dict( feature_functions_name = params['feature_functions_name'] )
-  venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
-  params['features'] = venture_features_dict  
+  if not features_loaded_from:
+    args = params['height'], params['width'], params['years'], params['days']
+    kwargs = dict( feature_functions_name = params['feature_functions_name'] )
+    venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
+    params['features'] = venture_features_dict  
+
+  else:
+    params['feature_function_names'] = 'features_loaded_from'
+    out = load_features( params['features_loaded_from'], params['years'], params['days'],
+                         params['max_years'], params['max_days'] )
+    venture_features_dict, python_features_dict = out
+
 
   assert params['num_features'] == len( python_features_dict[(0,0,0,0)] )
   assert len( params['prior_on_hypers'] ) == len( params['hypers'] ) ==  params['num_features']

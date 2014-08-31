@@ -1,5 +1,5 @@
 from itertools import product
-from utils import toVenture, make_grid
+from utils import toVenture, make_grid, readFeatures
 import numpy as np
 import matplotlib.pylab as plt
 
@@ -13,7 +13,6 @@ import matplotlib.pylab as plt
 # if we make all feature vals +ve, then -ve hypers will be like 0 hypers.
 # if not, then for a feature_i to not have impact, we need to have
 # hyper_i = 0. 
-
 
 
 ### Functions for generating features
@@ -86,8 +85,6 @@ def make_features_dict(height, width, years, days, feature_functions_name='dista
   return toVenture(feature_dict),feature_dict
 
 
-
-
 def cell_to_feature(height, width, state, python_features_dict, feature_ind):
   'Given state(y,d,i) and feature index, return feature from features_dict'
   cells = height * width
@@ -95,6 +92,34 @@ def cell_to_feature(height, width, state, python_features_dict, feature_ind):
   l=[ python_features_dict[(y,d,i,j)][feature_ind] for j in range(cells)]
   return make_grid(height, width, top0=True, lst=l)
   
+
+
+## function for loading saved features from a file (currently saved as CSV)
+#current we delete stuff but not clear why we should do this. two ways to cut 
+#down the list, one is from readFeatures, another from load_features. might
+#be easiest to have deletions here, or at least make it optional
+
+def load_features(features_file, years_list, days_list, max_year=None, max_day=None):
+  'Load features from Birds datasets and convert to Venture dict'
+
+  print "Loading features from %s" % features_file  
+
+  ## FIXME needs be careful about 0 vs 1 indexing for the year
+  ## NOTE: looks 
+  features = readFeatures(features_file, max_year, max_day)
+  
+  for (y, d, i, j) in features.keys():
+    if y not in years_list or d not in days_list:
+      del features[(y, d, i, j)]
+  
+  return toVenture(features), features
+
+
+
+
+
+
+
 
 
 def cell_to_prob_dist(height, width, ripl, source_cell, year, day,order='F'):

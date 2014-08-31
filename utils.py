@@ -22,26 +22,31 @@ def update(dict, key, data):
   
   dict[key].append(data)
 
-def readFeatures(filename,maxYear=None,maxDay=None):
+
+def readFeatures(filename, maxYear=None, maxDay=None):
   csv = loadCSV(filename)
   data = {}
   
   for i,row in enumerate(csv[1:]):
-
-    if maxYear and int(row[0])>maxYear:
+    
+    ## FIXME: assumes keys are len 4
+    ## NOTE converstion from MATLAB 1 indexing to zero indexing
+    keys = tuple( int(k)-1 for k in row[:4])
+    year, day = keys[:2]
+    
+    if maxYear and year > maxYear:
         print 'maxYear and stop point:',maxYear
         print row
         break
 
-    if maxDay and int(row[1])>maxDay:
-      if maxYear==int(row[0]):
+    if maxDay and day > maxDay:
+      if maxYear == year
         print 'maxDay,maxYear and stop point:',maxDay,maxYear
         print row
         break
       else:
         continue
-      
-    keys = tuple(int(k)-1 for k in row[:4])
+    
     features = map(float, row[4:])
     data[keys] = features
     
@@ -174,29 +179,21 @@ def plot_save_bird_locations(bird_locs, title, years, days, height, width,
 
 
 
-
-
-
-
-
-
-def getParams(dataset):
+def dataset_to_params(dataset):
   params = {'dataset': dataset}
 
   if dataset == 1:
     params['width'] = params['height'] = 4
-    params['num_birds'] = 1
-    params['name'] = 'onebird'
+    params['num_birds'] = 1    
     params['years'] = range(30)
     params['days'] = range(20)
   else:
     params['width'] = params['height'] = 10
     params['num_birds'] = 1000 if dataset == 2 else 1000000
-    params['name'] = "%dx%dx%d-train" % (params['width'], params['height'], params['num_birds'])
+
     params['years'] = range(3)
     params['days'] = range(20)
     
-  params['cells'] = params['width'] * params['height']
 
   return params
 
