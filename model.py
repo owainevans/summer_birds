@@ -297,7 +297,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10', make_features_dict
 
   
   # Generate features dicts
-  if not features_loaded_from:
+  if not params['features_loaded_from']:
     args = params['height'], params['width'], params['years'], params['days']
     kwargs = dict( feature_functions_name = params['feature_functions_name'],
                    dict_string = make_features_dict_string )

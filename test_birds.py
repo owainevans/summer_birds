@@ -372,7 +372,7 @@ def test_load_features_multinomial(  ):
 
   units = []
   for dict_string in ('dict','string'):
-    params = make_params( make_features_dict_string = dict_string) )
+    params = make_params( make_features_dict_string = dict_string )
     units.append( Multinomial( mk_p_ripl(), params ) )
 
   

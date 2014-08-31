@@ -211,7 +211,7 @@ def build_exp(exp):
         return '('+ ' '.join(map(build_exp,exp)) + ')'
 
 
-def python_dict_to_venture_expression( d ):
+def python_dict_to_venture_exp( d ):
   assert isinstance(d, dict)
   
   def seq_to_array_exp(seq):
