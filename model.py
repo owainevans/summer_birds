@@ -252,7 +252,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10', make_features_dict
       'venture_random_seed': 1,
       'features_loaded_from': None,
       'observes_saved_to': None,
-      'max_years': None,
+    'max_years': None,
     'max_days': None,
   }
 
@@ -278,9 +278,9 @@ def make_params( params_short_name = 'minimal_onestepdiag10', make_features_dict
                             'num_features': 4,
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
-                            'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv"},
-                          'max_years': 0, # FOR NOW WE LIMIT TO year 0 and day 5
-                           'max_days': 5, 
+                            'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv",
+                            'max_years': 0, # FOR NOW WE LIMIT TO year 0 and day 5
+                            'max_days': 5, }
 
                          }
 
@@ -347,8 +347,9 @@ def make_params( params_short_name = 'minimal_onestepdiag10', make_features_dict
                width=int,
                years=list,
                days=list,
-               max_day=int,
-               features=dict,
+               max_days=int,
+               max_years=int,
+               features=(dict,str),
                num_features=int,
                hypers=list,
                learn_hypers=bool,

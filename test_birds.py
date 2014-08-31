@@ -372,16 +372,22 @@ def test_load_features_multinomial(  ):
 
   units = []
   for dict_string in ('dict','string'):
-    params = make_params( make_features_dict_string = dict_string )
+    params = make_params( make_features_dict_string = dict_string)
+                          #params_short_name = 'bigger_onestep_diag105',)
     units.append( Multinomial( mk_p_ripl(), params ) )
 
   
   unit = units[0]
-  test_keys = product(unit.years, unit.days, unit.cells, unit.cells)
+  cells_list = range( unit.cells )
+  test_keys = product( unit.years, unit.days, cells_list, cells_list )
   key_to_string = lambda k: '%i %i %i %i'%k
   
-  for k in test_keys():
-    test_string = '(lookup features (array %s))' % key_to_string
+#  for u in units:
+#   print u.features
+
+  for k in test_keys:
+
+    test_string = '(lookup features (array %s))' % key_to_string( k )
     values = [u.ripl.sample(test_string) for u in units]
     eq_( *values )
     
