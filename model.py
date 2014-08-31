@@ -13,7 +13,12 @@ import numpy as np
 
 ### PLAN NOTES
 
-# NOSIFY tests. should use yield to get good printing when nose runs
+# Add unit tests for refactored load_features. Add datasets 1 and 3. 
+# Then write some code for saving features. Might be useful to have
+# more flexible way of storing/reading off features than current thing. 
+# RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADLEYS RESULTS
+
+# NOSe-IFY tests. should use yield to get good printing when nose runs
 # DEBUG whatever is going wrong with lite, which may be a general issue (could be due to dodgy install)
 
 # redoing tests, want to have tests that loop

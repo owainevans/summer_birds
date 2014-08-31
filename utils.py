@@ -40,7 +40,7 @@ def readFeatures(filename, maxYear=None, maxDay=None):
         break
 
     if maxDay and day > maxDay:
-      if maxYear == year
+      if maxYear == year:
         print 'maxDay,maxYear and stop point:',maxDay,maxYear
         print row
         break
