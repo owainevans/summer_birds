@@ -371,7 +371,7 @@ def test_all_multinomial_unit_params( puma = None):
 def test_load_features_multinomial(  ):
 
   units = []
-  for dict_string in ('dict','string'):
+  for dict_string in ('string','dict'):
     params = make_params( make_features_dict_string = dict_string)
                           #params_short_name = 'bigger_onestep_diag105',)
     units.append( Multinomial( mk_p_ripl(), params ) )

@@ -83,8 +83,9 @@ def make_features_dict(height, width, years, days, feature_functions_name='dista
       assert isinstance(feature_value,(int,float))
       feature_dict[(y,d,cell1,cell2)].append( feature_value )
 
+  # turn features dict into a string or directory into Venture value
   if dict_string=='string':
-      venture_exp = features_python_to_venture_string( feature_dict)
+      venture_exp = python_features_to_venture_exp( feature_dict)
   else:
       venture_exp = toVenture( feature_dict)
   return venture_exp, feature_dict

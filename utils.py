@@ -196,19 +196,6 @@ def dataset_to_params(dataset):
 
   return params
 
-def build_exp(exp):
-    'Take expression from directive_list and build the Lisp string'
-    if type(exp)==str:
-        return exp
-    elif type(exp)==dict:
-        if exp['type']=='atom':
-            return 'atom<%i>'%exp['value']
-        elif exp['type']=='boolean':
-            return str(exp['value']).lower()
-        else:
-            return str(exp['value'])
-    else:
-        return '('+ ' '.join(map(build_exp,exp)) + ')'
 
 
 def python_dict_to_venture_exp( d ):
@@ -227,14 +214,16 @@ def python_dict_to_venture_exp( d ):
   
 
 def exp_venture_string( exp ):
+  if callable(exp) or isinstance(f,dict):
+    assert False 'exp is callable or dict and not supported'
   if not isinstance(exp,list):
     return str(exp)
   else:
     return '('+ ' '.join( map(exp_venture_string,exp) ) + ')'
 
 
-def features_python_to_venture_string( features_dict):
-  exp = python_dict_to_venture_exp( features_dict)
+def python_features_to_venture_exp( features_dict ):
+  exp = python_dict_to_venture_exp( features_dict )
   return exp_venture_string( exp )
 
     
