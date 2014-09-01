@@ -44,11 +44,20 @@ def test_make_features_dict():
   years,days = range(2), range(2)
   args = (height, width, years, days)
   name = 'one_step_and_not_diagonal'
-  venture_dict, python_dict = make_features_dict(*args, feature_functions_name=name )
+  venture_dict, python_dict = make_features_dict(*args, feature_functions_name=name, dict_string='dict' )
+  venture_exp, _ = make_features_dict(*args, feature_functions_name=name, dict_string='string')
+
   eq_( len(python_dict), (height*width)**2 * ( len(years)*len(days) ) )
   assert isinstance( python_dict[ (0,0,0,0) ], (list,tuple) )
   eq_( venture_dict['type'], 'dict' )
   assert isinstance(venture_dict['value'],dict)
+
+  ripls = ( mk_p_ripl(), mk_l_ripl() )
+  [ripl.assume('feature_dict', venture_exp) for ripl in ripls]
+  assert all( [ripl.sample('(is_dict feature_dict)') for ripl in ripls] )
+  assert all( [ripl.sample('(contains feature_dict (array 0 0 0 0) )') for ripl in ripls] )
+
+  
 
 
 def test_features_functions():
@@ -111,12 +120,16 @@ def test_cell_to_prob_dist( unit ):
     grid = cell_to_prob_dist( height, width, ripl, cell, 0, 0, order='F' )
     assert_almost_equal( np.sum(grid), 1)
 
-    
 def test_model_multinomial( unit ):
+  
   
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
   eq_( len( simplex['value'] ), unit.cells)
+  
+  sum_phi = unit.ripl.sample('(sum_phi 0 0 0 )')
+  phi0 = simplex['value'][0] * sum_phi
+  assert_almost_equal( phi0, unit.ripl.sample('(phi 0 0 0 0)') )
 
   # bird with bird_id=0 is at pos_day1 on day 1, so total birds
   # at cell is >= 1
@@ -372,8 +385,8 @@ def test_load_features_multinomial(  ):
 
   units = []
   for dict_string in ('string','dict'):
-    params = make_params( make_features_dict_string = dict_string)
-                          #params_short_name = 'bigger_onestep_diag105',)
+    params = make_params( make_features_dict_string = dict_string,
+                          params_short_name = 'bigger_onestep_diag105',)
     units.append( Multinomial( mk_p_ripl(), params ) )
 
   

@@ -214,8 +214,8 @@ def python_dict_to_venture_exp( d ):
   
 
 def exp_venture_string( exp ):
-  if callable(exp) or isinstance(f,dict):
-    assert False 'exp is callable or dict and not supported'
+  if callable(exp) or isinstance(exp,dict):
+    assert False, 'exp is callable or dict and not supported'
   if not isinstance(exp,list):
     return str(exp)
   else:

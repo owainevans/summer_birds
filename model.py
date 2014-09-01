@@ -99,7 +99,6 @@ def day_features(features,width,y=0,d=0):
   return lst
 
 
-
 def loadObservations(ripl, dataset, name, years, days):
   'Load observations from Birds dataset'
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
@@ -307,7 +306,6 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
     args = params['height'], params['width'], params['years'], params['days']
     kwargs = dict( feature_functions_name = params['feature_functions_name'] )
     venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
-    params['features'] = venture_features_dict  
 
   else:
     params['feature_function_names'] = 'features_loaded_from'
@@ -315,6 +313,8 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                          params['max_years'], params['max_days'] )
     venture_features_dict, python_features_dict = out
 
+  params['features'] = venture_features_dict  
+  params['features_as_python_dict'] = python_features_dict
 
   assert params['num_features'] == len( python_features_dict[(0,0,0,0)] )
   assert len( params['prior_on_hypers'] ) == len( params['hypers'] ) ==  params['num_features']
@@ -360,40 +360,36 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                learn_hypers=bool,
                prior_on_hypers=list,
                softmax_beta=int,
-               venture_random_seed=int,)
+               venture_random_seed=int,
+    features_as_python_dict=dict,)
   
   for k,v in types.items():
     assert isinstance(params[k],v)
 
-  if params['observes_loaded_from']:
-    assert isintance( params['observes_loaded_from'], str)
 
-  if params['observes_saved_to']:
-    assert isintance( params['observes_saved_to'], str)
-    
-  assert isinstance( params['hypers'][0], (int,float) )
+  # Check subtypes
+  subtypes = dict( hypers = (int,float),
+                   prior_on_hypers = str,
+                   years = int,
+                   days = int )
   
+  for k,v in subtypes.items():
+    for el in params[k]:
+      assert isinstance( el, v )
 
-  ## FIXME ADD PARAMS FOR DATASET AND FUNC FOR ADDING MORE PARAMS
 
-  # elif params_name in ('ds2','ds3'):
-  #   dataset = 2 if params_name=='ds2' else 3
-  #   width,height = 10,10
-  #   num_birds = 1000 if dataset == 2 else 1000000
-  #   name = "%dx%dx%d-train" % (width, height, num_birds)
-  #   Y,D = 1, 4
-  #   years = range(Y)
-  #   days = []
-  #   max_day = D
-  #   hypers = [5, 10, 10, 10] 
-  #   num_features = len(hypers)
-  #   prior_on_hypers = ['(gamma 6 1)']*num_features
-  #   learn_hypers = False
-  #   features = None
-  #   softmax_beta = None
-  #   load_observes_file = None
-  #   venture_random_seed = 1
+  # Check types if not None
+  types_not_none = {'observes_loaded_from':str,
+                    'observes_saved_to':str,
+                    'features_loaded_from':str,
+                    'learn_hypers':bool }
 
+  
+  for k,v in types_not_none.items():
+    param = params[ k ]
+    if param is not None:
+      assert isinstance( param, v)
+  
 
   return params
 
@@ -469,6 +465,7 @@ class Multinomial(object):
   def __init__(self, ripl, params, delay_load_assumes=False):
 
     self.ripl = ripl
+    print '\n\nMultinomial Unit created with %s ripl\n\n----\n' % self.ripl.backend()
     self.params = params
     for k,v in self.params.iteritems():
       setattr(self,k,v)
@@ -481,6 +478,8 @@ class Multinomial(object):
       self.assumes_loaded = False
     else:
       self.load_assumes()
+
+
 
 
   def save(self, directory):
@@ -568,9 +567,16 @@ class Multinomial(object):
           (exp (* softmax_beta %s)))))"""
        % fold('+', '(* hypers_k_ (lookup fs _k_))', '_k_', self.num_features))
 
+    
+    ripl.assume('sum_phi',
+      '(mem (lambda (y d i) ' +
+                fold( '+', '(phi y d i j)', 'j', self.cells) +
+                '))' )
+
+
     ripl.assume('get_bird_move_dist',
       '(mem (lambda (y d i) ' +
-        fold('simplex', '(phi y d i j)', 'j', self.cells) +
+        fold('simplex', '(/ (phi y d i j) (sum_phi y d i))', 'j', self.cells) +
       '))')
     
     ripl.assume('cell_array', fold('array', 'j', 'j', self.cells))
@@ -644,7 +650,7 @@ class Multinomial(object):
     return load_observes(self, *args, **kwargs)
 
 
-  def bird_to_pos(self,year,day,hist=False):
+  def bird_to_pos( self, year, day, hist=False):
     'Return list [cell_index for bird_i], or optionally hist, for given day'
     l=[]
     for bird_id in self.ripl.sample('bird_ids'):
@@ -700,7 +706,7 @@ class Multinomial(object):
                                        directory_filename = directory_filename)
     
     if print_features_info:
-      features_dict = venturedict_to_pythondict(self.features)
+      features_dict = self.features_as_python_dict
       assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
 
       print '\n Features dict (up to 10th entry) for year,day = 0,0'

@@ -1,5 +1,6 @@
 from itertools import product
 from utils import *
+from nose.tools import assert_almost_equal
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -134,14 +135,17 @@ def load_features(features_file, years_list, days_list, max_year=None, max_day=N
 def cell_to_prob_dist(height, width, ripl, source_cell, year, day,order='F'):
   '''Given *cell_i* get normalized grid for probability
      of moving to each cell from *cell_i*'''
-  simplex = ripl.sample('(get_bird_move_dist %i %i %i)'%(year,day,source_cell))
+  args = [year,day,source_cell]
+  p_dist = ripl.sample( '(get_bird_move_dist %i %i %i)'% tuple(args) )
 
-  phi= lambda j: ripl.sample('(phi %s %s %s %s)' % (year,day,source_cell,j) )
+  phi= lambda j: ripl.sample( '(phi %s %s %s %s)' % tuple( args + [j] ) )
   simplex_from_phi = [ phi(j) for j in range(height*width) ]
-
-  assert (np.array(simplex) == np.array(simplex_from_phi)).all()
                                        
-  p_dist = simplex / np.sum(simplex)
+  p_dist_from_phi = simplex_from_phi / np.sum( simplex_from_phi )
+  
+  for p1,p2 in zip(p_dist, p_dist_from_phi):
+    assert_almost_equal( p1, p2 )
+  
   grid = make_grid( height, width, lst=p_dist, order=order )
   return grid
 
