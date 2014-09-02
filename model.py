@@ -188,11 +188,9 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
 
 
-def load_observes(unit, load_observe_range, store_dict_filename=None):
+def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filename):
 
   unit.ensure_assumes()
-  
-  assert isinstance(store_dict_filename, str)
   
   with open(store_dict_filename,'r') as f:
      store_dict = pickle.load(f)
@@ -200,12 +198,18 @@ def load_observes(unit, load_observe_range, store_dict_filename=None):
   observe_counts = store_dict['observe_counts']
   observe_range = store_dict['observe_range']
 
+
+  # Check for None values in observe range
   for k,v in load_observe_range.items():
-    observe_range_v = observe_range[k]
     if v is None:
-      load_observe_range[k] = observe_range_v
-    else:
-      assert set(v).issubset( set(observe_range_v) )
+      if use_range_defaults:
+        load_observe_range[k] = observe_range[k]
+      else:
+        assert False, 'load_observe_range has None value'
+
+  # Check that observe_range lists are subset of complete range
+  for k,v in load_observe_range.items():
+    assert set(v).issubset( set(observe_range[k]) )
 
 
   def unit_observe(unit, y, d, i, count_i):

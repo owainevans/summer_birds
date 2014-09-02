@@ -236,7 +236,8 @@ def test_load_observations( generate_data_unit, ripl_thunk ):
   observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
                                                                            ripl_thunk )
 
-  infer_unit.load_observes(observe_range, store_dict_filename)
+  use_defaults = False
+  infer_unit.load_observes(observe_range, use_defaults, store_dict_filename)
     
   ydi = make_triples( observe_range )
 
@@ -255,8 +256,10 @@ def test_incremental_load_observations( generate_data_unit, ripl_thunk):
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
-                                                                              
-    infer_unit.load_observes( updated_observe_range, store_dict_filename)
+    
+
+    use_defaults = False
+    infer_unit.load_observes( updated_observe_range, use_defaults, store_dict_filename)
 
     ydi = make_triples(updated_observe_range)
     compare_observes( generate_data_unit, infer_unit, ydi)
