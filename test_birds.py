@@ -59,8 +59,6 @@ def test_make_features_dict():
   assert all( [ripl.sample('(contains feature_dict (array 0 0 0 0) )') for ripl in ripls] )
 
   
-
-
 def test_features_functions():
   args_names = ( ('height',2), ('width',3), ('years',range(1)), ('days',range(1)), )
   _, args = zip(*args_names)
@@ -86,12 +84,12 @@ def test_features_functions():
   # sum_distances = [sum(distances_from_i(i)) for i in (0, num_cells-1) ]  
   # eq_( *sum_distances )
 
+
   
-def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10', ripl_thunk = None):
-  if ripl_thunk is None:
-    ripl_thunk = mk_p_ripl
-  
+def make_multinomial_unit( ripl_thunk, params_short_name = 'minimal_onestepdiag10'):
+
   return Multinomial( ripl_thunk(), make_params( params_short_name) )
+
 
 
 def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
@@ -106,7 +104,7 @@ def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
   
-def test_cell_to_prob_dist( unit ):
+def _test_cell_to_prob_dist( unit ):
   height, width, ripl = unit.height, unit.width, unit.ripl
   cells = height * width
   for cell in range(cells):
@@ -114,7 +112,7 @@ def test_cell_to_prob_dist( unit ):
     assert_almost_equal( np.sum(grid), 1)
 
 
-def test_model_multinomial( unit ):  
+def _test_model_multinomial( unit ):  
   
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
@@ -149,7 +147,7 @@ def test_model_multinomial( unit ):
       assert False,'Did total_transitions without changing bird_pos'
     
   
-def test_make_infer( generate_data_unit, ripl_thunk ):
+def _test_make_infer( generate_data_unit, ripl_thunk ):
   observe_range = generate_data_unit.get_full_observe_range()
   
   out = example_make_infer( generate_data_unit, observe_range, ripl_thunk)
@@ -172,7 +170,7 @@ def test_make_infer( generate_data_unit, ripl_thunk ):
 
 
 
-def test_memoization_observe( unit ):
+def _test_memoization_observe( unit ):
   
   num_tries = 100
   
@@ -199,9 +197,6 @@ def test_memoization_observe( unit ):
  
 def compare_observes( first_unit, second_unit, triples ):
   'Pass asserts if unit.ripls agree on all triples'
-
-  # one infer on each ripl to ensure observes are 'registered'
-  [unit.ripl.infer(1) for unit in (first_unit, second_unit) ]
 
   def predict_observe( unit, year_day_cell):
     return unit.ripl.predict('(observe_birds %i %i %i)'% tuple(year_day_cell))
@@ -233,14 +228,19 @@ def load_observations_vars(generate_data_unit, ripl_thunk):
 
   return observe_range, store_dict_filename, infer_unit
 
+
+def register_observes( ripl ):
+  ripl.infer(50)
+
   
-def test_load_observations( generate_data_unit, ripl_thunk ):
+def _test_load_observations( generate_data_unit, ripl_thunk ):
                                                                             
   observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
                                                                            ripl_thunk )
 
   use_defaults = False
   infer_unit.load_observes(observe_range, use_defaults, store_dict_filename)
+  register_observes( infer_unit.ripl )
     
   year_day_cells = make_triples( observe_range )
   print '-----------'
@@ -255,7 +255,7 @@ def test_load_observations( generate_data_unit, ripl_thunk ):
 
 
     
-def test_incremental_load_observations( generate_data_unit, ripl_thunk):
+def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
 
   observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
                                                                            ripl_thunk )
@@ -268,14 +268,15 @@ def test_incremental_load_observations( generate_data_unit, ripl_thunk):
 
     use_defaults = False
     infer_unit.load_observes( updated_observe_range, use_defaults, store_dict_filename)
+    register_observes( infer_unit.ripl )
 
-    ydi = make_triples(updated_observe_range)
-    compare_observes( generate_data_unit, infer_unit, ydi)
+    year_day_cell_iter = make_triples(updated_observe_range)
+    compare_observes( generate_data_unit, infer_unit, year_day_cell_iter)
             
-    infer_unit.ripl.infer(10)
+
     
      
-def test_save_images(unit, del_images=True):
+def _test_save_images(unit, del_images=True):
   years = range(1)
   days = range(1)
   directory = 'tmp_test_bird_moves_/'
@@ -288,7 +289,8 @@ def test_save_images(unit, del_images=True):
   
 
 
-def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
+
+def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   
   def equality_multinomial(u1, u2):
     'Equality for Multinomial objects with predict'
@@ -335,7 +337,7 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   print_random_draws( original_unit, copy_unit)
 
   # do more inference on original unit. save and load. assert unequal.
-  original_unit.ripl.infer(20)
+  original_unit.ripl.infer(100)
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
@@ -344,7 +346,9 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   print_random_draws( original_unit, copy_unit_more_infer)
 
   # copy of updated original unit not equal to copy of non-updated
-  assert not equality_multinomial( copy_unit, copy_unit_more_infer)
+
+  true_false = equality_multinomial( copy_unit, copy_unit_more_infer)
+  print 'equality(original copy, copy with more infer)= %s' % true_false
   print_random_draws( copy_unit, copy_unit_more_infer)
   
   # but they do have same params and all but predicts
@@ -358,46 +362,48 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
       assert d1 == d2
 
 
-
-
-def test_all_multinomial_unit_params( puma = None, quick_test=False):
+def test_all_multinomial_unit_params( puma = False, quick_test = False):
 
   # tests that take unit object (with ripl) as input
-  tests_unit =  (test_model_multinomial,
-                 test_cell_to_prob_dist,
-                 test_memoization_observe,
-                 test_save_images, )
+  tests_unit =  (_test_model_multinomial,
+                 _test_cell_to_prob_dist,
+                 _test_memoization_observe,
+                 _test_save_images, )
   
   # tests that take unit object and a separate ripl_thunk
   # e.g. for loading saved observes onto a new ripl
   # -- allows for mixing up backends (which we don't test currently)
-  tests_unit_ripl_thunk = (test_load_observations,
-                           test_incremental_load_observations,
-                           test_make_infer)
+  tests_unit_ripl_thunk = (_test_load_observations,
+                           _test_incremental_load_observations,
+                           _test_make_infer)
 
 
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
-  params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
-  params_short_names = ('minimal_onestepdiag10',) if quick_test else params_short_names
 
-  unit_product = product( tests_unit,params_short_names, ripl_thunks)
-  for test,params_short_name,ripl_thunk in unit_product:
-    test( make_multinomial_unit( params_short_name, ripl_thunk) )
+  if quick_test:
+    params_short_names = ('minimal_onestepdiag10',)
+  else:
+    params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
+
+
+  unit_product = product( tests_unit, params_short_names, ripl_thunks)
+  for test, params_short_name, ripl_thunk in unit_product:
+    yield test, make_multinomial_unit(  ripl_thunk, params_short_name)
 
   unit_thunk_product = product( tests_unit_ripl_thunk, params_short_names, ripl_thunks)
-  for test,params_short_name,ripl_thunk in unit_thunk_product:
-    test( make_multinomial_unit( params_short_name, ripl_thunk), ripl_thunk )
-
+  for test, params_short_name, ripl_thunk in unit_thunk_product:
+    yield test, make_multinomial_unit( ripl_thunk, params_short_name), ripl_thunk
 
   # special case test that takes ripl_thunk and make_params_thunk
   make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
   
   for ripl_thunk, make_params_thunk in product( ripl_thunks, make_params_thunks):
-    test_save_load_multinomial( ripl_thunk, make_params_thunk )
+    yield _test_save_load_multinomial, ripl_thunk, make_params_thunk 
 
 
 
-def test_load_features_multinomial(  ):
+## FIXME
+def _test_load_features_multinomial( ):
 
   units = []
   for dict_string in ('string','dict'):
@@ -419,20 +425,32 @@ def test_load_features_multinomial(  ):
     test_string = '(lookup features (array %s))' % key_to_string( k )
     values = [u.ripl.sample(test_string) for u in units]
     eq_( *values )
-    
 
 
 
-def all_tests():
+
+def run_nose_generative( test ):
+  for yield_args in test():
+    yield_args[0]( *yield_args[1:] )    
+
+
+def run_all( quick_test = True):
+  
+  regular_tests =  ( test_make_features_dict, 
+                     test_features_functions,
+                     test_ind_to_ij,
+                     test_make_grid, )
  
-  test_make_features_dict()
-  test_features_functions()
-  test_ind_to_ij()
-  test_make_grid()
- 
-  test_all_multinomial_unit_params()
+  for t in regular_tests:
+    t()
+  
+  generative_tests = ( lambda: test_all_multinomial_unit_params( quick_test = quick_test), )
 
-  print 'passed all tests'
+  for t in generative_tests:
+    run_nose_generative( t )
+  
+
+  print '\n\n\n-----------------------\n passed all tests'
   
 
 
