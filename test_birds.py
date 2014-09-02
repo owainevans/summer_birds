@@ -5,6 +5,7 @@ from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from nose.tools import eq_, assert_almost_equal
 import cPickle as pickle
 
+from timeit import timeit
 from itertools import product
 from utils import make_grid
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
@@ -362,6 +363,7 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
       assert d1 == d2
 
 
+
 def test_all_multinomial_unit_params( puma = False, quick_test = False):
 
   # tests that take unit object (with ripl) as input
@@ -434,23 +436,30 @@ def run_nose_generative( test ):
     yield_args[0]( *yield_args[1:] )    
 
 
+
 def run_all( quick_test = True):
   
   regular_tests =  ( test_make_features_dict, 
                      test_features_functions,
                      test_ind_to_ij,
                      test_make_grid, )
- 
+
+  
   for t in regular_tests:
-    t()
+    test_time =  timeit( t, number = 1)
+    print 'test: %s, time: %s ' % ( t.__name__, test_time)
   
   generative_tests = ( lambda: test_all_multinomial_unit_params( quick_test = quick_test), )
 
+  test_times = {}
   for t in generative_tests:
-    run_nose_generative( t )
-  
+    test_time =  timeit( run_nose_generative(t), number = 1)
+    test_times[t[0].__name__] = test_time
+
+    
 
   print '\n\n\n-----------------------\n passed all tests'
+  print test_times
   
 
 
