@@ -137,8 +137,8 @@ def _test_model_multinomial( unit ):
   # - observe no bird at pos_day1
   unit.ripl.observe('(observe_birds 0 1 %i)'%pos_day1,'0.')
   total_transitions = 0
-  transitions_chunk = 50
-  while total_transitions < 500:
+  transitions_chunk = 10
+  while total_transitions < 100:
     unit.ripl.infer(transitions_chunk)
     new_pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
     if new_pos_day1 != pos_day1:
@@ -172,27 +172,17 @@ def _test_make_infer( generate_data_unit, ripl_thunk ):
 
 
 def _test_memoization_observe( unit ):
+  r = unit.ripl
   
-  num_tries = 100
-  
-  for _ in range(num_tries):
-    r = unit.ripl
+  pred_val = r.predict('(observe_birds 0 0 0)')
+  eq_( pred_val, r.predict('(observe_birds 0 0 0)') )
 
-    pred_val = r.predict('(observe_birds 0 0 0)')
-    eq_( pred_val, r.predict('(observe_birds 0 0 0)') )
-    
-    obs_val = 5
-    if obs_val != pred_val:
-      r.observe('(observe_birds 0 0 0)', obs_val)
-      eq_( pred_val, r.predict('(observe_birds 0 0 0)') )
+  obs_val = pred_val + 1
 
-      r.infer(1)
-      eq_( obs_val, r.predict('(observe_birds 0 0 0)') )
+  r.observe('(observe_birds 0 0 0)', obs_val)
+  r.infer(1)
+  eq_( obs_val, r.predict('(observe_birds 0 0 0)') )
 
-      r.infer(100)
-      eq_( obs_val, r.predict('(observe_birds 0 0 0)') )
-
-      break
   
 
  
@@ -231,7 +221,7 @@ def load_observations_vars(generate_data_unit, ripl_thunk):
 
 
 def register_observes( ripl ):
-  ripl.infer(50)
+  ripl.infer(1)
 
   
 def _test_load_observations( generate_data_unit, ripl_thunk ):
@@ -262,7 +252,8 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
                                                                            ripl_thunk )
 
   # add observes to infer_unit cell by cell
-  for cell in range(infer_unit.cells):
+  cells = infer_unit.cells[: min( 5, infer_unit.cells) ]
+  for cell in cells:
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
     
@@ -325,7 +316,7 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
     return unit
     
   original_unit = make_unit_with_predict()
-  original_unit.ripl.infer(20)
+  original_unit.ripl.infer(10)
   original_filename = original_unit.save('temp_test')
     
   copy_unit = make_unit_with_predict().make_saved_model(original_filename)
@@ -338,7 +329,7 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   print_random_draws( original_unit, copy_unit)
 
   # do more inference on original unit. save and load. assert unequal.
-  original_unit.ripl.infer(100)
+  original_unit.ripl.infer(20)
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
@@ -431,19 +422,31 @@ def _test_load_features_multinomial( ):
 
 
 
-def run_nose_generative( test ):
-  for yield_args in test():
-    yield_args[0]( *yield_args[1:] )    
+def run_nose_generative( test, timing=None ):
+  if not timing:
+    for yield_args in test():
+      yield_args[0]( *yield_args[1:] )
+    return None
+
+  else:
+    test_times = {}
+    
+    for yield_args in test():
+      test_func, args = yield_args[0], yield_args[1:]
+      test_time =  timeit( lambda: test_func( *args ), number=1 )
+      
+      test_times[ test_func.__name__ + str(args) ] = test_time
+
+    return test_times
 
 
-
+      
 def run_all( quick_test = True):
   
   regular_tests =  ( test_make_features_dict, 
                      test_features_functions,
                      test_ind_to_ij,
                      test_make_grid, )
-
   
   for t in regular_tests:
     test_time =  timeit( t, number = 1)
@@ -451,16 +454,14 @@ def run_all( quick_test = True):
   
   generative_tests = ( lambda: test_all_multinomial_unit_params( quick_test = quick_test), )
 
-  test_times = {}
-  for t in generative_tests:
-    test_time =  timeit( run_nose_generative(t), number = 1)
-    test_times[t[0].__name__] = test_time
 
-    
+  for t in generative_tests:
+    test_times = run_nose_generative(t, timing=True)
+
 
   print '\n\n\n-----------------------\n passed all tests'
-  print test_times
-  
+
+  return test_times
 
 
 
