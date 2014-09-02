@@ -425,13 +425,11 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params.update
 
 
-def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poisson='multinomial',
-                     ripl_thunk=None):
+def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
+                     multinomial_or_poisson='multinomial'):
   '''Utility takes synthetic data path, prior_on_hypers, model_type,
      and then generates an inference with appropriate params'''
 
-  if ripl_thunk is None:
-    ripl_thunk = mk_p_ripl
 
   with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
@@ -439,8 +437,14 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, multinomial_or_poi
   generate_data_params = store_dict['generate_data_params']
   infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
                                                       generate_data_filename)
+  if multinomial_or_poisson=='multinomial':
+    model_constructor = Multinomial
+  elif multinomial_or_poisson=='poisson':
+    model_constructor = Poisson
+  else:
+    assert False, 'constructor not recognized'
 
-  model_constructor = Multinomial if multinomial_or_poisson=='multinomial' else Poisson
+
   infer_unit = model_constructor( ripl_thunk(), generate_data_params) 
 
   return infer_unit

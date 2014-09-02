@@ -93,22 +93,14 @@ def make_multinomial_unit( params_short_name = 'minimal_onestepdiag10', ripl_thu
   return Multinomial( ripl_thunk(), make_params( params_short_name) )
 
 
-def example_make_infer(generate_data_unit, observe_range = None, ripl_thunk=None ):
+def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   generate_data_params = generate_data_unit.params
-
-  if observe_range is None:
-    observe_range = dict(  years_list = range(1),
-                           days_list= range(1),
-                           cells_list = None )
   
-  out = generate_data_unit.store_observes(observe_range)
-  generate_data_store_dict_filename, generate_data_draw_bird_filename = out
-  ## FIXME, we don't need draw_bird_filename and so can ignore this
+  generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers,
-                                multinomial_or_poisson='multinomial',
-                                ripl_thunk = ripl_thunk)
+  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, ripl_thunk, multinomial_or_poisson='multinomial' )
+                                
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
@@ -120,8 +112,8 @@ def test_cell_to_prob_dist( unit ):
     grid = cell_to_prob_dist( height, width, ripl, cell, 0, 0, order='F' )
     assert_almost_equal( np.sum(grid), 1)
 
-def test_model_multinomial( unit ):
-  
+
+def test_model_multinomial( unit ):  
   
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
@@ -159,7 +151,7 @@ def test_model_multinomial( unit ):
 def test_make_infer( generate_data_unit, ripl_thunk ):
   observe_range = generate_data_unit.get_full_observe_range()
   
-  out = example_make_infer( generate_data_unit, ripl_thunk = ripl_thunk )
+  out = example_make_infer( generate_data_unit, observe_range, ripl_thunk)
   _, generate_data_unit, generate_data_filename, infer_unit = out
   generate_data_params = generate_data_unit.get_params()
   infer_params = infer_unit.get_params()
@@ -213,8 +205,11 @@ def compare_observes( first_unit, second_unit, triples ):
   def predict_observe( unit,y,d,i):
     return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
   
+  print '\n compare_observes:'
+  
+
   for y,d,i in triples:
-    print 'cf:',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
+    print '\n cf.',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
 
     eq_( predict_observe( first_unit, y,d,i),
          predict_observe( second_unit, y,d,i), )
@@ -230,8 +225,7 @@ def load_observations_vars(generate_data_unit, ripl_thunk):
 
   observe_range = generate_data_unit.get_full_observe_range()
 
-  out = example_make_infer( generate_data_unit, observe_range = observe_range,
-                            ripl_thunk = ripl_thunk)
+  out = example_make_infer( generate_data_unit, observe_range, ripl_thunk)
   observe_range, _, store_dict_filename, infer_unit = out
 
   return observe_range, store_dict_filename, infer_unit
@@ -257,6 +251,7 @@ def test_incremental_load_observations( generate_data_unit, ripl_thunk):
   observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
                                                                            ripl_thunk )
 
+  # add observes to infer_unit cell by cell
   for cell in range(infer_unit.cells):
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
@@ -300,12 +295,10 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
 
   def make_unit_with_predict():
     unit = Multinomial( ripl_thunk(), make_params_thunk() )
-    predicts = ( '(observe_birds 0 0 0)',
-                 '(observe_birds 0 1 0)',
-                 '(observe_birds 0 1 1)',
-                 '(observe_birds 0 1 2)',
-                 '(observe_birds 0 2 0)', )
-    [unit.ripl.predict(exp) for exp in predicts]
+    triples = product( range(3), range(3), range(3) )
+    for y,d,i in triples:
+      if (y,d,i,0) in unit.features_as_python_dict:
+        unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i) )
     return unit
     
   original_unit = make_unit_with_predict()
@@ -345,7 +338,7 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
 
 
 
-def test_all_multinomial_unit_params( puma = None):
+def test_all_multinomial_unit_params( puma = None, quick_test=False):
 
   # tests that take unit object (with ripl) as input
   tests_unit =  (test_model_multinomial,
@@ -363,6 +356,7 @@ def test_all_multinomial_unit_params( puma = None):
 
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
   params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
+  params_short_names = ('minimal_onestepdiag10',) if quick_test else params_short_names
 
   unit_product = product( tests_unit,params_short_names, ripl_thunks)
   for test,params_short_name,ripl_thunk in unit_product:
