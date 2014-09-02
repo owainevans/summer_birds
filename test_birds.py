@@ -11,6 +11,7 @@ from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
 from model import *
 
+
 def test_make_grid():
   mk_array = lambda ar: np.array(ar,np.int32)
 
@@ -288,7 +289,6 @@ def test_save_images(unit, del_images=True):
 
 
 def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
-
   
   def equality_multinomial(u1, u2):
     'Equality for Multinomial objects with predict'
@@ -296,7 +296,17 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
                     lambda u: u.ripl.list_directives())
 
     bools = [ f(u1)==f(u2) for f in test_lambdas ]
-    return all(bools)
+    if all(bools):
+      return True
+    else:
+      print 'Failed equality multinomial'
+      for d1,d2 in zip( *map(lambda u: u.ripl.list_directives(), (u1,u2) ) ):
+        if d1 != d2:
+          print '\nDiffer on directive:', d1, '\n', d2
+          break
+
+      return False
+
 
   def print_random_draws(u1, u2):
     print 'compare beta(1 1)',
@@ -318,6 +328,8 @@ def test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   copy_unit = make_unit_with_predict().make_saved_model(original_filename)
   
   # loaded copy equals original
+  print 'backends:\n'
+  print map(lambda u: u.ripl.backend(), (original_unit, copy_unit) )
   assert equality_multinomial( original_unit, original_unit)
   assert equality_multinomial( original_unit, copy_unit)
   print_random_draws( original_unit, copy_unit)

@@ -504,11 +504,15 @@ class Multinomial(object):
     return filename
 
 
-  def make_saved_model(self,filename):
+  def make_saved_model(self,filename, backend=None):
+    # FIXME default to same backend, should this be mandatory arg?
+    if backend is None:
+      backend = self.ripl.backend()
+    
     with open(filename + 'params.dat','r') as f:
       params = pickle.load(f)
       
-    ripl = mk_p_ripl()
+    ripl = backend_to_ripl_thunk( backend )()
     ripl.load( filename + 'ripl.dat')
   
     return Multinomial( ripl, params)

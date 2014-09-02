@@ -8,6 +8,15 @@ import matplotlib.pylab as plt
 from itertools import product
 
 
+
+def backend_to_ripl_thunk(backend_string):
+  if backend_string == 'puma':
+    return s.make_puma_church_prime_ripl
+  else:
+    return s.make_lite_church_prime_ripl
+
+
+
 def parseLine(line):
   return line.strip().split(',')
 
