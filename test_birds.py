@@ -202,17 +202,19 @@ def compare_observes( first_unit, second_unit, triples ):
   # one infer on each ripl to ensure observes are 'registered'
   [unit.ripl.infer(1) for unit in (first_unit, second_unit) ]
 
-  def predict_observe( unit,y,d,i):
-    return unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+  def predict_observe( unit, year_day_cell):
+    return unit.ripl.predict('(observe_birds %i %i %i)'% tuple(year_day_cell))
   
   print '\n compare_observes:'
   
 
-  for y,d,i in triples:
-    print '\n cf.',predict_observe( first_unit, y,d,i), predict_observe( second_unit, y,d,i)
+  for year_day_cell in triples:
+    print '\n triple %s \n cf.'%str( year_day_cell )
+    print map( lambda u: predict_observe(u, year_day_cell),
+               (first_unit, second_unit) )
 
-    eq_( predict_observe( first_unit, y,d,i),
-         predict_observe( second_unit, y,d,i), )
+    eq_( predict_observe( first_unit, year_day_cell),
+         predict_observe( second_unit, year_day_cell) )
 
     
 def make_triples( observe_range ):
@@ -239,11 +241,16 @@ def test_load_observations( generate_data_unit, ripl_thunk ):
   use_defaults = False
   infer_unit.load_observes(observe_range, use_defaults, store_dict_filename)
     
-  ydi = make_triples( observe_range )
+  year_day_cells = make_triples( observe_range )
+  print '-----------'
+  for el in year_day_cells:
+    print '\nel:', el
+
+  year_day_cell_iter = make_triples( observe_range )
 
   # do values for *observe_birds* agree for generate_data_unit
   # and infer_unit?
-  compare_observes( generate_data_unit, infer_unit, ydi )
+  compare_observes( generate_data_unit, infer_unit, year_day_cell_iter )
 
 
     
