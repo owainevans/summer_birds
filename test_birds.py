@@ -252,7 +252,7 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
                                                                            ripl_thunk )
 
   # add observes to infer_unit cell by cell
-  cells = infer_unit.cells[: min( 5, infer_unit.cells) ]
+  cells = range(  min( 5, infer_unit.cells) )
   for cell in cells:
     updated_observe_range = observe_range.copy()
     updated_observe_range.update( dict(cells_list = [cell] ) )
@@ -282,7 +282,8 @@ def _test_save_images(unit, del_images=True):
 
 
 
-def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
+def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False ):
+  'Save and Load Methods for Multinomial unit. Test object equality.'
   
   def equality_multinomial(u1, u2):
     'Equality for Multinomial objects with predict'
@@ -292,13 +293,15 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
     bools = [ f(u1)==f(u2) for f in test_lambdas ]
     if all(bools):
       return True
+    elif not verbose:
+      return False
     else:
       print 'Failed equality multinomial'
       for d1,d2 in zip( *map(lambda u: u.ripl.list_directives(), (u1,u2) ) ):
         if d1 != d2:
           print '\nDiffer on directive:', d1, '\n', d2
           break
-
+          
       return False
 
 
@@ -309,14 +312,14 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
 
   def make_unit_with_predict():
     unit = Multinomial( ripl_thunk(), make_params_thunk() )
-    triples = product( range(3), range(3), range(3) )
+    triples = product( range(2), range(2), range(2) )
     for y,d,i in triples:
       if (y,d,i,0) in unit.features_as_python_dict:
         unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i) )
     return unit
     
   original_unit = make_unit_with_predict()
-  original_unit.ripl.infer(10)
+  original_unit.ripl.infer(5)
   original_filename = original_unit.save('temp_test')
     
   copy_unit = make_unit_with_predict().make_saved_model(original_filename)
@@ -326,22 +329,24 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk ):
   print map(lambda u: u.ripl.backend(), (original_unit, copy_unit) )
   assert equality_multinomial( original_unit, original_unit)
   assert equality_multinomial( original_unit, copy_unit)
-  print_random_draws( original_unit, copy_unit)
+
+  if verbose: print_random_draws( original_unit, copy_unit)
 
   # do more inference on original unit. save and load. assert unequal.
-  original_unit.ripl.infer(20)
+  original_unit.ripl.infer(5)
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
   # updated original unit equals loaded copy of it
   assert equality_multinomial( original_unit, copy_unit_more_infer)
-  print_random_draws( original_unit, copy_unit_more_infer)
+  if verbose: print_random_draws( original_unit, copy_unit_more_infer)
 
   # copy of updated original unit not equal to copy of non-updated
 
   true_false = equality_multinomial( copy_unit, copy_unit_more_infer)
-  print 'equality(original copy, copy with more infer)= %s' % true_false
-  print_random_draws( copy_unit, copy_unit_more_infer)
+  if verbose:
+    print 'equality(original copy, copy with more infer)= %s' % true_false
+    print_random_draws( copy_unit, copy_unit_more_infer)
   
   # but they do have same params and all but predicts
   copies = ( copy_unit, copy_unit_more_infer )
@@ -422,22 +427,23 @@ def _test_load_features_multinomial( ):
 
 
 
-def run_nose_generative( test, timing=None ):
-  if not timing:
-    for yield_args in test():
-      yield_args[0]( *yield_args[1:] )
-    return None
+def run_nose_generative( test ):
 
-  else:
-    test_times = {}
-    
-    for yield_args in test():
-      test_func, args = yield_args[0], yield_args[1:]
-      test_time =  timeit( lambda: test_func( *args ), number=1 )
-      
-      test_times[ test_func.__name__ + str(args) ] = test_time
+  test_times = {}
 
-    return test_times
+  for yield_args in test():
+    test_func, args = yield_args[0], yield_args[1:]
+
+    print '---------\n TEST: %s \n DoC: %s \n ------' % (test_func.__name__,
+                                                         test_func.__doc__)
+
+    test_time =  timeit( lambda: test_func( *args ), number=1 )
+
+    test_times[ test_func.__name__ + str(args) ] = test_time
+
+  return test_times
+
+
 
 
       
@@ -449,6 +455,7 @@ def run_all( quick_test = True):
                      test_make_grid, )
   
   for t in regular_tests:
+    
     test_time =  timeit( t, number = 1)
     print 'test: %s, time: %s ' % ( t.__name__, test_time)
   
