@@ -36,12 +36,13 @@ import numpy as np
 # could open files).         
 
 
-
+## LOADING FEATURES FROM FILE
 # Add unit tests for refactored load_features. Add datasets 1 and 3. 
 # Then write some code for saving features. Might be useful to have
 # more flexible way of storing/reading off features than current thing. 
 # RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADS RESULTS
 
+## GET RID OF WRAPPER METHODS
 # 4 consider getting rid of store_observes and draw_birds as methods. just
 # have them as functions. too much hassle having to switch between scripts as is. 
 
