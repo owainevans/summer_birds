@@ -4,6 +4,7 @@ from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from nose.tools import eq_, assert_almost_equal
 import cPickle as pickle
+import sys
 
 from timeit import timeit
 from itertools import product
@@ -14,6 +15,7 @@ from model import *
 
 
 def test_make_grid():
+  'Makes 2D grid from list using F or C order'
   mk_array = lambda ar: np.array(ar,np.int32)
 
   def ar_eq_(ar1,ar2):
@@ -35,6 +37,8 @@ def test_make_grid():
 
   
 def test_ind_to_ij():
+  '''Consistency of make_grid (which maps list to 2D grid) and ind_to_ij
+     which maps list index to ij position on grid'''
   height, width = 3,2
   grid = make_grid(height,width,lst=range(height*width),order='F')
   for ind in range(height*width):
@@ -42,6 +46,8 @@ def test_ind_to_ij():
     eq_( grid[ij], ind )
 
 def test_make_features_dict():
+  '''Type and basic sanity checks for making one_step_not_diagonal
+  features'''
   height, width = 3,2
   years,days = range(2), range(2)
   args = (height, width, years, days)
@@ -61,6 +67,7 @@ def test_make_features_dict():
 
   
 def test_features_functions():
+  'Do *uniform*, *not_diagonal* behave as expected. Uses *make_features_dict*'
   args_names = ( ('height',2), ('width',3), ('years',range(1)), ('days',range(1)), )
   _, args = zip(*args_names)
   num_cells = args[0] + args[1]
@@ -360,7 +367,9 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
 
 
 
-def test_all_multinomial_unit_params( puma = False, quick_test = False):
+
+def test_all_multinomial_unit_params( puma = True, quick_test = True):
+
 
   # tests that take unit object (with ripl) as input
   tests_unit =  (_test_model_multinomial,
@@ -381,7 +390,7 @@ def test_all_multinomial_unit_params( puma = False, quick_test = False):
   if quick_test:
     params_short_names = ('minimal_onestepdiag10',)
   else:
-    params_short_names = ('minimal_onestepdiag10', 'bigger_onestep_diag105')
+    params_short_names = ('minimal_onestepdiag10', 'test_medium_onestep_diag105')
 
 
   unit_product = product( tests_unit, params_short_names, ripl_thunks)
@@ -427,22 +436,30 @@ def _test_load_features_multinomial( ):
 
 
 
+
+def display_timeit_run( test_func, test_lambda ):
+  bar = '----------\n'
+  print '%s TEST: %s \n DOC: %s %s'% (test_func.__name__,
+                                      test_func.__doc__,
+                                      bar, bar)
+
+  return timeit( test_lambda, number=1 )
+
+
+
 def run_nose_generative( test ):
 
   test_times = {}
 
   for yield_args in test():
     test_func, args = yield_args[0], yield_args[1:]
+    test_lambda =  lambda: test_func( *args )
 
-    print '---------\n TEST: %s \n DoC: %s \n ------' % (test_func.__name__,
-                                                         test_func.__doc__)
+    test_time = display_timeit_run( test_func, test_lambda )
 
-    test_time =  timeit( lambda: test_func( *args ), number=1 )
-
-    test_times[ test_func.__name__ + str(args) ] = test_time
+    test_times[ test_func.__name__ + '__%s'%str(args) ] = test_time
 
   return test_times
-
 
 
 
@@ -454,16 +471,19 @@ def run_all( quick_test = True):
                      test_ind_to_ij,
                      test_make_grid, )
   
+  test_times = {}
+  
   for t in regular_tests:
     
-    test_time =  timeit( t, number = 1)
-    print 'test: %s, time: %s ' % ( t.__name__, test_time)
+    test_time = display_timeit_run( t, t )
+    
+    test_times[ t.__name__ ] = test_time
+
   
   generative_tests = ( lambda: test_all_multinomial_unit_params( quick_test = quick_test), )
 
-
   for t in generative_tests:
-    test_times = run_nose_generative(t, timing=True)
+    test_times.update( run_nose_generative( t ) )
 
 
   print '\n\n\n-----------------------\n passed all tests'

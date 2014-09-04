@@ -13,26 +13,34 @@ import numpy as np
 
 ### PLAN NOTES
 
-# 'we are passing the test which compares the string to the dict version of make_features. we need to check this on lite, the whole point of the exercise and should compare the run time. still, probably worth pressing on. we can always save unit objects with ripls that have features pre-loaded.'
 
-# we are now failing the load_obs test. investigate this. how could the string version of features
-# have had any impact? seems unlikely. try bigger feature dicts.
+# verbosity
+# should probably give everything a verbose mode which is off
+# by default. atm just storing produces lots of printing. 
+# still want it to be easy to make various things verbose
+# think about how to architect such things.
+
+
+#tests:                          
+# try to use nose where possible, as it has more powerful features
+# than can be easily implemented. want to have a fast and slow 
+# test config that can be run quickly from command line. we'd
+# prefer to have readable names for the nosetests. one thing
+# is to have just puma and the simple model as fast. need
+# to add tests for whether inference does sensible things
+# which might be hard on this problem. maybe add them 
+# as separate set of tests? 
+
+# nose probably never allows plots to be viewed live
+# and so need to run in ipython to get them. (though we
+# could open files).         
+
 
 
 # Add unit tests for refactored load_features. Add datasets 1 and 3. 
 # Then write some code for saving features. Might be useful to have
 # more flexible way of storing/reading off features than current thing. 
-# RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADLEYS RESULTS
-
-# NOSe-IFY tests. should use yield to get good printing when nose runs
-# DEBUG whatever is going wrong with lite, which may be a general issue (could be due to dodgy install)
-
-# redoing tests, want to have tests that loop
-# over different settings, e.g. different params_instances,
-# maybe different ripls, etc. using product(). 
-
-# still in the process of having all tests that use unit
-# objects have this flexibility.
+# RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADS RESULTS
 
 # 4 consider getting rid of store_observes and draw_birds as methods. just
 # have them as functions. too much hassle having to switch between scripts as is. 
@@ -267,6 +275,15 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
 
   short_name_to_changes = {'minimal_onestepdiag10':
                            {},
+
+                           'test_medium_onestep_diag105':
+                           {'short_name': 'test_medium_onestep_diag105',
+                            'years': range(2),
+                            'days': range(2),
+                            'height': 2,
+                            'width': 3,
+                            'hypers':[1,0.5],
+                            'num_birds': 2 },
 
                            'bigger_onestep_diag105':
                            {'short_name': 'bigger_onestep_diag105',
