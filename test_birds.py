@@ -67,7 +67,7 @@ def test_make_features_dict():
 
   
 def test_features_functions():
-  'Do *uniform*, *not_diagonal* behave as expected. Uses *make_features_dict*'
+  'Do *uniform*, *not_diagonal* behave as expected? Uses *make_features_dict*'
   args_names = ( ('height',2), ('width',3), ('years',range(1)), ('days',range(1)), )
   _, args = zip(*args_names)
   num_cells = args[0] + args[1]
