@@ -233,9 +233,7 @@ def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filen
   
 
 
-# NOTES:
-
- # rewrote store_observes to use the long_name param which is also generated automatically in make_param with the intention of being unique. maybe we need to actually ensure uniqueness by adding some numbers to the end (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
+#  do we need to actually ensure uniqueness by adding some numbers to the end of long_name (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
 def make_params( params_short_name = 'minimal_onestepdiag10' ):
@@ -523,7 +521,7 @@ class Multinomial(object):
 
 
   def make_saved_model(self,filename, backend=None):
-    # FIXME default to same backend, should this be mandatory arg?
+    # Currently defaults to same backend
     if backend is None:
       backend = self.ripl.backend()
     
@@ -535,8 +533,7 @@ class Multinomial(object):
   
     return Multinomial( ripl, params)
     
-    
-
+  
   def get_params(self):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
@@ -569,7 +566,6 @@ class Multinomial(object):
       (lambda (f lst)
         (if (not (is_pair lst)) (list)
           (pair (f (first lst)) (map f (rest lst))) ) )""")
-
 
 ## PARAMS FOR SINGLE AND MULTIBIRD MODEL
 
@@ -721,7 +717,7 @@ class Multinomial(object):
 
 
   def draw_bird_locations(self, years, days, title=None, plot=True, save=True, order='F',
-                          print_features_info=True, directory_filename=None):
+                          verbose=False, directory_filename=None):
 
     assert isinstance(years,list)
     assert isinstance(days,list)
@@ -730,27 +726,13 @@ class Multinomial(object):
     bird_locs = self.get_bird_locations(years,days)
 
 
-    bitmaps = plot_save_bird_locations(bird_locs, title, years, days, self.height, self.width,
+    bitmaps = plot_save_bird_locations(self, bird_locs, title, years, days, self.height, self.width,
                                        plot=plot, save=save, order=order,
-                                       print_features_info = print_features_info,
+                                       verbose = verbose,
                                        directory_filename = directory_filename)
     
-    if print_features_info:
-      features_dict = self.features_as_python_dict
-      assert len(features_dict) == (self.height*self.width)**2 * (len(self.years) * len(self.days))
-
-      print '\n Features dict (up to 10th entry) for year,day = 0,0'
-      count = 0
-      for k,v in features_dict.iteritems():
-        if k[0]==0 and k[1]==0 and count<10: 
-          print k[2:4],':',v
-          assert isinstance(v[0],(int,float))
-          count += 1
-          
-      feature0_from0 = [features_dict[(0,0,0,j)][0] for j in range(self.cells)]
-
-      print '\n feature_0 for jth cell for y,d,i = (0,0,0), order=%s, 0 at top \n'%order
-      print make_grid( self.height, self.width, lst=feature0_from0, order=order)
+    
+      
       
     return bitmaps
 

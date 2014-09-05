@@ -113,17 +113,44 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
     return grid_mat
 
 
-def plot_save_bird_locations(bird_locs, title, years, days, height, width,
-                             save=None, plot=None, order=None, print_features_info=None, multinomial=True, directory_filename=None):
+def plot_save_bird_locations(unit, title, years, days, height, width,
+                             save=None, plot=None, order=None, verbose=False, multinomial=True, directory_filename=None):
 
-  if print_features_info:
+  assert isinstance(years,list)
+  assert isinstance(days,list)
+  assert order in ('F','C')
+  title = unit.short_name if title is None else title
+  bird_locs = unit.get_bird_locations(years,days)
+
+
+  if verbose:
+    features_dict = unit.features_as_python_dict
+    assert len(features_dict) == (unit.height*unit.width)**2 * (len(unit.years) * len(unit.days))
+
+    dash_line = '\n----------\n'
+    print dash_line + 'Features dict (up to 10th entry) for year,day = 0,0'
+    count = 0
+    for k,v in features_dict.iteritems():
+      if k[0]==0 and k[1]==0 and count<10: 
+        print k[2:4],':',v
+        assert isinstance(v[0],(int,float))
+        count += 1
+
+    feature0_from0 = [features_dict[(0,0,0,j)][0] for j in range(unit.cells)]
+
+    print dash_line + 'feature_0 for jth cell for y,d,i = (0,0,0), order=%s, 0 at top \n'%order
+    print make_grid( unit.height, unit.width, lst=feature0_from0, order=order)
+
+
+    ## Print map from bird_locs indices to ij positions on grid
     indices = range(len(bird_locs[years[0]][days[0]]))
     im_info = make_grid(height, width, indices, order=order )
-    print '''\n
+    print dash_line + '''
     Map from *bird_locs* indices (which comes from Venture
     function) to grid via function *make_grid* (order is %s,
     0 index at top) \n'''%order
     print im_info
+
 
   grids = {}
   for y,d in product(years,days):
