@@ -367,9 +367,11 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
 
 
 
+# def test_all_multinomial_unit_params_slow():
+#  for t in test_all_multinomial_unit_params( puma = False, quick_test = False):
+   
 
 def test_all_multinomial_unit_params( puma = True, quick_test = True):
-
 
   # tests that take unit object (with ripl) as input
   tests_unit =  (_test_model_multinomial,
