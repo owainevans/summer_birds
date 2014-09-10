@@ -304,8 +304,8 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
                             'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv",
-                            'max_years': 0, # FOR NOW WE LIMIT TO year 0 and day 5
-                            'max_days': 5, }
+                            'max_years': 0, # FOR NOW WE LIMIT THIS
+                            'max_days': 2, }
 
                          }
 

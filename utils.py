@@ -32,7 +32,7 @@ def update(dict, key, data):
   dict[key].append(data)
 
 
-def readFeatures(filename, maxYear=None, maxDay=None):
+def read_features(filename, max_year, max_day): 
   csv = loadCSV(filename)
   data = {}
   
@@ -43,23 +43,21 @@ def readFeatures(filename, maxYear=None, maxDay=None):
     keys = tuple( int(k)-1 for k in row[:4])
     year, day = keys[:2]
     
-    if maxYear and year > maxYear:
-        print 'maxYear and stop point:',maxYear
-        print row
+    if year > max_year:
+        print 'max_year: %i, final row: \n %s' % (max_year, str(row) )
         break
 
-    if maxDay and day > maxDay:
-      if maxYear == year:
-        print 'maxDay,maxYear and stop point:',maxDay,maxYear
-        print row
+    if day > max_day:
+      if max_year == year:
+        print '(max_day, max_year): (%i,%i) and final row: \n %s' % (max_day,
+                                                                     max_year, str(row) )
         break
       else:
         continue
     
     features = map(float, row[4:])
     data[keys] = features
-    
-  
+                                                                    
   return data
 
 def readObservations(filename):

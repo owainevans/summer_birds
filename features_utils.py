@@ -49,6 +49,7 @@ def goal_direction(cell1_ij, cell2_ij, goal_direction=np.pi/4):
       angle=np.arctan( float(dy) / dx )
   return angle - goal_direction     # find angle between cells
 
+
   
 ### Store named sets of feature_functions
 name_to_feature_functions = {'uniform':( lambda cell1_ij, cell2_ij: 0, ),
@@ -66,6 +67,11 @@ def ind_to_ij(height, width, index, order='F'):
 
   
 def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='string'):
+# NOTE: the argument *dict_string* indicates that we default to creating 
+# a Python string for the features_dict rather than a Venture dict.
+# Because of the slow parser, we might need to change this later. 
+
+
     
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
@@ -111,15 +117,25 @@ def cell_to_feature(height, width, state, python_features_dict, feature_ind):
 
 def load_features(features_file, years_list, days_list, max_year=None, max_day=None):
   'Load features from Birds datasets and convert to Venture dict'
+  
+  if max_year is None: max_year = max(years_list)
+  if max_day is None: max_day = max(days_list)
+
+  assert max_year in years_list and max_day in days_list, '''
+  Max year or day outside range. (Strict and safe policy that
+  we could reform).'''
 
   print "Loading features from %s" % features_file  
 
+  
   ## FIXME needs be careful about 0 vs 1 indexing for the year
-  ## NOTE: looks 
-  features = readFeatures(features_file, max_year, max_day)
+
+  features = read_features(features_file, max_year, max_day)
   
   for (y, d, i, j) in features.keys():
     if y not in years_list or d not in days_list:
+      assert False, '''Got features dict with year or day
+      outside years_ or days_list. (Strict and safe).'''
       del features[(y, d, i, j)]
   
   return toVenture(features), features
