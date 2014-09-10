@@ -12,9 +12,10 @@ from itertools import product
 def backend_to_ripl_thunk(backend_string):
   if backend_string == 'puma':
     return s.make_puma_church_prime_ripl
-  else:
+  elif backend_string == 'lite':
     return s.make_lite_church_prime_ripl
-
+  else:
+    assert False, 'Bad backend_string'
 
 
 def parseLine(line):
@@ -113,19 +114,19 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
     return grid_mat
 
 
-def plot_save_bird_locations(unit, title, years, days, height, width,
-                             save=None, plot=None, order=None, verbose=False, multinomial=True, directory_filename=None):
+def plot_save_bird_locations(unit, title, years, days, save=True,
+                             plot=True, order=None, verbose=False, multinomial=True, directory_filename=None):
 
-  assert isinstance(years,list)
-  assert isinstance(days,list)
+  assert isinstance(years, list)
+  assert isinstance(days, list)
   assert order in ('F','C')
   title = unit.short_name if title is None else title
   bird_locs = unit.get_bird_locations(years,days)
-
+  height, width = unit.height, unit.width
 
   if verbose:
     features_dict = unit.features_as_python_dict
-    assert len(features_dict) == (unit.height*unit.width)**2 * (len(unit.years) * len(unit.days))
+    assert len(features_dict) == (height*width)**2 * (len(unit.years) * len(unit.days))
 
     dash_line = '\n----------\n'
     print dash_line + 'Features dict (up to 10th entry) for year,day = 0,0'
@@ -139,7 +140,7 @@ def plot_save_bird_locations(unit, title, years, days, height, width,
     feature0_from0 = [features_dict[(0,0,0,j)][0] for j in range(unit.cells)]
 
     print dash_line + 'feature_0 for jth cell for y,d,i = (0,0,0), order=%s, 0 at top \n'%order
-    print make_grid( unit.height, unit.width, lst=feature0_from0, order=order)
+    print make_grid( height, width, lst=feature0_from0, order=order)
 
 
     ## Print map from bird_locs indices to ij positions on grid
@@ -163,7 +164,6 @@ def plot_save_bird_locations(unit, title, years, days, height, width,
 
 
   ## FIXME what about large num days/years. need multiple plots
-
   nrows,ncols = len(days), len(years)
   fig,ax = plt.subplots(nrows,ncols,figsize=(4*ncols,2*nrows))
 
@@ -202,7 +202,6 @@ def plot_save_bird_locations(unit, title, years, days, height, width,
   if save:    ## FIXME make images look better!
     fig.savefig( filename )
     print '\n Saved bird location images in %s \n'%filename
-
 
     for y,d in product(years,days):
       grid = grids[(y,d)]

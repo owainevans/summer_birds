@@ -175,7 +175,7 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
   fig_ax = unit.draw_bird_locations( unit.years, unit.days,
                                      plot=True, save=True, order='F',
-                                     print_features_info=True,
+                                     verbose=True,
                                      directory_filename = (full_directory,draw_bird_filename) )
 
   store_dict = {'generate_data_params':params,
@@ -447,8 +447,9 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
                      multinomial_or_poisson='multinomial'):
-  '''Utility takes synthetic data path, prior_on_hypers, model_type,
-     and then generates an inference with appropriate params'''
+  '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
+     and generates an inference Unit object with same parameters as synthetic data
+     Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial'''
 
 
   with open(generate_data_filename,'r') as f:
@@ -459,7 +460,7 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
                                                       generate_data_filename)
   if multinomial_or_poisson=='multinomial':
     model_constructor = Multinomial
-  elif multinomial_or_poisson=='poisson':
+  elif multinomial_or_poisson=='poisson':  ## TODO
     model_constructor = Poisson
   else:
     assert False, 'constructor not recognized'
@@ -473,9 +474,6 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
 
   
   
-
- 
-
 
 ## CELL NAMES (GRID REFS)
 # Multinomial Venture prog just has integer cell indices
@@ -502,7 +500,6 @@ class Multinomial(object):
       self.assumes_loaded = False
     else:
       self.load_assumes()
-
 
 
 
@@ -706,6 +703,10 @@ class Multinomial(object):
        for y,d in product(years,days) '''
     if years is None: years = self.years
     if days is None: days = self.days
+
+    # TODO: abstract out and use elsewhere
+    all_days = product(self.years, self.days)
+    assert all( [ (y,d) in all_days for (y,d) in product(years,days) ] )
     
     bird_locations = {}
     for y in years:
@@ -719,22 +720,12 @@ class Multinomial(object):
   def draw_bird_locations(self, years, days, title=None, plot=True, save=True, order='F',
                           verbose=False, directory_filename=None):
 
-    assert isinstance(years,list)
-    assert isinstance(days,list)
-    assert order in ('F','C')
-    title = self.short_name if title is None else title
-    bird_locs = self.get_bird_locations(years,days)
-
-
-    bitmaps = plot_save_bird_locations(self, bird_locs, title, years, days, self.height, self.width,
-                                       plot=plot, save=save, order=order,
-                                       verbose = verbose,
-                                       directory_filename = directory_filename)
+    return plot_save_bird_locations(self, title, years, days,
+                                    save=save, plot=plot, order=order,
+                                    verbose = verbose,
+                                    directory_filename = directory_filename)
     
     
-      
-      
-    return bitmaps
 
     
 

@@ -281,7 +281,7 @@ def _test_save_images(unit, del_images=True):
   directory = 'tmp_test_bird_moves_/'
   filename = directory + 'temp_test_save.png'
   #os.chdir('~/summer_birds')
-  unit.draw_bird_locations(years, days, 'test', save=True, order='F', print_features_info=True,
+  unit.draw_bird_locations(years, days, 'test', save=True, order='F', verbose=True,
                            directory_filename = (directory, filename) )
   assert os.path.exists( directory)
   if del_images: subprocess.call(['rm','-r',directory])
@@ -411,7 +411,7 @@ def test_all_multinomial_unit_params( puma = True, quick_test = True):
 
 
 
-## FIXME
+## FIXME SOMETHING BROKE THIS
 def _test_load_features_multinomial( ):
 
   units = []
@@ -462,7 +462,6 @@ def run_nose_generative( test ):
     test_times[ test_func.__name__ + '__%s'%str(args) ] = test_time
 
   return test_times
-
 
 
       
