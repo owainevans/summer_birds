@@ -44,13 +44,12 @@ def read_features(filename, max_year, max_day):
     year, day = keys[:2]
     
     if year > max_year:
-        print 'max_year: %i, final row: \n %s' % (max_year, str(row) )
+        print 'max_year: %i, first table entry missed: \n %s' % (max_year, keys )
         break
 
     if day > max_day:
       if max_year == year:
-        print '(max_day, max_year): (%i,%i) and final row: \n %s' % (max_day,
-                                                                     max_year, str(row) )
+        print '(max_year, max_day): (%i,%i), first entry missed: \n %s' % (max_day, max_year, keys)
         break
       else:
         continue

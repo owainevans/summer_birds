@@ -1,5 +1,5 @@
 from utils import *
-from features_utils import make_features_dict
+from features_utils import make_features_dict, load_features
 from venture.unit import VentureUnit
 from venture.venturemagics.ip_parallel import mk_p_ripl, mk_l_ripl
 from venture.ripl.utils import strip_types
@@ -12,6 +12,17 @@ import numpy as np
 
 
 ### PLAN NOTES
+
+
+# FIXME: tests failing on dataset two. something with the venture dict
+# note that we probs have a venture dict rather than string, though 
+# not sure that this will cause problems. 
+
+# 1000 birds too many for venture to simulate fast, even for couple of
+# days. write some code to make onebird operative, loading onebird
+# and doing the inference task. also should get poisson in gear
+# which shoudl be quick, as most of what we need is in place
+# and we can lean on the tests (expanding them a little). 
 
 
 # verbosity
@@ -299,7 +310,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                             'days': range(20),
                             'width':10,
                             'height':10,
-                            'num_birds': 1000,
+                            'num_birds': 30,  ## FIXME FIXME
                             'num_features': 4,
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
@@ -315,10 +326,11 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                                  base_params )
   
   for max_param, param in zip( ('max_days','max_years'), ('days','years') ):
-    if params[ max_param ] is None:
-      params[ max_param ] = max( params[ param ] )
+    max_v, lst_v = params[ max_param ], params[ param ]
+    if max_v is None:
+      params[ max_param ] = max( lst_v )
     else:
-      assert max_param <=  max( params[ param ] )
+      assert max_v <=  max( lst_v )
 
   
   # Generate features dicts
