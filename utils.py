@@ -123,7 +123,7 @@ def plot_save_bird_locations(unit, title, years, days, save=True,
 
   if verbose:
     features_dict = unit.features_as_python_dict
-    assert len(features_dict) == (height*width)**2 * (len(unit.years) * len(unit.days))
+    assert len(features_dict) <= (height*width)**2 * (unit.max_years+1) * (unit.max_days+1)
 
     dash_line = '\n----------\n'
     print dash_line + 'Features dict (up to 10th entry) for year,day = 0,0'

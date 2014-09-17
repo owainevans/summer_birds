@@ -137,13 +137,13 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
+
+
 def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
   unit.ensure_assumes()
   
-  observe_unit_pairs = { 'years_list': unit.years,
-                         'days_list': unit.days,
-                         'cells_list': range(unit.cells) }
+  observe_unit_pairs = unit.get_max_observe_range();
 
   for k,v in observe_range.items():
     unit_v = observe_unit_pairs[k]
@@ -171,7 +171,7 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
 
   
   # compare gtruth_counts to bird_locations
-  bird_locs = unit.get_bird_locations( unit.years, unit.days)
+  bird_locs = unit.get_bird_locations( observe_range['years_list'], observe_range['days_list'])
   
   for y,d,i in year_day_cell():
     assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
@@ -184,7 +184,7 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
   store_dict_filename = full_directory + params['long_name'] + '.dat'
   draw_bird_filename =  full_directory + params['long_name'] + '.png'
 
-  fig_ax = unit.draw_bird_locations( unit.years, unit.days,
+  fig_ax = unit.draw_bird_locations( observe_range['years_list'], observe_range['days_list'],
                                      plot=True, save=True, order='F',
                                      verbose=True,
                                      directory_filename = (full_directory,draw_bird_filename) )
@@ -303,6 +303,20 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                             'width': 3,
                             'hypers':[1,0.5],
                             'num_birds': 6 },
+
+                           'dataset1':
+                           {'short_name':'dataset1',
+                            'years': range(30),
+                            'days': range(20),
+                            'width':4,
+                            'height':4,
+                            'num_birds': 1, 
+                            'num_features': 4,
+                            'hypers': [5,10,10,10],
+                            'prior_on_hypers': ['(gamma 6 1)'] * 4,
+                            'features_loaded_from': "data/input/dataset1/onebird-features.csv",
+                            'max_years': 2, 
+                            'max_days': 2, },
 
                            'dataset2':
                            {'short_name':'dataset2',
@@ -542,14 +556,16 @@ class Multinomial(object):
   
     return Multinomial( ripl, params)
     
+
   
   def get_params(self):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
+
   def get_max_observe_range(self):
-    return {'days_list': [d for d in self.days if d<=self.max_days],
-            'years_list': [y for y in self.years if y<=self.max_years],
+    return {'days_list': [d for d in self.days if d <= self.max_days],
+            'years_list': [y for y in self.years if  y<= self.max_years],
             'cells_list': range(self.cells)}
 
   def ensure_assumes(self):
@@ -714,11 +730,13 @@ class Multinomial(object):
   def get_bird_locations(self, years=None, days=None):
     '''Returns dict { y: { d:histogram of bird positions on y,d}  }
        for y,d in product(years,days) '''
-    if years is None: years = self.years
-    if days is None: days = self.days
+    if years is None: years = self.get_max_observe_range()['years_list']
+    if days is None: days = self.get_max_observe_range()['days_list']
 
-    # TODO: abstract out and use elsewhere
-    all_days = product(self.years, self.days)
+    
+    all_days = product(self.get_max_observe_range()['years_list'],
+                       self.get_max_observe_range()['days_list'] )
+    
     assert all( [ (y,d) in all_days for (y,d) in product(years,days) ] )
     
     bird_locations = {}

@@ -387,7 +387,7 @@ def test_all_multinomial_unit_params( puma = True, quick_test = True):
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
 
   if quick_test:
-    params_short_names = ('dataset2',) # FIXME change back to minimal_onestep
+    params_short_names = ('minimal_onestepdiag10','dataset1',) # FIXME change back to minimal_onestep
   else:
     params_short_names = ('minimal_onestepdiag10', 'test_medium_onestep_diag105')
 
