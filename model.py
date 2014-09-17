@@ -547,8 +547,9 @@ class Multinomial(object):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
-  def get_full_observe_range(self):
-    return {'days_list': self.days, 'years_list': self.years,
+  def get_max_observe_range(self):
+    return {'days_list': [d for d in self.days if d<=self.max_days],
+            'years_list': [y for y in self.years if y<=self.max_years],
             'cells_list': range(self.cells)}
 
   def ensure_assumes(self):

@@ -156,7 +156,7 @@ def _test_model_multinomial( unit ):
     
   
 def _test_make_infer( generate_data_unit, ripl_thunk ):
-  observe_range = generate_data_unit.get_full_observe_range()
+  observe_range = generate_data_unit.get_max_observe_range()
   
   out = example_make_infer( generate_data_unit, observe_range, ripl_thunk)
   _, generate_data_unit, generate_data_filename, infer_unit = out
@@ -219,7 +219,7 @@ def make_triples( observe_range ):
 
 def load_observations_vars(generate_data_unit, ripl_thunk):
 
-  observe_range = generate_data_unit.get_full_observe_range()
+  observe_range = generate_data_unit.get_max_observe_range()
 
   out = example_make_infer( generate_data_unit, observe_range, ripl_thunk)
   observe_range, _, store_dict_filename, infer_unit = out
@@ -298,19 +298,16 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
                     lambda u: u.ripl.list_directives())
 
     bools = [ f(u1)==f(u2) for f in test_lambdas ]
+    
     if all(bools):
       return True
     elif not verbose:
       return False
     else:
-      print 'Failed equality multinomial'
       for d1,d2 in zip( *map(lambda u: u.ripl.list_directives(), (u1,u2) ) ):
         if d1 != d2:
-          print '\nDiffer on directive:', d1, '\n', d2
-          break
-          
-      return False
-
+          print 'Failed equality multinomial. Differ on directive:', d1, '\n', d2
+          return False
 
   def print_random_draws(u1, u2):
     print 'compare beta(1 1)',
