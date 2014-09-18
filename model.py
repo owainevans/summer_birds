@@ -14,16 +14,6 @@ import numpy as np
 ### PLAN NOTES
 
 
-# FIXME: tests failing on dataset two. something with the venture dict
-# note that we probs have a venture dict rather than string, though 
-# not sure that this will cause problems. 
-
-# 1000 birds too many for venture to simulate fast, even for couple of
-# days. write some code to make onebird operative, loading onebird
-# and doing the inference task. also should get poisson in gear
-# which shoudl be quick, as most of what we need is in place
-# and we can lean on the tests (expanding them a little). 
-
 
 # verbosity
 # should probably give everything a verbose mode which is off
@@ -514,11 +504,15 @@ class Multinomial(object):
 
     self.ripl = ripl
     print '\n\nMultinomial Unit created with %s ripl\n\n----\n' % self.ripl.backend()
+    
+
     self.params = params
     for k,v in self.params.iteritems():
       setattr(self,k,v)
 
     self.cells = self.width * self.height
+    self.ripl.set_seed( venture_random_seed );
+
     
     if self.ripl.list_directives() != []:
       self.assumes_loaded = True # If ripl pre-loaded, don't load assumes
