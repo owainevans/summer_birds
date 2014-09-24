@@ -14,6 +14,16 @@ import numpy as np
 ### PLAN NOTES
 
 
+TODO
+get inference up and running and have a basic sanity test for inference
+with small grid and small number of birds. elaborate inference programs
+later. 
+
+also get poisson up and running, coz very little can be done without it.
+need to add methods params to it and unify its methods. shouldnt be too 
+hard to do.
+
+
 
 # verbosity
 # should probably give everything a verbose mode which is off
@@ -22,19 +32,6 @@ import numpy as np
 # think about how to architect such things.
 
 
-#tests:                          
-# try to use nose where possible, as it has more powerful features
-# than can be easily implemented. want to have a fast and slow 
-# test config that can be run quickly from command line. we'd
-# prefer to have readable names for the nosetests. one thing
-# is to have just puma and the simple model as fast. need
-# to add tests for whether inference does sensible things
-# which might be hard on this problem. maybe add them 
-# as separate set of tests? 
-
-# nose probably never allows plots to be viewed live
-# and so need to run in ipython to get them. (though we
-# could open files).         
 
 
 ## LOADING FEATURES FROM FILE
@@ -43,20 +40,7 @@ import numpy as np
 # more flexible way of storing/reading off features than current thing. 
 # RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADS RESULTS
 
-## GET RID OF WRAPPER METHODS
-# 4 consider getting rid of store_observes and draw_birds as methods. just
-# have them as functions. too much hassle having to switch between scripts as is. 
 
-
-# 1. Add method for serializing whole unit object. Main thing is to serialize
-# its ripl. Then we can store intermediate state of inference (as well 
-# as an easy way to store all the state of unit object for generating 
-# synthetic data.
-
-# 2. Should be able to save infer/observe ripl at any stage. For example,
-# might want to save after loading assumes/observes (which could take
-# 30 seconds). Then want to save at any point along. Need to decide on
-# system for where to keep pre and post inference models.
 
 # 3. Pull out certain params to be controlled from experiment runner.
 # Place to store synthetic data.
