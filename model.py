@@ -14,14 +14,14 @@ import numpy as np
 ### PLAN NOTES
 
 
-TODO
-get inference up and running and have a basic sanity test for inference
-with small grid and small number of birds. elaborate inference programs
-later. 
+# TODO
+# get inference up and running and have a basic sanity test for inference
+# with small grid and small number of birds. elaborate inference programs
+# later. 
 
-also get poisson up and running, coz very little can be done without it.
-need to add methods params to it and unify its methods. shouldnt be too 
-hard to do.
+# also get poisson up and running, coz very little can be done without it.
+# need to add methods params to it and unify its methods. shouldnt be too 
+# hard to do.
 
 
 
@@ -113,44 +113,64 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
-def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
+# Store observes in file:
+# filename determined by *long_name* unit attribute
+# *observe_range* defaults to max range
+def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
-  unit.ensure_assumes()
+  unit.ensure_assumes()  # assumes need to be loaded to get observes
   
-  observe_unit_pairs = unit.get_max_observe_range();
+
+
+  # CHECK AND FILL OUT OBSERVE RANGE
+
+  # Input *observe_range* should be within max range.
+  # None values for ranges are mutated to max range.
+  
+  max_observe_range = unit.get_max_observe_range();
 
   for k,v in observe_range.items():
-    unit_v = observe_unit_pairs[k]
+    max_v = max_observe_range[k]
 
     if v is None: 
-      observe_range[k] = unit_v
+      observe_range[k] = max_v
     else:
-      assert set(v).issubset( set(unit_v) )
+      assert set(v).issubset( set(max_v) )
   
+
+
+  # GET OBSERVE VALUES FROM MODEL
+
+  # Observed (noisy) and ground-truth bird counts
   observe_counts={}
   gtruth_counts={}
-
-  year_day_cell = lambda: product( *map( lambda k: observe_range[k],
-                                 ('years_list','days_list','cells_list') ) )
-
   
-  for y,d,i in year_day_cell():
+  # alternate way to get gtruth counts
+  bird_locs = unit.get_bird_locations( observe_range['years_list'],
+                                       observe_range['days_list'])
+
+  year_day_cell_triples = lambda: product( *map( lambda k: observe_range[k],
+                                 ('years_list','days_list','cells_list') ) )
+  
+  for y,d,i in year_day_cell_triples():
 
     gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds_v2 %i %i %i)'%(y,d,i))
-
     observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
     
+    # (observe_birds y d i) = Poisson(epsilon) if count for (y,d,i)=0. See Venture model. 
     if gtruth_counts[(y,d,i)] == 0 and observe_counts[(y,d,i)] > 0:
       assert False, 'gtruth_counts[%s] == 0 and observe_counts[%s] > 0' % str((y,d,i) )
 
-  
-  # compare gtruth_counts to bird_locations
-  bird_locs = unit.get_bird_locations( observe_range['years_list'], observe_range['days_list'])
-  
-  for y,d,i in year_day_cell():
+    # Check that *get_bird_locations* matches results from using *predict* directly
+    # to get ground-truth bird counts      
     assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
-   
+  
 
+
+  # PICKLE AND STORE COUNTS
+
+  # Generate filenames based on *unit.parameters.long_name*.
+  # Generate bird locations images (FIXME possibly remove).
   params = unit.get_params()
   date = '21_08_14' ## FIXME ADD DATE
   full_directory = '%s/%s/' % (synthetic_directory,date)
@@ -163,21 +183,23 @@ def store_observes(unit, observe_range, synthetic_directory = 'synthetic'):
                                      verbose=True,
                                      directory_filename = (full_directory,draw_bird_filename) )
 
+
+  # Build dict of parameters, *observe_range* and counts, along with groundtruth *bird_locs*.
+  # Pickle this to file.
+
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
                 'observe_range':observe_range,
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
-
-                                    
-  # with open(filename+'test','w') as f:
-  #   pickle.dump(fig_ax,f)
   
   with open(store_dict_filename,'w') as f:
     pickle.dump(store_dict,f)
   print 'Stored observes in %s.'% store_dict_filename
 
-  return store_dict_filename, draw_bird_filename ## FIXME not sure about this
+  ## return filename for use running inference on synthetic data.
+  return store_dict_filename, draw_bird_filename 
+
 
 
 
