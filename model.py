@@ -33,15 +33,6 @@ import numpy as np
 
 
 
-
-## LOADING FEATURES FROM FILE
-# Add unit tests for refactored load_features. Add datasets 1 and 3. 
-# Then write some code for saving features. Might be useful to have
-# more flexible way of storing/reading off features than current thing. 
-# RUN INFERENCE ON ONEBIRD AND COMPARE TO VLADS RESULTS
-
-
-
 # 3. Pull out certain params to be controlled from experiment runner.
 # Place to store synthetic data.
 # Optionally place to get
@@ -231,12 +222,15 @@ def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filen
   def unit_observe(unit, y, d, i, count_i):
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
 
-  ydi = product( *map( lambda k:load_observe_range[k],
-                      ('years_list','days_list','cells_list') ) )
+  year_day_cell_triples = product( *map( lambda k:load_observe_range[k],
+                                         ('years_list','days_list','cells_list') ) )
 
-  for y,d,i in ydi:
+  for y,d,i in year_day_cell_triples():
     unit_observe(unit,y,d,i,observe_counts[(y,d,i)])
   
+
+
+
   
 
 
