@@ -1,12 +1,8 @@
 from utils import *
 from features_utils import make_features_dict, load_features
-from venture.unit import VentureUnit
-from venture.venturemagics.ip_parallel import mk_p_ripl, mk_l_ripl
-from venture.ripl.utils import strip_types
+import unit_parameter_dicts
 
-from nose.tools import eq_, assert_almost_equal
 from itertools import product
-import matplotlib.pylab as plt
 import cPickle as pickle
 import numpy as np
 
@@ -140,10 +136,10 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   bird_locs = unit.get_bird_locations( observe_range['years_list'],
                                        observe_range['days_list'])
 
-  year_day_cell_triples = lambda: product( *map( lambda k: observe_range[k],
-                                 ('years_list','days_list','cells_list') ) )
+  year_day_cell_triples = product( *map( lambda k: observe_range[k],
+                                         ('years_list','days_list','cells_list') ) )
   
-  for y,d,i in year_day_cell_triples():
+  for y,d,i in year_day_cell_triples:
 
     gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds_v2 %i %i %i)'%(y,d,i))
     observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
@@ -225,7 +221,7 @@ def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filen
   year_day_cell_triples = product( *map( lambda k:load_observe_range[k],
                                          ('years_list','days_list','cells_list') ) )
 
-  for y,d,i in year_day_cell_triples():
+  for y,d,i in year_day_cell_triples:
     unit_observe(unit,y,d,i,observe_counts[(y,d,i)])
   
 
@@ -273,59 +269,8 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
     'max_days': None,
   }
 
-  short_name_to_changes = {'minimal_onestepdiag10':
-                           {},
-
-                           'test_medium_onestep_diag105':
-                           {'short_name': 'test_medium_onestep_diag105',
-                            'years': range(2),
-                            'days': range(2),
-                            'height': 2,
-                            'width': 3,
-                            'hypers':[1,0.5],
-                            'num_birds': 2 },
-
-                           'bigger_onestep_diag105':
-                           {'short_name': 'bigger_onestep_diag105',
-                            'years': range(2),
-                            'days': range(3),
-                            'height': 4,
-                            'width': 3,
-                            'hypers':[1,0.5],
-                            'num_birds': 6 },
-
-                           'dataset1':
-                           {'short_name':'dataset1',
-                            'years': range(30),
-                            'days': range(20),
-                            'width':4,
-                            'height':4,
-                            'num_birds': 1, 
-                            'num_features': 4,
-                            'hypers': [5,10,10,10],
-                            'prior_on_hypers': ['(gamma 6 1)'] * 4,
-                            'features_loaded_from': "data/input/dataset1/onebird-features.csv",
-                            'max_years': 2, 
-                            'max_days': 2, },
-
-                           'dataset2':
-                           {'short_name':'dataset2',
-                            'years': range(3),
-                            'days': range(20),
-                            'width':10,
-                            'height':10,
-                            'num_birds': 30,  ## FIXME FIXME
-                            'num_features': 4,
-                            'hypers': [5,10,10,10],
-                            'prior_on_hypers': ['(gamma 6 1)'] * 4,
-                            'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv",
-                            'max_years': 0, # FOR NOW WE LIMIT THIS
-                            'max_days': 2, }
-
-                         }
-
+  short_name_to_changes = unit_parameter_dicts.parameter_short_name_to_changes
                             
-
   params = new_params_from_base( short_name_to_changes[ params_short_name ],
                                  base_params )
   
@@ -511,7 +456,7 @@ class Multinomial(object):
       setattr(self,k,v)
 
     self.cells = self.width * self.height
-    self.ripl.set_seed( venture_random_seed );
+    self.ripl.set_seed( self.venture_random_seed );
 
     
     if self.ripl.list_directives() != []:
@@ -523,6 +468,7 @@ class Multinomial(object):
 
 
 
+## UTILITIES FOR SAVING, LOADING, GENERATING SYNTHETIC DATA
   def save(self, directory):
     ## FIXME random_directory should be ripl hash
     random_directory_name = np.random.randint(10**9) 
@@ -571,8 +517,7 @@ class Multinomial(object):
 
   def load_assumes(self):
     
-    ripl = self.ripl
-    
+    ripl = self.ripl    
     print "Loading assumes"
 
 ## UTILITY FUNCTIONS
