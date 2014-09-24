@@ -224,6 +224,7 @@ def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filen
   for y,d,i in year_day_cell_triples:
     unit_observe(unit,y,d,i,observe_counts[(y,d,i)])
   
+  print 'Loaded all observes'
 
 
 
@@ -246,7 +247,6 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
     params_new.update( changes )
     
     return params_new
-
   
   base_params = {
       'short_name': 'minimal_onestepdiag10',
@@ -358,14 +358,12 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
     for el in params[k]:
       assert isinstance( el, v )
 
-
   # Check types if not None
   types_not_none = {'observes_loaded_from':str,
                     'observes_saved_to':str,
                     'features_loaded_from':str,
                     'learn_hypers':bool }
 
-  
   for k,v in types_not_none.items():
     param = params[ k ]
     if param is not None:
@@ -407,7 +405,8 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                     multinomial_or_poisson='multinomial'):
+                     multinomial_or_poisson='multinomial', load_all_observes=False,
+                     observe_range=None):
   '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
      and generates an inference Unit object with same parameters as synthetic data
      Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial'''
@@ -427,9 +426,35 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
     assert False, 'constructor not recognized'
 
 
-  infer_unit = model_constructor( ripl_thunk(), generate_data_params) 
+  infer_unit = model_constructor( ripl_thunk(), generate_data_params)
+
+  if load_all_observes:
+    use_range_defaults = True if observe_range is None else False
+    load_observes(infer_unit, observe_range, use_range_defaults, generate_data_filename)
 
   return infer_unit
+
+
+def make_infer_unit_observe_default( generate_data_filename, prior_on_hypers, ripl_thunk,
+                                     multinomial_or_poisson='multinomial'):
+  return make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
+                          multinomial_or_poisson='multinomial', load_all_observes=True,
+                          observe_range = None)
+
+
+def test_inference(generate_data_unit, observe_range, ripl_thunk ):
+  generate_data_params = generate_data_unit.params
+  
+  generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
+
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  infer_unit = make_infer_unit_observe_default( generate_data_store_dict_filename,
+                                                prior_on_hypers, ripl_thunk, multinomial_or_poisson='multinomial' )
+                                
+  
+  return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
+  
+
 
 
 

@@ -1,13 +1,12 @@
 import numpy as np
-import os, subprocess
-from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
-from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
-from nose.tools import eq_, assert_almost_equal
+import os, subprocess, sys
 import cPickle as pickle
-import sys
-
 from timeit import timeit
 from itertools import product
+from nose.tools import eq_, assert_almost_equal
+
+from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
+from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from utils import make_grid
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
