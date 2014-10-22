@@ -277,7 +277,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
                             
   params = new_params_from_base( short_name_to_changes[ params_short_name ],
                                  base_params )
-  
+
   for max_param, param in zip( ('max_days','max_years'), ('days','years') ):
     max_v, lst_v = params[ max_param ], params[ param ]
     if max_v is None:
@@ -457,19 +457,21 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk ):
   infer_unit = make_infer_unit_observe_default( generate_data_store_dict_filename,
                                                 prior_on_hypers, ripl_thunk, multinomial_or_poisson='multinomial' )
                                 
-  
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
+
 def _default_test_inference():
   ripl_thunk = mk_p_ripl
   params_short_name = 'bigger_onestep_diag105'
   generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
+
   observe_range = dict(days_list=None,years_list=None,cells_list=None)
   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk)
   
-  for _ in range(10):
-    infer_unit.ripl.infer(10)
-    print '\n\nmse hypers:', compare_hypers(generate_data_unit, infer_unit)
+  for _ in range(4):
+    print '\n getting into loop'
+    infer_unit.ripl.infer(100)
+    print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
   return infer_unit
 
 
@@ -479,11 +481,16 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
   def get_hypers(ripl,num_features):
     return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
-    
-  get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
   
-  print '\nhypers', [get_hypers_par(r) for r in (gtruth_unit.ripl, inferred_unit.ripl)]
-  return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
+  hypers = []
+  logscores = []
+  
+  for r in (gtruth_unit.ripl, inferred_unit.ripl):
+    hypers.append( get_hypers(r, gtruth_unit.num_features))
+    logscores.append( r.get_global_logscore() )
+  mse_pair = mse(*hypers)
+
+  return hypers,logscores,mse_pair
 
   
   
@@ -590,10 +597,11 @@ class Multinomial(object):
     if self.learn_hypers:
       ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
       for k in range(self.num_features):
-        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %d (* scale (normal 0 5) ))' % k)
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
     else:
       for k, value_k in enumerate(self.hypers):
-        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %i)'%value_k)
+        print '\n\n k, value_k in defining hypers in multinom  ', k, value_k
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
 
     
     ripl.assume('features', self.features)
