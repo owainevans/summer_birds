@@ -1,6 +1,8 @@
 from utils import *
 from features_utils import make_features_dict, load_features
 import unit_parameter_dicts
+from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
+
 
 from itertools import product
 import cPickle as pickle
@@ -19,15 +21,11 @@ import numpy as np
 # need to add methods params to it and unify its methods. shouldnt be too 
 # hard to do.
 
-
-
 # verbosity
 # should probably give everything a verbose mode which is off
 # by default. atm just storing produces lots of printing. 
 # still want it to be easy to make various things verbose
 # think about how to architect such things.
-
-
 
 # 3. Pull out certain params to be controlled from experiment runner.
 # Place to store synthetic data.
@@ -107,24 +105,20 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
   unit.ensure_assumes()  # assumes need to be loaded to get observes
   
-
-
   # CHECK AND FILL OUT OBSERVE RANGE
-
-  # Input *observe_range* should be within max range.
-  # None values for ranges are mutated to max range.
-  
+  # TODO simplify
   max_observe_range = unit.get_max_observe_range();
-
-  for k,v in observe_range.items():
-    max_v = max_observe_range[k]
-
-    if v is None: 
-      observe_range[k] = max_v
-    else:
-      assert set(v).issubset( set(max_v) )
+  if observe_range is None:
+    observe_range = max_observe_range
+  else:
+    for k,v in observe_range.items():
+      max_v = max_observe_range[k]
+      
+      if v is None: 
+        observe_range[k] = max_v
+      else:
+        assert set(v).issubset( set(max_v) )
   
-
 
   # GET OBSERVE VALUES FROM MODEL
 
@@ -165,13 +159,18 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   store_dict_filename = full_directory + params['long_name'] + '.dat'
   draw_bird_filename =  full_directory + params['long_name'] + '.png'
 
-  fig_ax = unit.draw_bird_locations( observe_range['years_list'], observe_range['days_list'],
-                                     plot=True, save=True, order='F',
+  fig_ax = unit.draw_bird_locations( observe_range['years_list'],
+                                     observe_range['days_list'],
+                                     plot=True,
+                                     save=True,
+                                     order='F',
                                      verbose=True,
-                                     directory_filename = (full_directory,draw_bird_filename) )
+                                     directory_filename = (full_directory,
+                                                           draw_bird_filename) )
 
 
-  # Build dict of parameters, *observe_range* and counts, along with groundtruth *bird_locs*.
+  # Build dict of parameters, *observe_range* and counts,
+  # along with groundtruth *bird_locs*.
   # Pickle this to file.
 
   store_dict = {'generate_data_params':params,
@@ -191,7 +190,8 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 
-def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filename):
+def load_observes(unit, load_observe_range,
+                  use_range_defaults, store_dict_filename):
 
   unit.ensure_assumes()
   
@@ -201,6 +201,10 @@ def load_observes(unit, load_observe_range, use_range_defaults, store_dict_filen
   observe_counts = store_dict['observe_counts']
   observe_range = store_dict['observe_range']
 
+  ## FIXME
+  if load_observe_range is None:
+    load_observe_range = dict(days_list=None,years_list=None,
+                              cells_list=None)
 
   # Check for None values in observe range
   for k,v in load_observe_range.items():
@@ -401,7 +405,8 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
                  'short_name': short_name,
                  'long_name': long_name}
 
-  return infer_params.update
+  infer_params.update(update_dict)
+  return infer_params
 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
@@ -426,7 +431,7 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
     assert False, 'constructor not recognized'
 
 
-  infer_unit = model_constructor( ripl_thunk(), generate_data_params)
+  infer_unit = model_constructor( ripl_thunk(), infer_params) # was gen_data_params
 
   if load_all_observes:
     use_range_defaults = True if observe_range is None else False
@@ -442,7 +447,7 @@ def make_infer_unit_observe_default( generate_data_filename, prior_on_hypers, ri
                           observe_range = None)
 
 
-def test_inference(generate_data_unit, observe_range, ripl_thunk ):
+def _test_inference(generate_data_unit, observe_range, ripl_thunk ):
   generate_data_params = generate_data_unit.params
   
   generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
@@ -454,8 +459,14 @@ def test_inference(generate_data_unit, observe_range, ripl_thunk ):
   
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
-
-
+def _default_test_inference():
+  ripl_thunk = mk_p_ripl
+  params_short_name = 'minimal_onestepdiag10'
+  generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
+  observe_range = dict(days_list=None,years_list=None,cells_list=None)
+  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk)
+  
+  return infer_unit
 
 
   
@@ -737,7 +748,7 @@ class Multinomial(object):
 # TODO: we haven't got store_observes or load_observe
 # methods, and we haven't got ability to plot birds (in utils near top)
 
-class Poisson(VentureUnit):
+class Poisson(object):
 
   def __init__(self, ripl, params):
     self.name = params['name']

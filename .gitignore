@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 
+## NODE
+node_modules/
+
+
 # C extensions
 *.so
 
