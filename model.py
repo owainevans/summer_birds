@@ -110,7 +110,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   else:
     assert isinstance(observe_range,Observe_range)
     observe_range.replace_none_super_range(max_observe_range)
-    observe_range.assert_is_observe_subrange(max_observe_range)
+    observe_range.assert_is_observe_sub_range(max_observe_range)
   
 
   # GET OBSERVE VALUES FROM MODEL
@@ -181,9 +181,6 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 
-def assert_is_observe_subrange(observe_range, bigger_observe_range):
-  for k,v in observe_range.items():
-    assert set(v).issubset( set(bigger_observe_range[k]) )
 
 
 def load_observes(unit, load_observe_range,
@@ -200,7 +197,7 @@ def load_observes(unit, load_observe_range,
   if use_range_defaults:
     load_observe_range = observe_range
   else:
-    assert_is_observe_subrange(load_observe_range, observe_range)
+    load_observe_range.assert_is_observe_sub_range(observe_range)
 
 
   def unit_observe(unit, y, d, i, count_i):
@@ -395,8 +392,7 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                     multinomial_or_poisson='multinomial', load_observe_range=False,
-                     use_range_defaults=False):
+                     multinomial_or_poisson='multinomial'): #, load_observe_range=False,use_range_defaults=False):
   '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
      and generates an inference Unit object with same parameters as synthetic data
      Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial.
@@ -421,8 +417,8 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
 
   infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
-  if load_observe_range:
-    load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
+  # if load_observe_range:
+  #   load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
 
   return infer_unit
 
@@ -491,28 +487,7 @@ def compare_hypers(gtruth_unit,inferred_unit):
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
   
-class Observe_range(dict):
-  def __init__(self, days_list=None, years_list=None, cells_list = None):
-    args = (days_list, years_list, cells_list)
-    for arg in args:
-      if arg is not None:
-        assert isinstance(arg,(list,tuple))
-        assert all( [isinstance(el,int) for el in arg] )
 
-    self['days_list'] = days_list
-    self['years_list'] = years_list
-    self['cells_list'] = cells_list
-    
-  def assert_is_observe_sub_range(self, bigger_observe_range):
-    for k,v in self.items():
-      assert v is not None
-      assert set(v).issubset( set(bigger_observe_range[k]))
-
-  def replace_none_super_range(self, super_range):
-    for k,v in self.items():
-      if v is None:
-        self[k] = super_range[k]
-    
 
 class Multinomial(object):
   

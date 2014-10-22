@@ -7,7 +7,7 @@ from nose.tools import eq_, assert_almost_equal
 
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
-from utils import make_grid
+from utils import make_grid, Observe_range
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
 from model import *
@@ -93,7 +93,7 @@ def test_features_functions():
 
 
   
-def make_multinomial_unit( ripl_thunk, params_short_name = 'minimal_onestepdiag10'):
+def make_multinomial_unit( ripl_thunk, params_short_name = 'minimal_onestep_diag10'):
 
   return Multinomial( ripl_thunk(), make_params( params_short_name) )
 
@@ -105,7 +105,10 @@ def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit( generate_data_store_dict_filename, prior_on_hypers, ripl_thunk, multinomial_or_poisson='multinomial' )
+  infer_unit = make_infer_unit( generate_data_store_dict_filename,
+                                prior_on_hypers,
+                                ripl_thunk,
+                                multinomial_or_poisson='multinomial' )
                                 
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
@@ -386,9 +389,9 @@ def test_all_multinomial_unit_params( puma = True, quick_test = True):
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
 
   if quick_test:
-    params_short_names = ('minimal_onestepdiag10','dataset1',) # FIXME change back to minimal_onestep
+    params_short_names = ('minimal_onestep_diag10','dataset1',) # FIXME change back to minimal_onestep
   else:
-    params_short_names = ('minimal_onestepdiag10', 'test_medium_onestep_diag105')
+    params_short_names = ('minimal_onestep_diag10', 'test_medium_onestep_diag105')
 
 
   unit_product = product( tests_unit, params_short_names, ripl_thunks)
@@ -492,6 +495,10 @@ def run_all( quick_test = True):
   print '\n\n\n-----------------------\n passed all tests'
 
   return test_times
+
+
+
+
 
 
 

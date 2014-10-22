@@ -125,7 +125,8 @@ class Observe_range(dict):
       if v is None:
         self[k] = super_range[k]
     
-
+  def copy(self):
+    return Observe_range(**self.copy)
 
 
 def make_grid(height,width,top0=True,lst=None,order='F'):
