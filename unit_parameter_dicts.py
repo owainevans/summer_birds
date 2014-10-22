@@ -1,6 +1,6 @@
   
 
-parameter_short_name_to_changes = {'minimal_onestepdiag10':
+parameter_short_name_to_changes = {'minimal_onestep_diag10':
                            {},
 
                            'test_medium_onestep_diag105':
@@ -16,10 +16,10 @@ parameter_short_name_to_changes = {'minimal_onestepdiag10':
                            {'short_name': 'bigger_onestep_diag105',
                             'years': range(2),
                             'days': range(3),
-                            'height': 4,
+                            'height': 3,
                             'width': 3,
                             'hypers':[1,0.5],
-                            'num_birds': 6 },
+                            'num_birds': 4 },
 
                            'dataset1':
                            {'short_name':'dataset1',
@@ -50,3 +50,17 @@ parameter_short_name_to_changes = {'minimal_onestepdiag10':
                             'max_days': 2, }
 
                          }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

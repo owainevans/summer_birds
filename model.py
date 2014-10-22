@@ -403,7 +403,8 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
                  'prior_on_hypers': prior_on_hypers,
                  'observes_loaded_from': observes_loaded_from,
                  'short_name': short_name,
-                 'long_name': long_name}
+                 'long_name': long_name
+  }
 
   infer_params.update(update_dict)
   return infer_params
@@ -461,13 +462,28 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk ):
   
 def _default_test_inference():
   ripl_thunk = mk_p_ripl
-  params_short_name = 'minimal_onestepdiag10'
+  params_short_name = 'bigger_onestep_diag105'
   generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
   observe_range = dict(days_list=None,years_list=None,cells_list=None)
   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk)
   
+  for _ in range(10):
+    infer_unit.ripl.infer(10)
+    print '\n\nmse hypers:', compare_hypers(generate_data_unit, infer_unit)
   return infer_unit
 
+
+def compare_hypers(gtruth_unit,inferred_unit):
+  'Compare hypers across two different Birds unit objects'
+  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
+
+  def get_hypers(ripl,num_features):
+    return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+    
+  get_hypers_par = lambda r: get_hypers(r, gtruth_unit.num_features)
+  
+  print '\nhypers', [get_hypers_par(r) for r in (gtruth_unit.ripl, inferred_unit.ripl)]
+  return mse( *map(get_hypers_par, (gtruth_unit.ripl, inferred_unit.ripl) ) )
 
   
   
