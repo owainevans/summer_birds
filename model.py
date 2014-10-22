@@ -3,7 +3,6 @@ from features_utils import make_features_dict, load_features
 import unit_parameter_dicts
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 
-
 from itertools import product
 import cPickle as pickle
 import numpy as np
@@ -105,19 +104,13 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
   unit.ensure_assumes()  # assumes need to be loaded to get observes
   
-  # CHECK AND FILL OUT OBSERVE RANGE
-  # TODO simplify
   max_observe_range = unit.get_max_observe_range();
   if observe_range is None:
     observe_range = max_observe_range
   else:
-    for k,v in observe_range.items():
-      max_v = max_observe_range[k]
-      
-      if v is None: 
-        observe_range[k] = max_v
-      else:
-        assert set(v).issubset( set(max_v) )
+    assert isinstance(observe_range,Observe_range)
+    observe_range.replace_none_super_range(max_observe_range)
+    observe_range.assert_is_observe_subrange(max_observe_range)
   
 
   # GET OBSERVE VALUES FROM MODEL
@@ -188,6 +181,9 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 
+def assert_is_observe_subrange(observe_range, bigger_observe_range):
+  for k,v in observe_range.items():
+    assert set(v).issubset( set(bigger_observe_range[k]) )
 
 
 def load_observes(unit, load_observe_range,
@@ -201,22 +197,10 @@ def load_observes(unit, load_observe_range,
   observe_counts = store_dict['observe_counts']
   observe_range = store_dict['observe_range']
 
-  ## FIXME
-  if load_observe_range is None:
-    load_observe_range = dict(days_list=None,years_list=None,
-                              cells_list=None)
-
-  # Check for None values in observe range
-  for k,v in load_observe_range.items():
-    if v is None:
-      if use_range_defaults:
-        load_observe_range[k] = observe_range[k]
-      else:
-        assert False, 'load_observe_range has None value'
-
-  # Check that observe_range lists are subset of complete range
-  for k,v in load_observe_range.items():
-    assert set(v).issubset( set(observe_range[k]) )
+  if use_range_defaults:
+    load_observe_range = observe_range
+  else:
+    assert_is_observe_subrange(load_observe_range, observe_range)
 
 
   def unit_observe(unit, y, d, i, count_i):
@@ -411,11 +395,14 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                     multinomial_or_poisson='multinomial', load_all_observes=False,
-                     observe_range=None):
+                     multinomial_or_poisson='multinomial', load_observe_range=False,
+                     use_range_defaults=False):
   '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
      and generates an inference Unit object with same parameters as synthetic data
-     Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial'''
+     Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial.
+
+     If *load_observe_range* is not False, run *load_observes* on the inference unit
+     object with observe_range *load_observe_range*'''
 
 
   with open(generate_data_filename,'r') as f:
@@ -432,20 +419,23 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
     assert False, 'constructor not recognized'
 
 
-  infer_unit = model_constructor( ripl_thunk(), infer_params) # was gen_data_params
+  infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
-  if load_all_observes:
-    use_range_defaults = True if observe_range is None else False
-    load_observes(infer_unit, observe_range, use_range_defaults, generate_data_filename)
+  if load_observe_range:
+    load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
 
   return infer_unit
 
 
-def make_infer_unit_observe_default( generate_data_filename, prior_on_hypers, ripl_thunk,
-                                     multinomial_or_poisson='multinomial'):
-  return make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                          multinomial_or_poisson='multinomial', load_all_observes=True,
-                          observe_range = None)
+
+def make_infer_unit_and_observe_defaults( generate_data_filename, prior_on_hypers, ripl_thunk,
+                                          multinomial_or_poisson='multinomial'):
+  infer_unit =  make_infer_unit( generate_data_filename,
+                                 prior_on_hypers,
+                                 ripl_thunk,
+                                 multinomial_or_poisson='multinomial')
+  load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
+                              
 
 
 def _test_inference(generate_data_unit, observe_range, ripl_thunk ):
@@ -501,6 +491,28 @@ def compare_hypers(gtruth_unit,inferred_unit):
 # (We use ij form for synthetic data generation also
 # and so that has to be converted to an index before conditioning)
   
+class Observe_range(dict):
+  def __init__(self, days_list=None, years_list=None, cells_list = None):
+    args = (days_list, years_list, cells_list)
+    for arg in args:
+      if arg is not None:
+        assert isinstance(arg,(list,tuple))
+        assert all( [isinstance(el,int) for el in arg] )
+
+    self['days_list'] = days_list
+    self['years_list'] = years_list
+    self['cells_list'] = cells_list
+    
+  def assert_is_observe_sub_range(self, bigger_observe_range):
+    for k,v in self.items():
+      assert v is not None
+      assert set(v).issubset( set(bigger_observe_range[k]))
+
+  def replace_none_super_range(self, super_range):
+    for k,v in self.items():
+      if v is None:
+        self[k] = super_range[k]
+    
 
 class Multinomial(object):
   
@@ -563,9 +575,11 @@ class Multinomial(object):
 
 
   def get_max_observe_range(self):
-    return {'days_list': [d for d in self.days if d <= self.max_days],
-            'years_list': [y for y in self.years if  y<= self.max_years],
-            'cells_list': range(self.cells)}
+    params =  {'days_list': [d for d in self.days if d <= self.max_days],
+               'years_list': [y for y in self.years if  y<= self.max_years],
+               'cells_list': range(self.cells)}
+    return Observe_range(**params)
+
 
   def ensure_assumes(self):
     if self.assumes_loaded:

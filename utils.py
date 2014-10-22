@@ -95,6 +95,39 @@ def ensure(path):
     os.makedirs(path)
 
 
+
+
+##------------------------------------
+### MODEL AND SYNTHETIC DATA UTILS
+##------------------------------------
+
+
+
+class Observe_range(dict):
+  def __init__(self, days_list=None, years_list=None, cells_list = None):
+    args = (days_list, years_list, cells_list)
+    for arg in args:
+      if arg is not None:
+        assert isinstance(arg,(list,tuple))
+        assert all( [isinstance(el,int) for el in arg] )
+
+    self['days_list'] = days_list
+    self['years_list'] = years_list
+    self['cells_list'] = cells_list
+    
+  def assert_is_observe_sub_range(self, bigger_observe_range):
+    for k,v in self.items():
+      assert v is not None
+      assert set(v).issubset( set(bigger_observe_range[k]))
+
+  def replace_none_super_range(self, super_range):
+    for k,v in self.items():
+      if v is None:
+        self[k] = super_range[k]
+    
+
+
+
 def make_grid(height,width,top0=True,lst=None,order='F'):
   '''Turn *lst* into np.array, optionally having 0 start at top/bottom. *lst* defaults to range(width*height)'''
   if lst is not None:
@@ -306,7 +339,12 @@ def tree(op, exp, counter, lower, upper):
   else:
     return '(' + op + " " + tree(op, exp, counter, lower, average) + ' ' + tree(op, exp, counter, average, upper) + ')'
 
-    
+ 
+
+
+##------------------------------------
+## VIDEO UTILS
+##------------------------------------   
 from subprocess import call
 
 def renderDot(dot,dirpath,i,fmt,colorIgnored):
