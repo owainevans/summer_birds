@@ -168,10 +168,12 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
-                'observe_range':observe_range,
+                'observe_range':observe_range.store(),
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
-  
+
+  print '\n\n----\nstore_dict:', store_dict['observe_range']                
+
   with open(store_dict_filename,'w') as f:
     pickle.dump(store_dict,f)
   print 'Stored observes in %s.'% store_dict_filename
@@ -192,7 +194,7 @@ def load_observes(unit, load_observe_range,
      store_dict = pickle.load(f)
     
   observe_counts = store_dict['observe_counts']
-  observe_range = store_dict['observe_range']
+  observe_range = Observe_range(**store_dict['observe_range']) ## since we pickle dict, not instance
 
   if use_range_defaults:
     load_observe_range = observe_range
@@ -589,7 +591,6 @@ class Multinomial(object):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
     else:
       for k, value_k in enumerate(self.hypers):
-        print '\n\n k, value_k in defining hypers in multinom  ', k, value_k
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
 
     

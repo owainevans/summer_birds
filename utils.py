@@ -126,7 +126,11 @@ class Observe_range(dict):
         self[k] = super_range[k]
     
   def copy(self):
-    return Observe_range(**self.copy)
+    return Observe_range(**self.copy())
+
+  def store(self):
+    return self.copy() ## Since we inherit from dict
+
 
 
 def make_grid(height,width,top0=True,lst=None,order='F'):
