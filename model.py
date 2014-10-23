@@ -394,7 +394,7 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
 
 
 def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                     multinomial_or_poisson='multinomial'): #, load_observe_range=False,use_range_defaults=False):
+                     model_constructor): #, load_observe_range=False,use_range_defaults=False):
   '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
      and generates an inference Unit object with same parameters as synthetic data
      Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial.
@@ -402,20 +402,15 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
      If *load_observe_range* is not False, run *load_observes* on the inference unit
      object with observe_range *load_observe_range*'''
 
+  assert model_constructor in (Multinomial, Poisson)
 
   with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
 
   generate_data_params = store_dict['generate_data_params']
-  infer_params = generate_data_params_to_infer_params(generate_data_params, prior_on_hypers,
+  infer_params = generate_data_params_to_infer_params(generate_data_params,
+                                                      prior_on_hypers,
                                                       generate_data_filename)
-  if multinomial_or_poisson=='multinomial':
-    model_constructor = Multinomial
-  elif multinomial_or_poisson=='poisson':  ## TODO
-    model_constructor = Poisson
-  else:
-    assert False, 'constructor not recognized'
-
 
   infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
@@ -427,34 +422,48 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
 
 
 def make_infer_unit_and_observe_defaults( generate_data_filename, prior_on_hypers, ripl_thunk,
-                                          multinomial_or_poisson='multinomial'):
+                                          model_constructor):
+  
   infer_unit =  make_infer_unit( generate_data_filename,
                                  prior_on_hypers,
                                  ripl_thunk,
-                                 multinomial_or_poisson='multinomial')
+                                 model_constructor)
+  load_observe_range = None
+  use_range_defaults = True
+
   load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
-                              
+  
+  return infer_unit
 
 
-def _test_inference(generate_data_unit, observe_range, ripl_thunk ):
+def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor):
+  
+  assert isinstance(generate_data_unit, (Multinomial,Poisson))
+  if observe_range is not None:
+    assert isinstance(observe_range, Observe_range)
+  
   generate_data_params = generate_data_unit.params
   
-  generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
+  generate_data_store_dict_filename, _ = store_observes(generate_data_unit, observe_range)
 
+  ## NOTE THIS PRIOR MAKE HYPERS [1,0] easy to learn
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit_observe_default( generate_data_store_dict_filename,
-                                                prior_on_hypers, ripl_thunk, multinomial_or_poisson='multinomial' )
+  infer_unit = make_infer_unit_observe_defaults( generate_data_store_dict_filename,
+                                                 prior_on_hypers,
+                                                 ripl_thunk,
+                                                 model_constructor)
                                 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
 
 def _default_test_inference():
+  model_constructor = Multinomial
   ripl_thunk = mk_p_ripl
   params_short_name = 'bigger_onestep_diag105'
-  generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
+  generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
 
-  observe_range = dict(days_list=None,years_list=None,cells_list=None)
-  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk)
+  observe_range = None ## for max range
+  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
   
   for _ in range(4):
     print '\n getting into loop'
