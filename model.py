@@ -777,23 +777,23 @@ class Poisson(Multinomial):
 #        [ 2,  5,  8, 11]])
 # So x (column) given by cell_ind / height, row given by cell_ind % height
 
-    def make_cell_xy_string():
+    def make_cell_row_column_string():
       my_dict = {}
       for cell_ind in range(self.cells):
         # make the key a tuple for compatibility with *python_features_to_venture_exp*
-        my_dict[ (cell_ind,) ] =  (cell_ind / self.height, cell_ind % self.height) 
+        my_dict[ (cell_ind,) ] =  ( cell_ind % self.height, cell_ind / self.height)
       return python_features_to_venture_exp( my_dict )
 
-    ripl.assume('cell_to_xy_dict', make_cell_xy_string())
-    ripl.assume('cell_to_xy', '(lambda (cell) (lookup cell_to_xy_dict cell))')
+    ripl.assume('cell_to_row_column_dict', make_cell_row_column_string())
+    ripl.assume('cell_to_row_column', '(lambda (cell) (lookup cell_to_row_column_dict (array cell)))')
 
     #ripl.assume('cell_to_x', '(lambda (cell) (int_div cell height))')
     #ripl.assume('cell_to_y', '(lambda (cell) (int_mod cell height))')
-    ripl.assume('cell_to_x', '(lambda (cell) (lookup (cell_to_xy cell) 0))')
-    ripl.assume('cell_to_y', '(lambda (cell) (lookup (cell_to_xy cell) 1))')
+    ripl.assume('cell_to_row', '(lambda (cell) (lookup (cell_to_row_column cell) 0))')
+    ripl.assume('cell_to_column', '(lambda (cell) (lookup (cell_to_row_column cell) 1))')
 
     #ripl.assume('cell2P', '(lambda (cell) (make_pair (cell2X cell) (cell2Y cell)))')
-    ripl.assume('xy_to_cell', '(lambda (x y) (+ (* height x) y))')
+    ripl.assume('row_column_to_cell', '(lambda (row column) (+ (* height column) row))')
 
     ripl.assume('square', '(lambda (x) (* x x))')
 
@@ -804,8 +804,8 @@ class Poisson(Multinomial):
     ripl.assume('cell_dist_squared', """
       (lambda (i j)
         (dist_squared
-          (cell_to_x i) (cell_to_y i)
-          (cell_to_x j) (cell_to_y j)))""")
+          (cell_to_row i) (cell_to_column i)
+          (cell_to_row j) (cell_to_column j)))""")
     
     # phi is the unnormalized probability of a bird moving from cell i to cell j on day d
     ripl.assume('phi', """
