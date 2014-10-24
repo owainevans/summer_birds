@@ -16,9 +16,8 @@ import numpy as np
 # with small grid and small number of birds. elaborate inference programs
 # later. 
 
-# also get poisson up and running, coz very little can be done without it.
-# need to add methods params to it and unify its methods. shouldnt be too 
-# hard to do.
+
+## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
 
 # verbosity
 # should probably give everything a verbose mode which is off
@@ -152,14 +151,17 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   store_dict_filename = full_directory + params['long_name'] + '.dat'
   draw_bird_filename =  full_directory + params['long_name'] + '.png'
 
-  fig_ax = unit.draw_bird_locations( observe_range['years_list'],
-                                     observe_range['days_list'],
-                                     plot=True,
-                                     save=True,
-                                     order='F',
-                                     verbose=True,
-                                     directory_filename = (full_directory,
-                                                           draw_bird_filename) )
+  title = 'fig for: unit.short_name'
+  fig_ax = plot_save_bird_locations(unit,
+                                    title,
+                                    observe_range['years_list'],
+                                    observe_range['days_list'],
+                                    plot=True,
+                                    save=True,
+                                    order='F',
+                                    verbose=True,
+                                    directory_filename = (full_directory,
+                                                          draw_bird_filename) )
 
 
   # Build dict of parameters, *observe_range* and counts,
@@ -412,9 +414,6 @@ def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
 
   infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
-  # if load_observe_range:
-  #   load_observes(infer_unit, load_observe_range, use_range_defaults, generate_data_filename)
-
   return infer_unit
 
 
@@ -496,15 +495,13 @@ def compare_hypers(gtruth_unit,inferred_unit):
 # and so that has to be converted to an index before conditioning)
   
 
-
 class Multinomial(object):
   
   def __init__(self, ripl, params, delay_load_assumes=False):
 
     self.ripl = ripl
-    print '\n\nMultinomial Unit created with %s ripl\n\n----\n' % self.ripl.backend()
+    print '\n\nBirds Unit Instance created with %s ripl\n\n----\n' % self.ripl.backend()
     
-
     self.params = params
     for k,v in self.params.iteritems():
       setattr(self,k,v)
@@ -548,10 +545,9 @@ class Multinomial(object):
     ripl = backend_to_ripl_thunk( backend )()
     ripl.load( filename + 'ripl.dat')
   
-    return Multinomial( ripl, params)
+    return self.__class__( ripl, params)
     
 
-  
   def get_params(self):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
@@ -590,11 +586,14 @@ class Multinomial(object):
 
 ## PARAMS FOR SINGLE AND MULTIBIRD MODEL
 
-## FIXME incorporate *prior_on_hypers*
+## TODO add option to vary scale
     if self.learn_hypers:
-      ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
+      ##ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
       for k in range(self.num_features):
-        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
+        ##ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f %s)' %
+                    (k, self.prior_on_hypers[k] ))
+
     else:
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
@@ -689,36 +688,33 @@ class Multinomial(object):
     self.assumes_loaded = True
 
   
-  def store_observes(self, *args, **kwargs):
-    return store_observes(self, *args, **kwargs)
-    
 
-  def load_observes(self, *args, **kwargs):
-    return load_observes(self, *args, **kwargs)
+
+
+  def get_hist(self, bird_to_pos_list):
+    # How np.histogram works:
+    # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
+    # np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
+    hist,_ = np.histogram(bird_to_pos_list,bins=range(self.cells+1))
+    assert len(hist)==self.cells
+    assert np.sum(hist) == self.num_birds
+    return hist
 
 
   def bird_to_pos( self, year, day, hist=False):
     'Return list [cell_index for bird_i], or optionally hist, for given day'
-    l=[]
+    bird_to_pos_list=[]
     for bird_id in self.ripl.sample('bird_ids'):
       args = bird_id, year, day
-      l.append(self.ripl.predict('(get_bird_pos %i %i %i)'%args))
+      bird_to_pos_list.append(self.ripl.predict('(get_bird_pos %i %i %i)'%args))
                                                            
-    all_bird_l = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
-    assert all( np.array(all_bird_l)==np.array(l) )
+    all_bird_to_pos_list = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
+    assert all( np.array(all_bird_to_pos_list)==np.array(bird_to_pos_list) )
     ## Check that get_bird_pos and all_bird_pos agree (Could turn off 
     # for speed)
 
-# How np.histogram works:
-# np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
-# np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
-    if hist:
-      hist,_ = np.histogram(l,bins=range(self.cells+1))
-      assert len(hist)==self.cells
-      assert np.sum(hist) == self.num_birds
-      return hist
-    else:
-      return l
+    return bird_to_post_list if not hist else self.get_hist(bird_to_pos_list)
+
 
 
 
@@ -742,33 +738,135 @@ class Multinomial(object):
     
     return bird_locations
 
-
-  def draw_bird_locations(self, years, days, title=None, plot=True, save=True, order='F',
-                          verbose=False, directory_filename=None):
-
-    return plot_save_bird_locations(self, title, years, days,
-                                    save=save, plot=plot, order=order,
-                                    verbose = verbose,
-                                    directory_filename = directory_filename)
-    
     
 
     
 
+class Poisson(Multinomial):
+  
+  def load_assumes(self):
+
+    ripl = self.ripl    
+    print "Loading assumes"
+    
+    ripl.assume('num_birds', self.num_birds)
+    ripl.assume('cells', self.cells)
+
+    ## TODO add option to vary scale
+    if self.learn_hypers:
+      ##ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
+      for k in range(self.num_features):
+        ##ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f %s)' %
+                    (k, self.prior_on_hypers[k] ))
+
+    else:
+      for k, value_k in enumerate(self.hypers):
+        ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
+
+
+    ripl.assume('features', self.features)
+
+    ripl.assume('width', self.width)
+    ripl.assume('height', self.height)
+    ripl.assume('max_dist2', '18')
+
+    ripl.assume('cell2X', '(lambda (cell) (int_div cell height))')
+    ripl.assume('cell2Y', '(lambda (cell) (int_mod cell height))')
+    #ripl.assume('cell2P', '(lambda (cell) (make_pair (cell2X cell) (cell2Y cell)))')
+    ripl.assume('XY2cell', '(lambda (x y) (+ (* height x) y))')
+
+    ripl.assume('square', '(lambda (x) (* x x))')
+
+    ripl.assume('dist2', """
+      (lambda (x1 y1 x2 y2)
+        (+ (square (- x1 x2)) (square (- y1 y2))))""")
+
+    ripl.assume('cell_dist2', """
+      (lambda (i j)
+        (dist2
+          (cell2X i) (cell2Y i)
+          (cell2X j) (cell2Y j)))""")
+    
+    # phi is the unnormalized probability of a bird moving from cell i to cell j on day d
+    ripl.assume('phi', """
+      (mem (lambda (y d i j)
+        (if (> (cell_dist2 i j) max_dist2) 0
+          (let ((fs (lookup features (array y d i j))))
+            (exp %s)))))"""
+            % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.num_features))
+    
+
+    ripl.assume('get_bird_move_dist', """
+      (lambda (y d i)
+        (lambda (j)
+          (phi y d i j)))""")
+    
+    ripl.assume('foldl', """
+      (lambda (op x min max f)
+        (if (= min max) x
+          (foldl op (op x (f min)) (+ min 1) max f)))""")
+
+## not used anywhere. presumably a multinomial (vs. poisson)
+# but not sure it exactly implement multinomial
+    ripl.assume('multinomial_func', """
+      (lambda (n min max f)
+        (let ((normalize (foldl + 0 min max f)))
+          (mem (lambda (i)
+            (poisson (* n (/ (f i) normalize)))))))""")
+                  
+    ripl.assume('count_birds', """
+      (mem (lambda (y d i)
+        (if (= d 0) (if (= i 0) num_birds 0)""" +
+          fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', self.cells) + ")))")
+    
+
+    # bird_movements_loc
+    # if zero birds at i, no movement to any j from i
+    # *normalize* is normalizing constant for probms from i
+    # n = birdcount_i * normed prob (i,j)
+    # return: (lambda (j) (poisson n) )
+  
+    ripl.assume('bird_movements_loc', """
+      (mem (lambda (y d i)
+        (if (= (count_birds y d i) 0)
+          (lambda (j) 0)
+          (let ((normalize (foldl + 0 0 cells (lambda (j) (phi y d i j)))))
+            (mem (lambda (j)
+              (if (= (phi y d i j) 0) 0
+                (let ((n (* (count_birds y d i) (/ (phi y d i j) normalize))))
+                  (scope_include d (array y d i j)
+                    (poisson n))))))))))""")
+
+    #ripl.assume('bird_movements', '(mem (lambda (y d) %s))' % fold('array', '(bird_movements_loc y d __i)', '__i', self.cells))
+    
+    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.0001))))')
+
+    # returns number birds from i,j (we want to force this value)
+    ripl.assume('get_birds_moving', """
+      (lambda (y d i j)
+        ((bird_movements_loc y d i) j))""")
+    
+    ripl.assume('get_birds_moving1', '(lambda (y d i) %s)' % fold('array', '(get_birds_moving y d i __j)', '__j', self.cells))
+    ripl.assume('get_birds_moving2', '(lambda (y d) %s)' % fold('array', '(get_birds_moving1 y d __i)', '__i', self.cells))
+    ripl.assume('get_birds_moving3', '(lambda (d) %s)' % fold('array', '(get_birds_moving2 __y d)', '__y', len(self.years)))
+    ripl.assume('get_birds_moving4', '(lambda () %s)' % fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1))
+
+    self.assumes_loaded = True
+
+
+  def bird_to_pos( self, year, day, hist=False):
+    'Return list [cell_index for bird_i], or optionally hist, for given day'
+    bird_to_pos_list = []
+    
+    for i in range(self.cells):
+      self.ripl.predict('(count_birds %d %d %d)' % (year, day, i)) 
+
+    return bird_to_post_list if not hist else self.get_hist(bird_to_pos_list)
 
 
 
-## TODO
-# We have been making Poisson compatible 
-# with synthetically generated dataset inference
-# and the functions for this inference in 
-# synthetic.py and elsewhere. But Poisson
-# is not compatible yet and may be buggy. 
-
-# TODO: we haven't got store_observes or load_observe
-# methods, and we haven't got ability to plot birds (in utils near top)
-
-class Poisson(object):
+class PoissonOld(object):
 
   def __init__(self, ripl, params):
     self.name = params['name']

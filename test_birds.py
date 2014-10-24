@@ -102,7 +102,8 @@ def make_multinomial_unit( ripl_thunk, params_short_name = 'minimal_onestep_diag
 def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   generate_data_params = generate_data_unit.params
   
-  generate_data_store_dict_filename,_ = generate_data_unit.store_observes(observe_range)
+  generate_data_store_dict_filename,_ = store_observes(generate_data_unit,
+                                                       observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
   infer_unit = make_infer_unit( generate_data_store_dict_filename,
@@ -239,7 +240,7 @@ def _test_load_observations( generate_data_unit, ripl_thunk ):
                                                                            ripl_thunk )
 
   use_defaults = False
-  infer_unit.load_observes(observe_range, use_defaults, store_dict_filename)
+  load_observes(infer_unit, observe_range, use_defaults, store_dict_filename)
   register_observes( infer_unit.ripl )
     
   year_day_cells = make_triples( observe_range )
@@ -268,7 +269,7 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
     
 
     use_defaults = False
-    infer_unit.load_observes( updated_observe_range, use_defaults, store_dict_filename)
+    load_observes( infer_unit, updated_observe_range, use_defaults, store_dict_filename)
     register_observes( infer_unit.ripl )
 
     year_day_cell_iter = make_triples(updated_observe_range)
@@ -283,7 +284,7 @@ def _test_save_images(unit, del_images=True):
   directory = 'tmp_test_bird_moves_/'
   filename = directory + 'temp_test_save.png'
   #os.chdir('~/summer_birds')
-  unit.draw_bird_locations(years, days, 'test', save=True, order='F', verbose=True,
+  plot_save_bird_locations(unit, 'test', years, days, save=True, order='F', verbose=True,
                            directory_filename = (directory, filename) )
   assert os.path.exists( directory)
   if del_images: subprocess.call(['rm','-r',directory])
