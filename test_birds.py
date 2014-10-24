@@ -108,8 +108,7 @@ def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   infer_unit = make_infer_unit( generate_data_store_dict_filename,
                                 prior_on_hypers,
                                 ripl_thunk,
-                                multinomial_or_poisson='multinomial' )
-                                
+                                Multinomial )
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
@@ -168,13 +167,14 @@ def _test_make_infer( generate_data_unit, ripl_thunk ):
   # is infer_params mostly same as generate_data_params?
   for k,v in generate_data_params.items():
     if k not in ('ripl_directives','prior_on_hypers',
-                 'learn_hypers','observes_loaded_from'):
+                 'learn_hypers','observes_loaded_from',
+                 'short_name', 'long_name'):
       eq_( v, infer_params[k] )
 
   infer_unit.ensure_assumes()
 
   # do constants agree for generate_data_unit and infer_unit?
-  expressions = ('features', 'num_birds', '(phi 0 0 0 0)')
+  expressions = ('features', 'num_birds')
   for exp in expressions:
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
 
@@ -263,7 +263,7 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
   # add observes to infer_unit cell by cell
   cells = range(  min( 5, infer_unit.cells) )
   for cell in cells:
-    updated_observe_range = observe_range.copy()
+    updated_observe_range = observe_range.copy_observe_range()
     updated_observe_range.update( dict(cells_list = [cell] ) )
     
 

@@ -168,11 +168,9 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
-                'observe_range':observe_range.store(),
+                'observe_range':observe_range.copy_dict_only(), ## store() FIXME
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
-
-  print '\n\n----\nstore_dict:', store_dict['observe_range']                
 
   with open(store_dict_filename,'w') as f:
     pickle.dump(store_dict,f)
@@ -221,7 +219,7 @@ def load_observes(unit, load_observe_range,
 #  do we need to actually ensure uniqueness by adding some numbers to the end of long_name (we could check for duplicate names and add suffixes if necessary. good to have some syste that makes it easy to find all identical-param datasets
 
 
-def make_params( params_short_name = 'minimal_onestepdiag10' ):
+def make_params( params_short_name = 'minimal_onestep_diag10' ):
 # 'easy_hypers', currently uses 'must move exactly onestep away'
 # and 'avoid diagonal', but weigths are [1,0], so diagonal does nothing.
   
@@ -236,7 +234,7 @@ def make_params( params_short_name = 'minimal_onestepdiag10' ):
     return params_new
   
   base_params = {
-      'short_name': 'minimal_onestepdiag10',
+      'short_name': 'minimal_onestep_diag10',
       'years': range(1),
       'days': range(1),
       'height': 2,
@@ -448,10 +446,10 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constru
 
   ## NOTE THIS PRIOR MAKE HYPERS [1,0] easy to learn
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
-  infer_unit = make_infer_unit_observe_defaults( generate_data_store_dict_filename,
-                                                 prior_on_hypers,
-                                                 ripl_thunk,
-                                                 model_constructor)
+  infer_unit = make_infer_unit_and_observe_defaults( generate_data_store_dict_filename,
+                                                     prior_on_hypers,
+                                                     ripl_thunk,
+                                                     model_constructor)
                                 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
@@ -466,8 +464,7 @@ def _default_test_inference():
   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
   
   for _ in range(4):
-    print '\n getting into loop'
-    infer_unit.ripl.infer(100)
+    infer_unit.ripl.infer(20)
     print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
   return infer_unit
 

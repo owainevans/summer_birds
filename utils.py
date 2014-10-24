@@ -125,11 +125,11 @@ class Observe_range(dict):
       if v is None:
         self[k] = super_range[k]
     
-  def copy(self):
+  def copy_observe_range(self):
     return Observe_range(**self.copy())
 
-  def store(self):
-    return self.copy() ## Since we inherit from dict
+  def copy_dict_only(self):
+    return self.copy()
 
 
 
