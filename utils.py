@@ -120,7 +120,7 @@ class Observe_range(dict):
       assert v is not None
       assert set(v).issubset( set(bigger_observe_range[k]))
 
-  def replace_none_super_range(self, super_range):
+  def replace_none_with_super_range(self, super_range):
     for k,v in self.items():
       if v is None:
         self[k] = super_range[k]

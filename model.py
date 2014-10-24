@@ -16,10 +16,10 @@ import numpy as np
 # tasks: reconstruction of latent states, prediction, param inference (onebird / poisson)
 # params for inference: (depends on space of inference progs)
 
-
-
-
 ## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
+## EXP RUNNER AND BEING ABLE TO INTEGRATE WITH THAT
+
+
 
 # verbosity
 # should probably give everything a verbose mode which is off
@@ -66,8 +66,6 @@ import numpy as np
 # this is different from what dan lovell did for slam and vlad did. so what is best way here?
 
 
-
-
                                                       
                                         
 #### Multinomials and Poisson Dataset Loading Functions
@@ -96,8 +94,6 @@ def loadObservations(ripl, dataset, name, years, days):
 
 
 
-
-
 # Store observes in file:
 # filename determined by *long_name* unit attribute
 # *observe_range* defaults to max range
@@ -110,7 +106,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
     observe_range = max_observe_range
   else:
     assert isinstance(observe_range,Observe_range)
-    observe_range.replace_none_super_range(max_observe_range)
+    observe_range.replace_none_with_super_range(max_observe_range)
     observe_range.assert_is_observe_sub_range(max_observe_range)
   
 
@@ -129,10 +125,11 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   
   for y,d,i in year_day_cell_triples:
 
-    gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds_v2 %i %i %i)'%(y,d,i))
+    gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds %i %i %i)'%(y,d,i))
     observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
     
-    # (observe_birds y d i) = Poisson(epsilon) if count for (y,d,i)=0. See Venture model. 
+    # (observe_birds y d i) is (poisson epsilon) if count for (y,d,i)=0.
+    # (See Venture programs)
     if gtruth_counts[(y,d,i)] == 0 and observe_counts[(y,d,i)] > 0:
       assert False, 'gtruth_counts[%s] == 0 and observe_counts[%s] > 0' % str((y,d,i) )
 
@@ -153,7 +150,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   store_dict_filename = full_directory + params['long_name'] + '.dat'
   draw_bird_filename =  full_directory + params['long_name'] + '.png'
 
-  title = 'fig for: unit.short_name'
+  title = 'fig for: ',unit.short_name
   fig_ax = plot_save_bird_locations(unit,
                                     title,
                                     observe_range['years_list'],
@@ -165,14 +162,13 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
                                     directory_filename = (full_directory,
                                                           draw_bird_filename) )
 
-
   # Build dict of parameters, *observe_range* and counts,
   # along with groundtruth *bird_locs*.
   # Pickle this to file.
 
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
-                'observe_range':observe_range.copy_dict_only(), ## store() FIXME
+                'observe_range':observe_range.copy_dict_only(), 
                 'bird_locs':bird_locs}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
 
@@ -266,7 +262,7 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
   ## max(param) vs. max_param_for_experiment
   # Some datasets have a large number of days/years. We might 
   # want to only load some of the days/years (to avoid a huge
-  # dict). We select how much will be loaded with 
+  # features dict). We select how much will be loaded with 
   # *max_params_for_experiment*. 
   for max_param, param in zip( ('max_days_for_experiment',
                                 'max_years_for_experiment'),
@@ -678,21 +674,21 @@ class Multinomial(object):
 # which moves each bird via *move*. Since each bird's move from i is 
 # memoized by *move*, the counts will be fixed by predict.
 
-    ripl.assume('count_birds', """
+    ripl.assume('count_birds_no_map', """
       (lambda (y d i)
         (size (filter 
                  (lambda (bird_id) (= i (get_bird_pos bird_id y d)) )
                   bird_ids) ) ) """)
 
 # alternative version of count_birds
-    ripl.assume('count_birds_v2', """
+    ripl.assume('count_birds', """
       (mem (lambda (y d i)
         (size (filter
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
 ## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
 ## we memoize this, so that observes are fixed for a given run of the model
 
-    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds_v2 y d i) 0.00001))))')
+    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.00001))))')
     
     self.assumes_loaded = True
 
@@ -868,7 +864,7 @@ class Poisson(Multinomial):
       (poisson n)))))))))""")
     
     
-    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.0001))))')
+    ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.00001))))')
 
     # returns number birds from i,j (we want to force this value)
     ripl.assume('get_birds_moving', """
