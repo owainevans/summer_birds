@@ -156,7 +156,7 @@ def plot_save_bird_locations(unit, title, years, days, save=True,
   assert isinstance(days, list)
   assert order in ('F','C')
   title = unit.short_name if title is None else title
-  bird_locs = unit.get_bird_locations(years,days)
+  bird_locs = unit.days_list_to_bird_locations(years,days)
   height, width = unit.height, unit.width
 
   if verbose:
@@ -208,6 +208,8 @@ def plot_save_bird_locations(unit, title, years, days, save=True,
       ax_dy = ax
     elif ncols==1:
       ax_dy = ax[d]
+    elif nrows==1:
+      ax_dy = ax[y]
     else:
       ax_dy = ax[d][y]
 

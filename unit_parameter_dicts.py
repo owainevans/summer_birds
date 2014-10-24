@@ -21,6 +21,15 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'hypers':[1,0.5],
                             'num_birds': 4 },
 
+                            'poisson_onestep_diag105':
+                           {'short_name': 'bigger_onestep_diag105',
+                            'years': range(2),
+                            'days': range(4),
+                            'height': 3,
+                            'width': 3,
+                            'hypers':[1,0.5],
+                            'num_birds': 200 },
+
                            'dataset1':
                            {'short_name':'dataset1',
                             'years': range(30),

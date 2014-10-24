@@ -249,7 +249,7 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
       'hypers': [1,0],
       'learn_hypers': False,
       'num_birds': 1,
-      'softmax_beta': 4,
+      'phi_constant_beta': 4,
       'observes_loaded_from': None,
       'venture_random_seed': 1,
       'features_loaded_from': None,
@@ -298,7 +298,7 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
     # have set up 'inference_params'
 
     keys = ('feature_functions_name','hypers',
-            'height','width','num_birds','softmax_beta',
+            'height','width','num_birds','phi_constant_beta',
             'years','days' )
 
     s = []
@@ -329,7 +329,7 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                hypers=list,
                learn_hypers=bool,
                prior_on_hypers=list,
-               softmax_beta=int,
+               phi_constant_beta=int,
                venture_random_seed=int,
     features_as_python_dict=dict,)
   
@@ -607,12 +607,12 @@ class Multinomial(object):
     bird_ids = ' '.join(map(str,range(self.num_birds))) # multibird only
     ripl.assume('bird_ids','(list %s)'%bird_ids) # multibird only
 
-    ripl.assume('softmax_beta',self.softmax_beta)
+    ripl.assume('phi_constant_beta',self.phi_constant_beta)
 
     ripl.assume('phi', """
       (mem (lambda (y d i j)
         (let ((fs (lookup features (array y d i j))))
-          (exp (* softmax_beta %s)))))"""
+          (exp (* phi_constant_beta %s)))))"""
        % fold('+', '(* hypers_k_ (lookup fs _k_))', '_k_', self.num_features))
 
     
@@ -717,7 +717,6 @@ class Multinomial(object):
 
 
 
-
   def days_list_to_bird_locations(self, years=None, days=None):
     '''Returns dict { y: { d:histogram of bird positions on y,d}  }
        for y,d in product(years,days) '''
@@ -740,8 +739,6 @@ class Multinomial(object):
 
     
 
-    
-
 class Poisson(Multinomial):
   
   def load_assumes(self):
@@ -749,9 +746,6 @@ class Poisson(Multinomial):
     ripl = self.ripl    
     print "Loading assumes"
     
-    ripl.assume('num_birds', self.num_birds)
-    ripl.assume('cells', self.cells)
-
     ## TODO add option to vary scale
     if self.learn_hypers:
       ##ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
@@ -764,12 +758,15 @@ class Poisson(Multinomial):
       for k, value_k in enumerate(self.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
 
+    ripl.assume('num_birds', self.num_birds) ## used in *count_birds* (below)
+    ripl.assume('cells', self.cells)
 
     ripl.assume('features', self.features)
+    ripl.assume('phi_constant_beta', self.phi_constant_beta)
 
     ripl.assume('width', self.width)
     ripl.assume('height', self.height)
-    ripl.assume('max_dist_squared', '18')
+    ripl.assume('max_dist_squared', '18.')
 
 ## Distances computed with 'C' order. If (height,width)=(3,4), then
 # array([[ 0,  3,  6,  9],
@@ -812,27 +809,33 @@ class Poisson(Multinomial):
       (mem (lambda (y d i j)
         (if (> (cell_dist_squared i j) max_dist_squared) 0
           (let ((fs (lookup features (array y d i j))))
-            (exp %s)))))"""
+            (exp (* phi_constant_beta %s) )))))"""
             % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.num_features))
     
 
-    ripl.assume('get_bird_move_dist', """
-      (lambda (y d i)
-        (lambda (j)
-          (phi y d i j)))""")
+    ripl.assume('sum_phi',
+      '(mem (lambda (y d i) ' +
+                fold( '+', '(phi y d i j)', 'j', self.cells) +
+                '))' )
+
+    ripl.assume('get_bird_move_dist',
+      '(mem (lambda (y d i) ' +
+         fold('simplex', '(get_bird_move_prob y d i j)', 'j', self.cells) +
+           '))')
+
+    ripl.assume('get_bird_move_prob',
+                '(mem (lambda (y d i j) (/ (phi y d i j) (sum_phi y d i))) )')
+                
+
+    # ripl.assume('get_bird_move_dist', """
+    #   (lambda (y d i)
+    #     (lambda (j)
+    #       (phi y d i j)))""")
     
     ripl.assume('foldl', """
       (lambda (op x min max f)
         (if (= min max) x
           (foldl op (op x (f min)) (+ min 1) max f)))""")
-
-## not used anywhere. presumably a multinomial (vs. poisson)
-# but not sure it exactly implement multinomial
-    ripl.assume('multinomial_func', """
-      (lambda (n min max f)
-        (let ((normalize (foldl + 0 min max f)))
-          (mem (lambda (i)
-            (poisson (* n (/ (f i) normalize)))))))""")
 
     
 ## TODO count_birds assumes all birds at cell 0 at start, abstract this out
@@ -847,19 +850,30 @@ class Poisson(Multinomial):
     # *normalize* is normalizing constant for probs from i
     # n = birdcount_i * normed prob (i,j)
     # return: (lambda (j) (poisson n) )
-  
-    ripl.assume('bird_movements_loc', """
+
+
+    if ripl.backend() == 'puma':
+      ripl.assume('bird_movements_loc', """
       (mem (lambda (y d i)
         (if (= (count_birds y d i) 0)
           (lambda (j) 0)
-          (let ((normalize (foldl + 0 0 cells (lambda (j) (phi y d i j)))))
-            (mem (lambda (j)
-              (if (= (phi y d i j) 0) 0
-                (let ((n (* (count_birds y d i) (/ (phi y d i j) normalize))))
-                  (scope_include d (array y d i j)
-                    (poisson n))))))))))""")
-
-    #ripl.assume('bird_movements', '(mem (lambda (y d) %s))' % fold('array', '(bird_movements_loc y d __i)', '__i', self.cells))
+          (mem (lambda (j)
+            (if (= (phi y d i j) 0) 0
+              (let ((n (* (count_birds y d i) (get_bird_move_prob y d i j))))
+                (scope_include d (array y d i j)
+      (poisson n)))))))))""")
+  
+    else:   ## FIXME HACK THAT SHOULD REPLACE WHEN LITE TAKES ARRAYS
+      ripl.assume('bird_movements_loc', """
+      (mem (lambda (y d i)
+        (if (= (count_birds y d i) 0)
+          (lambda (j) 0)
+          (mem (lambda (j)
+            (if (= (phi y d i j) 0) 0
+              (let ((n (* (count_birds y d i) (get_bird_move_prob y d i j))))
+                (scope_include d (+ (* 1000 y) (+ (* 100 d) (+ (* 10 i)  j)) )
+      (poisson n)))))))))""")
+    
     
     ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.0001))))')
 
