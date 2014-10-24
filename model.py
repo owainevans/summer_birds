@@ -1,6 +1,8 @@
 from utils import *
 from features_utils import make_features_dict, load_features
 import unit_parameter_dicts
+
+from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 
 from itertools import product
@@ -119,8 +121,8 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   gtruth_counts={}
   
   # alternate way to get gtruth counts
-  bird_locs = unit.get_bird_locations( observe_range['years_list'],
-                                       observe_range['days_list'])
+  bird_locs = unit.days_list_to_bird_locations( observe_range['years_list'],
+                                                observe_range['days_list'])
 
   year_day_cell_triples = product( *map( lambda k: observe_range[k],
                                          ('years_list','days_list','cells_list') ) )
@@ -689,8 +691,6 @@ class Multinomial(object):
 
   
 
-
-
   def get_hist(self, bird_locations):
     # How np.histogram works:
     # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
@@ -769,29 +769,48 @@ class Poisson(Multinomial):
 
     ripl.assume('width', self.width)
     ripl.assume('height', self.height)
-    ripl.assume('max_dist2', '18')
+    ripl.assume('max_dist_squared', '18')
 
-    ripl.assume('cell2X', '(lambda (cell) (int_div cell height))')
-    ripl.assume('cell2Y', '(lambda (cell) (int_mod cell height))')
+## Distances computed with 'C' order. If (height,width)=(3,4), then
+# array([[ 0,  3,  6,  9],
+#        [ 1,  4,  7, 10],
+#        [ 2,  5,  8, 11]])
+# So x (column) given by cell_ind / height, row given by cell_ind % height
+
+    def make_cell_xy_string():
+      my_dict = {}
+      for cell_ind in range(self.cells):
+        # make the key a tuple for compatibility with *python_features_to_venture_exp*
+        my_dict[ (cell_ind,) ] =  (cell_ind / self.height, cell_ind % self.height) 
+      return python_features_to_venture_exp( my_dict )
+
+    ripl.assume('cell_to_xy_dict', make_cell_xy_string())
+    ripl.assume('cell_to_xy', '(lambda (cell) (lookup cell_to_xy_dict cell))')
+
+    #ripl.assume('cell_to_x', '(lambda (cell) (int_div cell height))')
+    #ripl.assume('cell_to_y', '(lambda (cell) (int_mod cell height))')
+    ripl.assume('cell_to_x', '(lambda (cell) (lookup (cell_to_xy cell) 0))')
+    ripl.assume('cell_to_y', '(lambda (cell) (lookup (cell_to_xy cell) 1))')
+
     #ripl.assume('cell2P', '(lambda (cell) (make_pair (cell2X cell) (cell2Y cell)))')
-    ripl.assume('XY2cell', '(lambda (x y) (+ (* height x) y))')
+    ripl.assume('xy_to_cell', '(lambda (x y) (+ (* height x) y))')
 
     ripl.assume('square', '(lambda (x) (* x x))')
 
-    ripl.assume('dist2', """
+    ripl.assume('dist_squared', """
       (lambda (x1 y1 x2 y2)
         (+ (square (- x1 x2)) (square (- y1 y2))))""")
 
-    ripl.assume('cell_dist2', """
+    ripl.assume('cell_dist_squared', """
       (lambda (i j)
-        (dist2
-          (cell2X i) (cell2Y i)
-          (cell2X j) (cell2Y j)))""")
+        (dist_squared
+          (cell_to_x i) (cell_to_y i)
+          (cell_to_x j) (cell_to_y j)))""")
     
     # phi is the unnormalized probability of a bird moving from cell i to cell j on day d
     ripl.assume('phi', """
       (mem (lambda (y d i j)
-        (if (> (cell_dist2 i j) max_dist2) 0
+        (if (> (cell_dist_squared i j) max_dist_squared) 0
           (let ((fs (lookup features (array y d i j))))
             (exp %s)))))"""
             % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.num_features))
@@ -825,7 +844,7 @@ class Poisson(Multinomial):
 
     # bird_movements_loc
     # if zero birds at i, no movement to any j from i
-    # *normalize* is normalizing constant for probms from i
+    # *normalize* is normalizing constant for probs from i
     # n = birdcount_i * normed prob (i,j)
     # return: (lambda (j) (poisson n) )
   
