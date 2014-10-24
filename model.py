@@ -858,11 +858,12 @@ class Poisson(Multinomial):
   def bird_to_pos( self, year, day, hist=False):
     'Return list [cell_index for bird_i], or optionally hist, for given day'
     bird_to_pos_list = []
+    r = self.ripl
     
     for i in range(self.cells):
-      self.ripl.predict('(count_birds %d %d %d)' % (year, day, i)) 
-
-    return bird_to_post_list if not hist else self.get_hist(bird_to_pos_list)
+      bird_to_pos_list.append(r.predict('(count_birds %d %d %d)' % (year, day, i))) 
+      
+    return bird_to_pos_list if not hist else self.get_hist(bird_to_pos_list)
 
 
 
