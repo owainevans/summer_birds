@@ -41,8 +41,8 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
                             'features_loaded_from': "data/input/dataset1/onebird-features.csv",
-                            'max_years': 2, 
-                            'max_days': 2, },
+                            'max_years_for_experiment': 2, 
+                            'max_days_for_experiment': 2, },
 
                            'dataset2':
                            {'short_name':'dataset2',
@@ -55,8 +55,8 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
                             'features_loaded_from': "data/input/dataset2/10x10x1000-train-features.csv",
-                            'max_years': 0, # FOR NOW WE LIMIT THIS
-                            'max_days': 2, }
+                            'max_years_for_experiment': 0, # FOR NOW WE LIMIT THIS
+                            'max_days_for_experiment': 2, }
 
                          }
 

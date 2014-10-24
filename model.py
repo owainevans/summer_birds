@@ -12,11 +12,11 @@ import numpy as np
 
 ### PLAN NOTES
 
+# keep in mind:
+# tasks: reconstruction of latent states, prediction, param inference (onebird / poisson)
+# params for inference: (depends on space of inference progs)
 
-# TODO
-# get inference up and running and have a basic sanity test for inference
-# with small grid and small number of birds. elaborate inference programs
-# later. 
+
 
 
 ## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
@@ -38,7 +38,7 @@ import numpy as np
 # Params (i.e. inference progs) for inference itself.
 # Maybe some params for how many repeats / parallel runs to do.
 
-# 4. Add more realistic features. THings like wind-direction
+# 4. Add more realistic features. Things like wind-direction
 
 #  5. play with experiment runner and see if there's any issues with integrating. 
 #     some functionality that it doesn't have (scaling/timing info for particular
@@ -254,8 +254,8 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
       'venture_random_seed': 1,
       'features_loaded_from': None,
       'observes_saved_to': None,
-    'max_years': None,
-    'max_days': None,
+  'max_years_for_experiment': None,
+  'max_days_for_experiment': None,
   }
 
   short_name_to_changes = unit_parameter_dicts.parameter_short_name_to_changes
@@ -263,7 +263,14 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
   params = new_params_from_base( short_name_to_changes[ params_short_name ],
                                  base_params )
 
-  for max_param, param in zip( ('max_days','max_years'), ('days','years') ):
+  ## max(param) vs. max_param_for_experiment
+  # Some datasets have a large number of days/years. We might 
+  # want to only load some of the days/years (to avoid a huge
+  # dict). We select how much will be loaded with 
+  # *max_params_for_experiment*. 
+  for max_param, param in zip( ('max_days_for_experiment',
+                                'max_years_for_experiment'),
+                               ('days','years') ):
     max_v, lst_v = params[ max_param ], params[ param ]
     if max_v is None:
       params[ max_param ] = max( lst_v )
@@ -280,7 +287,7 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
   else:
     params['feature_function_names'] = 'features_loaded_from'
     out = load_features( params['features_loaded_from'], params['years'], params['days'],
-                         params['max_years'], params['max_days'] )
+                         params['max_years_for_experiment'], params['max_days_for_experiment'] )
     venture_features_dict, python_features_dict = out
 
   params['features'] = venture_features_dict  
@@ -322,8 +329,8 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                width=int,
                years=list,
                days=list,
-               max_days=int,
-               max_years=int,
+               max_days_for_experiment=int,
+               max_years_for_experiment=int,
                features=(dict,str),
                num_features=int,
                hypers=list,
@@ -556,8 +563,8 @@ class Multinomial(object):
 
 
   def get_max_observe_range(self):
-    params =  {'days_list': [d for d in self.days if d <= self.max_days],
-               'years_list': [y for y in self.years if  y<= self.max_years],
+    params =  {'days_list': [d for d in self.days if d <= self.max_days_for_experiment],
+               'years_list': [y for y in self.years if  y<= self.max_years_for_experiment],
                'cells_list': range(self.cells)}
     return Observe_range(**params)
 
@@ -812,31 +819,19 @@ class Poisson(Multinomial):
             (exp (* phi_constant_beta %s) )))))"""
             % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.num_features))
     
-
     ripl.assume('sum_phi',
       '(mem (lambda (y d i) ' +
                 fold( '+', '(phi y d i j)', 'j', self.cells) +
                 '))' )
 
+    ripl.assume('get_bird_move_prob',
+                '(mem (lambda (y d i j) (/ (phi y d i j) (sum_phi y d i))) )')
+                
     ripl.assume('get_bird_move_dist',
       '(mem (lambda (y d i) ' +
          fold('simplex', '(get_bird_move_prob y d i j)', 'j', self.cells) +
            '))')
-
-    ripl.assume('get_bird_move_prob',
-                '(mem (lambda (y d i j) (/ (phi y d i j) (sum_phi y d i))) )')
-                
-
-    # ripl.assume('get_bird_move_dist', """
-    #   (lambda (y d i)
-    #     (lambda (j)
-    #       (phi y d i j)))""")
     
-    ripl.assume('foldl', """
-      (lambda (op x min max f)
-        (if (= min max) x
-          (foldl op (op x (f min)) (+ min 1) max f)))""")
-
     
 ## TODO count_birds assumes all birds at cell 0 at start, abstract this out
     ripl.assume('count_birds', """
@@ -847,10 +842,8 @@ class Poisson(Multinomial):
 
     # bird_movements_loc
     # if zero birds at i, no movement to any j from i
-    # *normalize* is normalizing constant for probs from i
     # n = birdcount_i * normed prob (i,j)
     # return: (lambda (j) (poisson n) )
-
 
     if ripl.backend() == 'puma':
       ripl.assume('bird_movements_loc', """

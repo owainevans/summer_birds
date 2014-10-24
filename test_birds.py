@@ -122,7 +122,7 @@ def _test_cell_to_prob_dist( unit ):
     assert_almost_equal( np.sum(grid), 1)
 
 
-def _test_model_multinomial( unit ):  
+def _test_model( unit ):  
   
   simplex = unit.ripl.sample('(get_bird_move_dist 0 0 0)',type=True)
   eq_( simplex['type'], 'simplex')
@@ -134,27 +134,35 @@ def _test_model_multinomial( unit ):
 
   # bird with bird_id=0 is at pos_day1 on day 1, so total birds
   # at cell is >= 1
-  pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
-  count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
-  assert 1 <= count_pos_day1 <= unit.num_birds
+  if isinstance(unit,Multinomial):
+    pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
+    count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
+    assert 1 <= count_pos_day1 <= unit.num_birds
 
-  # assuming all birds start at zero on d=0
-  eq_( unit.ripl.predict('(move 0 0 0 0)'), pos_day1 )
+    # assuming all birds start at zero on d=0
+    eq_( unit.ripl.predict('(move 0 0 0 0)'), pos_day1 )
 
 
-  # observe and infer should change position of bird0
-  # - observe no bird at pos_day1
-  unit.ripl.observe('(observe_birds 0 1 %i)'%pos_day1,'0.')
-  total_transitions = 0
-  transitions_chunk = 10
-  while total_transitions < 100:
-    unit.ripl.infer(transitions_chunk)
-    new_pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
-    if new_pos_day1 != pos_day1:
-      break
-    total_transitions += transitions_chunk
-    if total_transitions >= 500:
-      assert False,'Did total_transitions without changing bird_pos'
+    # observe and infer should change position of bird0
+    # - observe no bird at pos_day1
+    unit.ripl.observe('(observe_birds 0 1 %i)'%pos_day1,'0.')
+    total_transitions = 0
+    transitions_chunk = 10
+    while total_transitions < 100:
+      unit.ripl.infer(transitions_chunk)
+      new_pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
+      if new_pos_day1 != pos_day1:
+        break
+        total_transitions += transitions_chunk
+        if total_transitions >= 500:
+          assert False, 'Performed %i without changing bird_pos' % total_transitions
+  else: # Poisson model
+    # no birds outside first cell on day 0
+    num_birds = unit.ripl.predict('(count_birds 0 0 0)')
+    eq_(num_birds, unit.ripl.sample('num_birds'))
+    assert num_birds > unit.ripl.predict('(count_birds 0 0 1)')
+
+    
     
   
 def _test_make_infer( generate_data_unit, ripl_thunk ):
@@ -367,14 +375,10 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
 
 
 
-# def test_all_multinomial_unit_params_slow():
-#  for t in test_all_multinomial_unit_params( puma = False, quick_test = False):
-   
-
 def test_all_multinomial_unit_params( puma = True, quick_test = True):
 
   # tests that take unit object (with ripl) as input
-  tests_unit =  (_test_model_multinomial,
+  tests_unit =  (_test_model,
                  _test_cell_to_prob_dist,
                  _test_memoization_observe,
                  _test_save_images, )
