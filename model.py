@@ -691,34 +691,34 @@ class Multinomial(object):
 
 
 
-  def get_hist(self, bird_to_pos_list):
+  def get_hist(self, bird_locations):
     # How np.histogram works:
     # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
     # np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
-    hist,_ = np.histogram(bird_to_pos_list,bins=range(self.cells+1))
+    hist,_ = np.histogram(bird_locations,bins=range(self.cells+1))
     assert len(hist)==self.cells
     assert np.sum(hist) == self.num_birds
     return hist
 
 
-  def bird_to_pos( self, year, day, hist=False):
-    'Return list [cell_index for bird_i], or optionally hist, for given day'
-    bird_to_pos_list=[]
+  def year_day_to_bird_locations( self, year, day, hist=False):
+    'Return list [cell_index for bird_i], or optionally histogram over cells, for given day'
+    bird_id_to_location=[]
     for bird_id in self.ripl.sample('bird_ids'):
       args = bird_id, year, day
-      bird_to_pos_list.append(self.ripl.predict('(get_bird_pos %i %i %i)'%args))
+      bird_id_to_location.append(self.ripl.predict('(get_bird_pos %i %i %i)'%args))
                                                            
-    all_bird_to_pos_list = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
-    assert all( np.array(all_bird_to_pos_list)==np.array(bird_to_pos_list) )
+    all_bird_id_to_location = self.ripl.predict('(all_bird_pos %i %i)'%(year,day))
+    assert all( np.array(all_bird_id_to_location)==np.array(bird_id_to_location) )
     ## Check that get_bird_pos and all_bird_pos agree (Could turn off 
     # for speed)
 
-    return bird_to_post_list if not hist else self.get_hist(bird_to_pos_list)
+    return bird_id_to_location if not hist else self.get_hist(bird_id_to_location)
 
 
 
 
-  def get_bird_locations(self, years=None, days=None):
+  def days_list_to_bird_locations(self, years=None, days=None):
     '''Returns dict { y: { d:histogram of bird positions on y,d}  }
        for y,d in product(years,days) '''
     if years is None: years = self.get_max_observe_range()['years_list']
@@ -734,7 +734,7 @@ class Multinomial(object):
     for y in years:
       bird_locations[y] = {}
       for d in days:
-        bird_locations[y][d] = self.bird_to_pos(y,d,hist=True)
+        bird_locations[y][d] = self.year_day_to_bird_locations(y,d,hist=True)
     
     return bird_locations
 
@@ -814,7 +814,9 @@ class Poisson(Multinomial):
         (let ((normalize (foldl + 0 min max f)))
           (mem (lambda (i)
             (poisson (* n (/ (f i) normalize)))))))""")
-                  
+
+    
+## TODO count_birds assumes all birds at cell 0 at start, abstract this out
     ripl.assume('count_birds', """
       (mem (lambda (y d i)
         (if (= d 0) (if (= i 0) num_birds 0)""" +
@@ -855,15 +857,17 @@ class Poisson(Multinomial):
     self.assumes_loaded = True
 
 
-  def bird_to_pos( self, year, day, hist=False):
+  def year_day_to_bird_locations( self, year, day, hist=True):
     'Return list [cell_index for bird_i], or optionally hist, for given day'
-    bird_to_pos_list = []
+    assert hist, 'For Poisson model birds are not identified and so output is always hist'
+
+    bird_locations = []
     r = self.ripl
     
     for i in range(self.cells):
-      bird_to_pos_list.append(r.predict('(count_birds %d %d %d)' % (year, day, i))) 
+      bird_locations.append(r.predict('(count_birds %d %d %d)' % (year, day, i)))
       
-    return bird_to_pos_list if not hist else self.get_hist(bird_to_pos_list)
+    return np.array( bird_locations )
 
 
 
