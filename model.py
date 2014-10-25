@@ -19,6 +19,7 @@ import numpy as np
 ## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
 ## EXP RUNNER AND BEING ABLE TO INTEGRATE WITH THAT
 
+## GET LOAD OBSERVATIONS FROM dataset WORKIN
 
 
 # verbosity
@@ -163,8 +164,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
                                                           draw_bird_filename) )
 
   # Build dict of parameters, *observe_range* and counts,
-  # along with groundtruth *bird_locs*.
-  # Pickle this to file.
+  # along with groundtruth *bird_locs* and pickle to file.
 
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
@@ -523,6 +523,8 @@ class Multinomial(object):
       self.load_assumes()
 
 
+  def get_model_name(self):
+    return 'Multinomial'
 
 ## UTILITIES FOR SAVING, LOADING, GENERATING SYNTHETIC DATA
   def save(self, directory):
@@ -744,6 +746,10 @@ class Multinomial(object):
 
 class Poisson(Multinomial):
   
+  ## indicate that object is Poisson and not multinomial
+  def get_model_name(self):
+    return 'Poisson'
+
   def load_assumes(self):
 
     ripl = self.ripl    

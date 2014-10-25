@@ -93,9 +93,9 @@ def test_features_functions():
 
 
   
-def make_multinomial_unit( ripl_thunk, params_short_name = 'minimal_onestep_diag10'):
+def make_unit_instance( model_constructor, ripl_thunk, params_short_name = 'minimal_onestep_diag10'):
 
-  return Multinomial( ripl_thunk(), make_params( params_short_name) )
+  return model_constructor( ripl_thunk(), make_params( params_short_name) )
 
 
 
@@ -106,10 +106,15 @@ def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
                                                        observe_range)
 
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  if multinomial_or_poisson( generate_data_unit) == 'Multinomial':
+    model_constructor = Multinomial
+  else:
+    model_constructor = Poisson
+    
   infer_unit = make_infer_unit( generate_data_store_dict_filename,
                                 prior_on_hypers,
                                 ripl_thunk,
-                                Multinomial )
+                                model_constructor )
 
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
@@ -134,7 +139,7 @@ def _test_model( unit ):
 
   # bird with bird_id=0 is at pos_day1 on day 1, so total birds
   # at cell is >= 1
-  if isinstance(unit,Multinomial):
+  if not isinstance(unit,Poisson):
     pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
     count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
     assert 1 <= count_pos_day1 <= unit.num_birds
@@ -156,12 +161,16 @@ def _test_model( unit ):
         total_transitions += transitions_chunk
         if total_transitions >= 500:
           assert False, 'Performed %i without changing bird_pos' % total_transitions
+
   else: # Poisson model
     # no birds outside first cell on day 0
     num_birds = unit.ripl.predict('(count_birds 0 0 0)')
     eq_(num_birds, unit.ripl.sample('num_birds'))
-    assert num_birds > unit.ripl.predict('(count_birds 0 0 1)')
+    eq_(unit.ripl.predict('(count_birds 0 0 1)'), 0)
 
+    # inference works
+    unit.ripl.infer(10)
+    
     
     
   
@@ -300,11 +309,12 @@ def _test_save_images(unit, del_images=True):
 
 
 
-def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False ):
-  'Save and Load Methods for Multinomial unit. Test object equality.'
+def _test_save_load_model( model_constructor, ripl_thunk,
+                           make_params_thunk, verbose = False ):
+  'Save and Load Methods for unit instance. Test object equality.'
   
-  def equality_multinomial(u1, u2):
-    'Equality for Multinomial objects with predict'
+  def equality_unit(u1, u2):
+    'Equality for Unit objects with predict'
     test_lambdas = (lambda u: u.params,
                     lambda u: u.ripl.list_directives())
 
@@ -317,7 +327,7 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
     else:
       for d1,d2 in zip( *map(lambda u: u.ripl.list_directives(), (u1,u2) ) ):
         if d1 != d2:
-          print 'Failed equality multinomial. Differ on directive:', d1, '\n', d2
+          print 'Failed equality unit. Differ on directive:', d1, '\n', d2
           return False
 
   def print_random_draws(u1, u2):
@@ -326,7 +336,7 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
 
 
   def make_unit_with_predict():
-    unit = Multinomial( ripl_thunk(), make_params_thunk() )
+    unit = model_constructor( ripl_thunk(), make_params_thunk() )
     triples = product( range(2), range(2), range(2) )
     for y,d,i in triples:
       if (y,d,i,0) in unit.features_as_python_dict:
@@ -342,8 +352,8 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
   # loaded copy equals original
   print 'backends:\n'
   print map(lambda u: u.ripl.backend(), (original_unit, copy_unit) )
-  assert equality_multinomial( original_unit, original_unit)
-  assert equality_multinomial( original_unit, copy_unit)
+  assert equality_unit( original_unit, original_unit)
+  assert equality_unit( original_unit, copy_unit)
 
   if verbose: print_random_draws( original_unit, copy_unit)
 
@@ -353,12 +363,12 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
   # updated original unit equals loaded copy of it
-  assert equality_multinomial( original_unit, copy_unit_more_infer)
+  assert equality_unit( original_unit, copy_unit_more_infer)
   if verbose: print_random_draws( original_unit, copy_unit_more_infer)
 
   # copy of updated original unit not equal to copy of non-updated
 
-  true_false = equality_multinomial( copy_unit, copy_unit_more_infer)
+  true_false = equality_unit( copy_unit, copy_unit_more_infer)
   if verbose:
     print 'equality(original copy, copy with more infer)= %s' % true_false
     print_random_draws( copy_unit, copy_unit_more_infer)
@@ -375,7 +385,8 @@ def _test_save_load_multinomial( ripl_thunk, make_params_thunk, verbose = False 
 
 
 
-def test_all_multinomial_unit_params( puma = True, quick_test = True):
+def test_all_unit_params( puma = True, quick_test = True,
+                          random_quick_test = True):
 
   # tests that take unit object (with ripl) as input
   tests_unit =  (_test_model,
@@ -390,28 +401,55 @@ def test_all_multinomial_unit_params( puma = True, quick_test = True):
                            _test_incremental_load_observations,
                            _test_make_infer)
 
+  models = (Multinomial, Poisson)
 
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
 
   if quick_test:
-    params_short_names = ('minimal_onestep_diag10','dataset1',) # FIXME change back to minimal_onestep
+    params_short_names = ('minimal_onestep_diag10','dataset1',)
   else:
     params_short_names = ('minimal_onestep_diag10', 'test_medium_onestep_diag105')
 
+  make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
 
-  unit_product = product( tests_unit, params_short_names, ripl_thunks)
-  for test, params_short_name, ripl_thunk in unit_product:
-    yield test, make_multinomial_unit(  ripl_thunk, params_short_name)
+  
+  if random_quick_test:
+    
+    rand_draw = lambda seq: seq[ np.random.randint(len(seq)) ]
+    
+    for test in tests_unit:
+      unit_instance = map(rand_draw,(models,ripl_thunks,params_short_names))
+      yield test, make_unit_instance(*unit_instance)
+      
+    for test in tests_unit_ripl_thunk:
+      unit_instance = map(rand_draw,(models,ripl_thunks,params_short_names))
+      ripl_thunk = unit_instance[1]
+      yield test, make_unit_instance(*unit_instance), ripl_thunk
 
-  unit_thunk_product = product( tests_unit_ripl_thunk, params_short_names, ripl_thunks)
-  for test, params_short_name, ripl_thunk in unit_thunk_product:
-    yield test, make_multinomial_unit( ripl_thunk, params_short_name), ripl_thunk
+    args = map(rand_draw,(models,ripl_thunks,make_params_thunks))
+
+    yield  _test_save_load_model, args[0], args[1], args[2]
+      
+  else:
+    unit_product = product( tests_unit, models, params_short_names, ripl_thunks)
+  
+    for test, model, params_short_name, ripl_thunk in unit_product:
+      yield test, make_unit_instance(model, ripl_thunk, params_short_name)
+
+
+      unit_thunk_product = product( tests_unit_ripl_thunk,
+                                models,
+                                params_short_names,
+                                ripl_thunks)
+  
+    for test, model, params_short_name, ripl_thunk in unit_thunk_product:
+        yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
+
 
   # special case test that takes ripl_thunk and make_params_thunk
-  make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
   
-  for ripl_thunk, make_params_thunk in product( ripl_thunks, make_params_thunks):
-    yield _test_save_load_multinomial, ripl_thunk, make_params_thunk 
+    for ripl_thunk, make_params_thunk in product( models, ripl_thunks, make_params_thunks):
+      yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
 
 
@@ -491,7 +529,7 @@ def run_all( quick_test = True):
     test_times[ t.__name__ ] = test_time
 
   
-  generative_tests = ( lambda: test_all_multinomial_unit_params( quick_test = quick_test), )
+  generative_tests = ( lambda: test_all_unit_params( quick_test = quick_test), )
 
   for t in generative_tests:
     test_times.update( run_nose_generative( t ) )

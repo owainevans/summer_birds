@@ -150,7 +150,7 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
 
 
 def plot_save_bird_locations(unit, title, years, days, save=True,
-                             plot=True, order=None, verbose=False, multinomial=True, directory_filename=None):
+                             plot=True, order=None, verbose=False, directory_filename=None):
 
   assert isinstance(years, list)
   assert isinstance(days, list)
@@ -195,7 +195,7 @@ def plot_save_bird_locations(unit, title, years, days, save=True,
     grids[(y,d)] = make_grid(height, width, lst=bird_locs[y][d], order=order)
 
   grid_to_num_birds = map(np.sum, grids.values())
-  if multinomial:
+  if multinomial_or_poisson(unit) == 'Multinomial':
     assert len( np.unique( grid_to_num_birds ) ) == 1
   max_num_birds =  np.max( grid_to_num_birds )
 
@@ -250,6 +250,10 @@ def plot_save_bird_locations(unit, title, years, days, save=True,
 
   return (fig,ax) if plot else None
 
+
+def multinomial_or_poisson(unit):
+  return unit.get_model_name()
+  
 
 
 def dataset_to_params(dataset):
