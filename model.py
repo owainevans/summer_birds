@@ -184,7 +184,6 @@ def load_observes(unit, load_observe_sub_range,
   for y,d,i in load_observe_sub_range.get_year_day_cell_product():
     count_i = observe_counts[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
-    print '\nload_observes loop over range  ', '(observe_birds %i %i %i)'%(y,d,i)
   
   print 'Loaded all observes'
 
@@ -260,8 +259,6 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                          params['max_years_for_experiment'], params['max_days_for_experiment'] )
     venture_features_dict, python_features_dict = out
 
- ## print '\n\n Make params: vent', venture_features_dict['value'].items()[:3]
- ## print '\n\n Make params: pyth', python_features_dict.items()[:3]
 
 
   params['features'] = venture_features_dict  

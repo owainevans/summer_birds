@@ -360,7 +360,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='not', small_model = True):
+def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
@@ -385,7 +385,7 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='not', 
     ripl_thunks.append( thunk )
 
   if small_model:
-    params_short_names = ('minimal_onestep_diag10','dataset1')
+    params_short_names = ('minimal_onestep_diag10',)#'dataset1')
   else:
     params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
 

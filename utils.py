@@ -307,11 +307,16 @@ def python_features_to_venture_exp( features_dict ):
   exp = python_dict_to_venture_exp( features_dict )
   return exp_venture_string( exp )
 
-    
-
 def venturedict_to_pythondict(venturedict):
   remove_type_venturedict = dict(venturedict['value'].iteritems())
   return strip_types_from_dict_values(remove_type_venturedict)
+
+
+def python_features_to_string_or_dict( python_features_dict, dict_string='string'):
+  if dict_string=='string':
+      return python_features_to_venture_exp(python_features_dict)
+  else:
+      return toVenture( python_features_dict )
 
 
 def toVenture(thing):

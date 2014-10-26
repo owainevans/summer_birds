@@ -66,7 +66,7 @@ def ind_to_ij(height, width, index, order='F'):
   return map(int,np.where(grid==index))
 
   
-def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='dict'):
+def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='string'):
 # NOTE: the argument *dict_string* indicates that we default to creating 
 # a Python string for the features_dict rather than a Venture dict.
 # Because of the slow parser, we might need to change this later. 
@@ -90,12 +90,6 @@ def make_features_dict(height, width, years, days, feature_functions_name='dista
 
   return python_features_to_string_or_dict(feature_dict, dict_string), feature_dict
 
-
-def python_features_to_string_or_dict( python_features_dict, dict_string='dict'):
-  if dict_string=='string':
-      return python_features_to_venture_exp(python_features_dict)
-  else:
-      return toVenture( python_features_dict )
   
 
 def cell_to_feature(height, width, state, python_features_dict, feature_ind):
@@ -133,13 +127,7 @@ def load_features(features_file, years_list, days_list, max_year=None, max_day=N
       outside years_ or days_list. (Strict and safe).'''
       del features[(y, d, i, j)]
   
-  return python_features_to_string_or_dict( features, dict_string='string'), features
-
-
-
-
-
-
+  return python_features_to_string_or_dict(features, dict_string), features
 
 
 
