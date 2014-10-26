@@ -284,7 +284,6 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
     updated_observe_range = observe_range.copy_observe_range()
     updated_observe_range.update( dict(cells_list = [cell] ) )
     
-
     use_defaults = False
     load_observes( infer_unit, updated_observe_range, use_defaults, store_dict_filename)
     register_observes( infer_unit.ripl )
@@ -292,7 +291,6 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
     year_day_cell_iter = make_triples(updated_observe_range)
     compare_observes( generate_data_unit, infer_unit, year_day_cell_iter)
             
-
     
      
 def _test_save_images(unit, del_images=True):
@@ -306,7 +304,6 @@ def _test_save_images(unit, del_images=True):
   assert os.path.exists( directory)
   if del_images: subprocess.call(['rm','-r',directory])
   
-
 
 
 def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, verbose=False):
@@ -388,7 +385,7 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
     ripl_thunks.append( thunk )
 
   if small_model:
-    params_short_names = ('minimal_onestep_diag10','dataset1',)
+    params_short_names = ('minimal_onestep_diag10',)#'dataset1',)
   else:
     params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
 
@@ -399,21 +396,23 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
 
 
   ## Run tests_unit   
-  unit_args = [el for el in product( tests_unit, models, params_short_names, ripl_thunks)]
-  if random_mode:
-    unit_args = [ rand_draw(unit_args) ]
+  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
   
-  for test, model, params_short_name, ripl_thunk in unit_args:
-    yield test, make_unit_instance(model, ripl_thunk, params_short_name)
+  for test in tests_unit:
+    if random_mode:
+      unit_args = [ rand_draw(unit_args) ]
+    for model, params_short_name, ripl_thunk in unit_args:
+      yield test, make_unit_instance(model, ripl_thunk, params_short_name)
 
 
   ## Run tests_unit_thunk
-  unit_args = [el for el in product( tests_unit_ripl_thunk, models, params_short_names, ripl_thunks)]
-  if random_mode:
-    unit_args = [ rand_draw(unit_args) ]
+  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
   
-  for test, model, params_short_name, ripl_thunk in unit_args:
-    yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
+  for test in tests_unit_ripl_thunk:
+    if random_mode:
+      unit_args = [ rand_draw(unit_args) ]
+    for model, params_short_name, ripl_thunk in unit_args:
+      yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
 
 
   # special case test that takes ripl_thunk and make_params_thunk

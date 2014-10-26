@@ -114,6 +114,7 @@ class Observe_range(dict):
     self['days_list'] = days_list
     self['years_list'] = years_list
     self['cells_list'] = cells_list
+    
   def get_year_day_cell_product(self):
     return product(self['years_list'], self['days_list'],self['cells_list'] )
 

@@ -165,7 +165,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 
-def load_observes(unit, load_observe_range,
+def load_observes(unit, load_observe_sub_range,
                   use_range_defaults, store_dict_filename):
 
   unit.ensure_assumes()
@@ -174,16 +174,17 @@ def load_observes(unit, load_observe_range,
      store_dict = pickle.load(f)
     
   observe_counts = store_dict['observe_counts']
-  observe_range = Observe_range(**store_dict['observe_range']) ## since we pickle dict, not instance
+  default_observe_range = Observe_range(**store_dict['observe_range']) ## since we pickle dict, not instance
 
   if use_range_defaults:
-    load_observe_range = observe_range
+    load_observe_sub_range = default_observe_range
   else:
-    load_observe_range.assert_is_observe_sub_range(observe_range)
+    load_observe_sub_range.assert_is_observe_sub_range(default_observe_range)
 
-  for y,d,i in observe_range.get_year_day_cell_product():
+  for y,d,i in load_observe_sub_range.get_year_day_cell_product():
     count_i = observe_counts[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
+    print '\nload_observes loop over range  ', '(observe_birds %i %i %i)'%(y,d,i)
   
   print 'Loaded all observes'
 
