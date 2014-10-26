@@ -382,6 +382,7 @@ def test_all_unit_params( puma = True, quick_test = True,
   models = (Multinomial, Poisson)
 
   ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
+  ripl_thunks = (mk_l_ripl,)
 
   if quick_test:
     params_short_names = ('minimal_onestep_diag10','dataset1',)

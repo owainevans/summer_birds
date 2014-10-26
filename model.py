@@ -144,7 +144,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   years = observe_range['years_list']
   days = observe_range['days_list']
   directory_filename = (full_directory, draw_bird_filename)
-  fig_ax = plot_save_bird_locations(unit, years, days, plot=True, save=True,
+  fig_ax = plot_save_bird_locations(unit, years, days, plot=False, save=True,
                                     directory_filename = directory_filename)
                                     
   # Build dict of parameters, *observe_range* and counts,
@@ -153,7 +153,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   store_dict = {'generate_data_params':params,
                 'observe_counts':observe_counts,
                 'observe_range':observe_range.copy_dict_only(), 
-                'bird_locs':bird_locs}
+                'bird_locs': gtruth_counts}
                 #'bird_locs_fig_ax':fig_ax} ## FIXME serialize figure!
 
   with open(store_dict_filename,'w') as f:
@@ -181,7 +181,7 @@ def load_observes(unit, load_observe_range,
   else:
     load_observe_range.assert_is_observe_sub_range(observe_range)
 
-  for y,d,i in observe_range.get_year_day_cell_product:
+  for y,d,i in observe_range.get_year_day_cell_product():
     count_i = observe_counts[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
   
