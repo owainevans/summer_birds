@@ -305,7 +305,6 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                features=(dict,str),
                num_features=int,
                hypers=list,
-               learn_hypers=bool,
                prior_on_hypers=list,
                phi_constant_beta=int,
                venture_random_seed=int,
@@ -373,14 +372,10 @@ def generate_data_params_to_infer_params(generate_data_params, prior_on_hypers, 
   return infer_params
 
 
-def make_infer_unit( generate_data_filename, prior_on_hypers, ripl_thunk,
-                     model_constructor): #, load_observe_range=False,use_range_defaults=False):
+def make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor):
   '''Utility function that takes synthetic data filename, prior_on_hypers, model_type,
      and generates an inference Unit object with same parameters as synthetic data
-     Unit but with prior_on_hypers and optionally with Poisson instead of Multinomial.
-
-     If *load_observe_range* is not False, run *load_observes* on the inference unit
-     object with observe_range *load_observe_range*'''
+     Unit but with prior_on_hypers and either Poisson/Multinomial model.'''
 
   assert model_constructor in (Multinomial, Poisson)
 

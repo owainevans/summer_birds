@@ -309,26 +309,26 @@ def _test_save_images(unit, del_images=True):
 
 
 
-def _test_save_load_model( model_constructor, ripl_thunk,
-                           make_params_thunk, verbose = False ):
+def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, verbose=False):
   'Save and Load Methods for unit instance. Test object equality.'
   
   def equality_unit(u1, u2):
     'Equality for Unit objects with predict'
-    test_lambdas = (lambda u: u.params,
-                    lambda u: u.ripl.list_directives())
 
-    bools = [ f(u1)==f(u2) for f in test_lambdas ]
-    
-    if all(bools):
-      return True
-    elif not verbose:
-      return False
-    else:
-      for d1,d2 in zip( *map(lambda u: u.ripl.list_directives(), (u1,u2) ) ):
-        if d1 != d2:
-          print 'Failed equality unit. Differ on directive:', d1, '\n', d2
+    def test_equality(u1,u2):
+      test = [ u1.params == u2.params,
+               u1.ripl.list_directives() == u2.ripl.list_directives()]
+      return all(test)
+
+    def find_unequal_directive(u1,u2):
+      zip_directives = zip(u1.ripl.list_directives(), u2.ripl.list_directives() )
+      for directive1, directive2 in zip_directives:
+        if directive1 != directive2:
+          print 'Failed equality', directive1, directive2
           return False
+
+    return True if test_equality(u1,u2) else find_unequal_directive(u1,u2)
+
 
   def print_random_draws(u1, u2):
     print 'compare beta(1 1)',
