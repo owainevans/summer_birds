@@ -144,7 +144,8 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   years = observe_range['years_list']
   days = observe_range['days_list']
   directory_filename = (full_directory, draw_bird_filename)
-  fig_ax = plot_save_bird_locations(unit, years, days, plot=True, save=True, directory_filename)
+  fig_ax = plot_save_bird_locations(unit, years, days, plot=True, save=True,
+                                    directory_filename = directory_filename)
                                     
   # Build dict of parameters, *observe_range* and counts,
   # along with groundtruth *bird_locs* and pickle to file.
@@ -475,16 +476,11 @@ class Multinomial(object):
   def __init__(self, ripl, params, delay_load_assumes=False):
 
     self.ripl = ripl
-    print '\n\nBirds Unit Instance created with %s ripl\n\n----\n' % self.ripl.backend()
+    print '\n\n Birds Unit created with %s ripl\n\n----\n' % self.ripl.backend()
     
     self.params = params
-    for k,v in self.params.iteritems():
-      setattr(self,k,v)
-
-    self.cells = self.width * self.height
     self.ripl.set_seed( self.venture_random_seed );
 
-    
     if self.ripl.list_directives() != []:
       self.assumes_loaded = True # If ripl pre-loaded, don't load assumes
     elif delay_load_assumes:
@@ -492,15 +488,15 @@ class Multinomial(object):
     else:
       self.load_assumes()
 
-
-  def get_model_name(self):
-    return 'Multinomial'
-
 ## UTILITIES FOR SAVING, LOADING, GENERATING SYNTHETIC DATA
+  def get_model_name(self):  return 'Multinomial'
+  
+  def get_cells(self): return self.params.width * self.params.height
+
   def save(self, directory):
     ## FIXME random_directory should be ripl hash
     random_directory_name = np.random.randint(10**9) 
-    filename = directory + '/%s/%s' % ( self.long_name, str(random_directory_name) )
+    filename = directory + '/%s/%s' % ( self.params.long_name, str(random_directory_name) )
     ensure(filename)
     
     with open(filename + 'params.dat','w') as f:
@@ -512,7 +508,7 @@ class Multinomial(object):
 
 
   def make_saved_model(self,filename, backend=None):
-    # Currently defaults to same backend
+    # Defaults to same backend
     if backend is None:
       backend = self.ripl.backend()
     
@@ -529,11 +525,18 @@ class Multinomial(object):
     self.params['ripl_directives'] = self.ripl.list_directives()
     return self.params
 
+    
 
   def get_max_observe_range(self):
-    params =  {'days_list': [d for d in self.days if d <= self.max_days_for_experiment],
-               'years_list': [y for y in self.years if  y<= self.max_years_for_experiment],
-               'cells_list': range(self.cells)}
+    days = self.params.days
+    years = self.params.years
+    max_days = self.params.max_days_for_experiment
+    max_years = self.params.max_years_for_experiment
+    
+    params =  {'days_list': [d for d in days if d <= max_days],
+               'years_list': [y for y in years if y <= max_years],
+               'cells_list': range(self.get_cells()) }
+
     return Observe_range(**params)
 
 
@@ -546,8 +549,10 @@ class Multinomial(object):
 
   def load_assumes(self):
     
-    ripl = self.ripl    
+    ripl = self.ripl
+    cells = get_cells()
     print "Loading assumes"
+    
 
 ## UTILITY FUNCTIONS
     ripl.assume('filter',"""
@@ -564,45 +569,45 @@ class Multinomial(object):
 ## PARAMS FOR SINGLE AND MULTIBIRD MODEL
 
 ## TODO add option to vary scale
-    if self.learn_hypers:
+    if self.params.learn_hypers:
       ##ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
-      for k in range(self.num_features):
+      for k in range(self.params.num_features):
         ##ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f %s)' %
-                    (k, self.prior_on_hypers[k] ))
+                    (k, self.params.prior_on_hypers[k] ))
 
     else:
-      for k, value_k in enumerate(self.hypers):
+      for k, value_k in enumerate(self.params.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
 
     
-    ripl.assume('features', self.features)
-    ripl.assume('num_birds',self.num_birds)
+    ripl.assume('features', self.params.features)
+    ripl.assume('num_birds',self.params.num_birds)
     
-    bird_ids = ' '.join(map(str,range(self.num_birds))) # multibird only
+    bird_ids = ' '.join(map(str,range(self.params.num_birds))) # multibird only
     ripl.assume('bird_ids','(list %s)'%bird_ids) # multibird only
 
-    ripl.assume('phi_constant_beta',self.phi_constant_beta)
+    ripl.assume('phi_constant_beta',self.params.phi_constant_beta)
 
     ripl.assume('phi', """
       (mem (lambda (y d i j)
         (let ((fs (lookup features (array y d i j))))
           (exp (* phi_constant_beta %s)))))"""
-       % fold('+', '(* hypers_k_ (lookup fs _k_))', '_k_', self.num_features))
+       % fold('+', '(* hypers_k_ (lookup fs _k_))', '_k_', self.params.num_features))
 
     
     ripl.assume('sum_phi',
       '(mem (lambda (y d i) ' +
-                fold( '+', '(phi y d i j)', 'j', self.cells) +
+                fold( '+', '(phi y d i j)', 'j', cells) +
                 '))' )
 
 
     ripl.assume('get_bird_move_dist',
       '(mem (lambda (y d i) ' +
-        fold('simplex', '(/ (phi y d i j) (sum_phi y d i))', 'j', self.cells) +
+                fold('simplex', '(/ (phi y d i j) (sum_phi y d i))', 'j', cells) +
       '))')
     
-    ripl.assume('cell_array', fold('array', 'j', 'j', self.cells))
+    ripl.assume('cell_array', fold('array', 'j', 'j', cells))
 
 
 #### SINGLE BIRD MODEL
@@ -670,11 +675,10 @@ class Multinomial(object):
     # How np.histogram works:
     # np.histogram([0,1,2],bins=np.arange(0,3)) == ar[1,2], ar[0,1,2]
     # np.histogram([0,1,2],bins=np.arange(0,4)) == ar[1,1,1], ar[0,1,2,3]
-    hist,_ = np.histogram(bird_locations,bins=range(self.cells+1))
-    assert len(hist)==self.cells
-    assert np.sum(hist) == self.num_birds
+    hist,_ = np.histogram(bird_locations,bins=range(self.get_cells()+1))
+    assert len(hist)==self.get_cells()
+    assert np.sum(hist) == self.params.num_birds
     return hist
-
 
   def year_day_to_bird_locations( self, year, day, hist=False):
     'Return list [cell_index for bird_i], or optionally histogram over cells, for given day'
@@ -691,13 +695,11 @@ class Multinomial(object):
     return bird_id_to_location if not hist else self.get_hist(bird_id_to_location)
 
 
-
   def days_list_to_bird_locations(self, years=None, days=None):
     '''Returns dict { y: { d:histogram of bird positions on y,d}  }
        for y,d in product(years,days) '''
     if years is None: years = self.get_max_observe_range()['years_list']
     if days is None: days = self.get_max_observe_range()['days_list']
-
     
     all_days = product(self.get_max_observe_range()['years_list'],
                        self.get_max_observe_range()['days_list'] )
@@ -716,35 +718,35 @@ class Multinomial(object):
 
 class Poisson(Multinomial):
   
-  ## indicate that object is Poisson and not multinomial
   def get_model_name(self):
     return 'Poisson'
 
   def load_assumes(self):
 
-    ripl = self.ripl    
+    ripl = self.ripl
+    cells = get_cells()
     print "Loading assumes"
     
     ## TODO add option to vary scale
-    if self.learn_hypers:
+    if self.params.learn_hypers:
       ##ripl.assume('scale', '(scope_include (quote hypers) (quote scale) (gamma 1 1))')
-      for k in range(self.num_features):
+      for k in range(self.params.num_features):
         ##ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f (* scale (normal 0 5) ))' % k)
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) %f %s)' %
-                    (k, self.prior_on_hypers[k] ))
+                    (k, self.params.prior_on_hypers[k] ))
 
     else:
-      for k, value_k in enumerate(self.hypers):
+      for k, value_k in enumerate(self.params.hypers):
         ripl.assume('hypers%d' % k, '(scope_include (quote hypers) 0 %f)'%value_k)
 
-    ripl.assume('num_birds', self.num_birds) ## used in *count_birds* (below)
-    ripl.assume('cells', self.cells)
+    ripl.assume('num_birds', self.params.num_birds) ## used in *count_birds* (below)
+    ripl.assume('cells', cells)
 
-    ripl.assume('features', self.features)
-    ripl.assume('phi_constant_beta', self.phi_constant_beta)
+    ripl.assume('features', self.params.features)
+    ripl.assume('phi_constant_beta', self.params.phi_constant_beta)
 
-    ripl.assume('width', self.width)
-    ripl.assume('height', self.height)
+    ripl.assume('width', self.params.width)
+    ripl.assume('height', self.params.height)
     ripl.assume('max_dist_squared', '18.')
 
 ## Distances computed with 'C' order. If (height,width)=(3,4), then
@@ -755,9 +757,9 @@ class Poisson(Multinomial):
 
     def make_cell_row_column_string():
       my_dict = {}
-      for cell_ind in range(self.cells):
+      for cell_ind in range(cells):
         # make the key a tuple for compatibility with *python_features_to_venture_exp*
-        my_dict[ (cell_ind,) ] =  ( cell_ind % self.height, cell_ind / self.height)
+        my_dict[ (cell_ind,) ] =  ( cell_ind % self.params.height, cell_ind / self.params.height)
       return python_features_to_venture_exp( my_dict )
 
     ripl.assume('cell_to_row_column_dict', make_cell_row_column_string())
@@ -789,11 +791,11 @@ class Poisson(Multinomial):
         (if (> (cell_dist_squared i j) max_dist_squared) 0
           (let ((fs (lookup features (array y d i j))))
             (exp (* phi_constant_beta %s) )))))"""
-            % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.num_features))
+            % fold('+', '(* hypers__k (lookup fs __k))', '__k', self.params.num_features))
     
     ripl.assume('sum_phi',
       '(mem (lambda (y d i) ' +
-                fold( '+', '(phi y d i j)', 'j', self.cells) +
+                fold( '+', '(phi y d i j)', 'j', cells) +
                 '))' )
 
     ripl.assume('get_bird_move_prob',
@@ -801,7 +803,7 @@ class Poisson(Multinomial):
                 
     ripl.assume('get_bird_move_dist',
       '(mem (lambda (y d i) ' +
-         fold('simplex', '(get_bird_move_prob y d i j)', 'j', self.cells) +
+         fold('simplex', '(get_bird_move_prob y d i j)', 'j', cells) +
            '))')
     
     
@@ -809,7 +811,7 @@ class Poisson(Multinomial):
     ripl.assume('count_birds', """
       (mem (lambda (y d i)
         (if (= d 0) (if (= i 0) num_birds 0)""" +
-          fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', self.cells) + ")))")
+          fold('+', '(get_birds_moving y (- d 1) __j i)', '__j', cells) + ")))")
     
 
     # bird_movements_loc
@@ -847,10 +849,10 @@ class Poisson(Multinomial):
       (lambda (y d i j)
         ((bird_movements_loc y d i) j))""")
     
-    ripl.assume('get_birds_moving1', '(lambda (y d i) %s)' % fold('array', '(get_birds_moving y d i __j)', '__j', self.cells))
-    ripl.assume('get_birds_moving2', '(lambda (y d) %s)' % fold('array', '(get_birds_moving1 y d __i)', '__i', self.cells))
-    ripl.assume('get_birds_moving3', '(lambda (d) %s)' % fold('array', '(get_birds_moving2 __y d)', '__y', len(self.years)))
-    ripl.assume('get_birds_moving4', '(lambda () %s)' % fold('array', '(get_birds_moving3 __d)', '__d', len(self.days)-1))
+    ripl.assume('get_birds_moving1', '(lambda (y d i) %s)' % fold('array', '(get_birds_moving y d i __j)', '__j', cells))
+    ripl.assume('get_birds_moving2', '(lambda (y d) %s)' % fold('array', '(get_birds_moving1 y d __i)', '__i', cells))
+    ripl.assume('get_birds_moving3', '(lambda (d) %s)' % fold('array', '(get_birds_moving2 __y d)', '__y', len(self.params.years)))
+    ripl.assume('get_birds_moving4', '(lambda () %s)' % fold('array', '(get_birds_moving3 __d)', '__d', len(self.params.days)-1))
 
     self.assumes_loaded = True
 
@@ -862,7 +864,7 @@ class Poisson(Multinomial):
     bird_locations = []
     r = self.ripl
     
-    for i in range(self.cells):
+    for i in range(self.get_cells()):
       bird_locations.append(r.predict('(count_birds %d %d %d)' % (year, day, i)))
       
     return np.array( bird_locations )
