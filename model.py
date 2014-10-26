@@ -260,6 +260,10 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                          params['max_years_for_experiment'], params['max_days_for_experiment'] )
     venture_features_dict, python_features_dict = out
 
+ ## print '\n\n Make params: vent', venture_features_dict['value'].items()[:3]
+ ## print '\n\n Make params: pyth', python_features_dict.items()[:3]
+
+
   params['features'] = venture_features_dict  
   params['features_as_python_dict'] = python_features_dict
 

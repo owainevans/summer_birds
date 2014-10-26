@@ -66,13 +66,11 @@ def ind_to_ij(height, width, index, order='F'):
   return map(int,np.where(grid==index))
 
   
-def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='string'):
+def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='dict'):
 # NOTE: the argument *dict_string* indicates that we default to creating 
 # a Python string for the features_dict rather than a Venture dict.
 # Because of the slow parser, we might need to change this later. 
 
-
-    
   cells = height * width
   latents = product(years,days,range(cells),range(cells))
 
@@ -90,16 +88,15 @@ def make_features_dict(height, width, years, days, feature_functions_name='dista
       assert isinstance(feature_value,(int,float))
       feature_dict[(y,d,cell1,cell2)].append( feature_value )
 
-  # turn features dict into a string or directory into Venture value
+  return python_features_to_string_or_dict(feature_dict, dict_string), feature_dict
+
+
+def python_features_to_string_or_dict( python_features_dict, dict_string='dict'):
   if dict_string=='string':
-      venture_exp = python_features_to_venture_exp( feature_dict)
+      return python_features_to_venture_exp(python_features_dict)
   else:
-      venture_exp = toVenture( feature_dict)
-  return venture_exp, feature_dict
-
-
-
-
+      return toVenture( python_features_dict )
+  
 
 def cell_to_feature(height, width, state, python_features_dict, feature_ind):
   'Given state(y,d,i) and feature index, return feature from features_dict'
@@ -115,7 +112,7 @@ def cell_to_feature(height, width, state, python_features_dict, feature_ind):
 #down the list, one is from readFeatures, another from load_features. might
 #be easiest to have deletions here, or at least make it optional
 
-def load_features(features_file, years_list, days_list, max_year=None, max_day=None):
+def load_features(features_file, years_list, days_list, max_year=None, max_day=None, dict_string='string'):
   'Load features from Birds datasets and convert to Venture dict'
   
   if max_year is None: max_year = max(years_list)
@@ -127,9 +124,7 @@ def load_features(features_file, years_list, days_list, max_year=None, max_day=N
 
   print "Loading features from %s" % features_file  
 
-  
   ## FIXME needs be careful about 0 vs 1 indexing for the year
-
   features = read_features(features_file, max_year, max_day)
   
   for (y, d, i, j) in features.keys():
@@ -138,7 +133,8 @@ def load_features(features_file, years_list, days_list, max_year=None, max_day=N
       outside years_ or days_list. (Strict and safe).'''
       del features[(y, d, i, j)]
   
-  return toVenture(features), features
+  return python_features_to_string_or_dict( features, dict_string='string'), features
+
 
 
 

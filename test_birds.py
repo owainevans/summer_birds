@@ -351,7 +351,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   assert equality_unit( original_unit, copy_unit, verbose), 'loaded copy != original'
 
   # More inference on original unit. 
-  original_unit.ripl.infer(5)
+  original_unit.ripl.infer(10)
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
@@ -360,7 +360,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
+def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='not', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
@@ -385,7 +385,7 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
     ripl_thunks.append( thunk )
 
   if small_model:
-    params_short_names = ('minimal_onestep_diag10',)#'dataset1',)
+    params_short_names = ('minimal_onestep_diag10','dataset1')
   else:
     params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
 
