@@ -157,14 +157,14 @@ def plot_save_bird_locations(unit, years, days, title=None, save=True,
   assert isinstance(years, list)
   assert isinstance(days, list)
   assert order in ('F','C')
-  title = unit.short_name if title is None else title
+  title = unit.params['short_name'] if title is None else title
   bird_locs = unit.days_list_to_bird_locations(years,days)
-  height, width = unit.height, unit.width
+  height, width = unit.params['height'], unit.params['width']
 
   if verbose:
-    features_dict = unit.features_as_python_dict
-    max_years = max(unit.years)
-    max_days = max(unit.days)
+    features_dict = unit.params['features_as_python_dict']
+    max_years = max(unit.params['years'])
+    max_days = max(unit.params['days'])
     assert len(features_dict) <= (height*width)**2 * (max_years+1) * (max_days+1)
 
     dash_line = '\n----------\n'

@@ -120,7 +120,7 @@ def example_make_infer(generate_data_unit, observe_range, ripl_thunk ):
   
   
 def _test_cell_to_prob_dist( unit ):
-  height, width, ripl = unit.height, unit.width, unit.ripl
+  height, width, ripl = unit.params['height'], unit.params['width'], unit.ripl
   cells = height * width
   for cell in range(cells):
     grid = cell_to_prob_dist( height, width, ripl, cell, 0, 0, order='F' )
@@ -142,7 +142,7 @@ def _test_model( unit ):
   if not isinstance(unit,Poisson):
     pos_day1 = unit.ripl.predict('(get_bird_pos 0 0 1)')
     count_pos_day1 = unit.ripl.predict('(count_birds 0 1 %i)'%pos_day1)
-    assert 1 <= count_pos_day1 <= unit.num_birds
+    assert 1 <= count_pos_day1 <= unit.params['num_birds']
 
     # assuming all birds start at zero on d=0
     eq_( unit.ripl.predict('(move 0 0 0 0)'), pos_day1 )
@@ -312,7 +312,7 @@ def _test_save_images(unit, del_images=True):
 def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, verbose=False):
   'Save and Load Methods for unit instance. Test object equality.'
   
-  def equality_unit(u1, u2):
+  def equality_unit(u1, u2, verbose):
     'Equality for Unit objects with predict'
 
     def test_equality(u1,u2):
@@ -326,64 +326,42 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
         if directive1 != directive2:
           print 'Failed equality', directive1, directive2
           return False
-
+    
+    if verbose: print_random_draws(u1,u2)
     return True if test_equality(u1,u2) else find_unequal_directive(u1,u2)
 
 
   def print_random_draws(u1, u2):
-    print 'compare beta(1 1)',
-    print map( lambda u: u.ripl.sample('(beta 1 1)'), (u1,u2) )
+    print '\n Compare units on beta(1 1)'
+    print map(lambda u: u.ripl.sample('(beta 1 1)'), (u1,u2) )
 
 
   def make_unit_with_predict():
     unit = model_constructor( ripl_thunk(), make_params_thunk() )
     triples = product( range(2), range(2), range(2) )
     for y,d,i in triples:
-      if (y,d,i,0) in unit.features_as_python_dict:
+      if (y,d,i,0) in unit.params['features_as_python_dict']:
         unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i) )
     return unit
     
+  # Create unit and initialize with infer(1)
   original_unit = make_unit_with_predict()
-  original_unit.ripl.infer(5)
+  original_unit.ripl.infer(1)
   original_filename = original_unit.save('temp_test')
-    
   copy_unit = make_unit_with_predict().make_saved_model(original_filename)
   
-  # loaded copy equals original
-  print 'backends:\n'
-  print map(lambda u: u.ripl.backend(), (original_unit, copy_unit) )
-  assert equality_unit( original_unit, original_unit)
-  assert equality_unit( original_unit, copy_unit)
+  assert equality_unit( original_unit, original_unit, verbose), 'orginal != original'
+  assert equality_unit( original_unit, copy_unit, verbose), 'loaded copy != original'
 
-  if verbose: print_random_draws( original_unit, copy_unit)
-
-  # do more inference on original unit. save and load. assert unequal.
+  # More inference on original unit. 
   original_unit.ripl.infer(5)
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
-  # updated original unit equals loaded copy of it
-  assert equality_unit( original_unit, copy_unit_more_infer)
-  if verbose: print_random_draws( original_unit, copy_unit_more_infer)
-
-  # copy of updated original unit not equal to copy of non-updated
-
-  true_false = equality_unit( copy_unit, copy_unit_more_infer)
-  if verbose:
-    print 'equality(original copy, copy with more infer)= %s' % true_false
-    print_random_draws( copy_unit, copy_unit_more_infer)
+  assert equality_unit( original_unit, copy_unit_more_infer, verbose), 'updated original!=loaded copy'
+  assert not equality_unit( copy_unit, copy_unit_more_infer, verbose), 'copy of updated original==non_updated copy'
   
-  # but they do have same params and all but predicts
-  copies = ( copy_unit, copy_unit_more_infer )
-  assert copies[0].params == copies[1].params
-  
-  directives = [u.ripl.list_directives() for u in copies]
-                                                  
-  for d1,d2 in zip(*directives):
-    if d1['instruction']!='predict':
-      assert d1 == d2
-
-
+    
 
 def test_all_unit_params( puma = True, quick_test = True,
                           random_quick_test = True):
