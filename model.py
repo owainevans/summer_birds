@@ -573,7 +573,7 @@ class Multinomial(object):
 
     
     ripl.assume('features', self.params['features'])
-    ripl.assume('num_birds',self.params['num_birds'])
+    ripl.assume('num_birds', self.params['num_birds'])
     
     bird_ids = ' '.join(map(str,range(self.params['num_birds']))) # multibird only
     ripl.assume('bird_ids','(list %s)'%bird_ids) # multibird only

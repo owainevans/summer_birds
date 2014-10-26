@@ -363,8 +363,9 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( puma = True, quick_test = True,
-                          random_quick_test = True):
+def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
+
+  random_mode = True if random_or_exhaustive=='random' else False
 
   # tests that take unit object (with ripl) as input
   tests_unit =  (_test_model,
@@ -380,54 +381,46 @@ def test_all_unit_params( puma = True, quick_test = True,
                            _test_make_infer)
 
   models = (Multinomial, Poisson)
+  
+  ripl_thunks = []
+  for backend in backends:
+    thunk = mk_p_ripl if backend=='puma' else mk_l_ripl
+    ripl_thunks.append( thunk )
 
-  ripl_thunks = (mk_p_ripl, mk_l_ripl) if not puma else (mk_p_ripl,)
-  ripl_thunks = (mk_l_ripl,)
-
-  if quick_test:
+  if small_model:
     params_short_names = ('minimal_onestep_diag10','dataset1',)
   else:
-    params_short_names = ('minimal_onestep_diag10', 'test_medium_onestep_diag105')
+    params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
 
   make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
 
+  rand_draw = lambda seq: seq[ np.random.randint(len(seq)) ]
+
+
+
+  ## Run tests_unit   
+  unit_args = [el for el in product( tests_unit, models, params_short_names, ripl_thunks)]
+  if random_mode:
+    unit_args = [ rand_draw(unit_args) ]
   
-  if random_quick_test:
-    
-    rand_draw = lambda seq: seq[ np.random.randint(len(seq)) ]
-    
-    for test in tests_unit:
-      unit_instance = map(rand_draw,(models,ripl_thunks,params_short_names))
-      yield test, make_unit_instance(*unit_instance)
-      
-    for test in tests_unit_ripl_thunk:
-      unit_instance = map(rand_draw,(models,ripl_thunks,params_short_names))
-      ripl_thunk = unit_instance[1]
-      yield test, make_unit_instance(*unit_instance), ripl_thunk
+  for test, model, params_short_name, ripl_thunk in unit_args:
+    yield test, make_unit_instance(model, ripl_thunk, params_short_name)
 
-    args = map(rand_draw,(models,ripl_thunks,make_params_thunks))
 
-    yield  _test_save_load_model, args[0], args[1], args[2]
-      
-  else:
-    unit_product = product( tests_unit, models, params_short_names, ripl_thunks)
+  ## Run tests_unit_thunk
+  unit_args = [el for el in product( tests_unit_ripl_thunk, models, params_short_names, ripl_thunks)]
+  if random_mode:
+    unit_args = [ rand_draw(unit_args) ]
   
-    for test, model, params_short_name, ripl_thunk in unit_product:
-      yield test, make_unit_instance(model, ripl_thunk, params_short_name)
-
-
-      unit_thunk_product = product( tests_unit_ripl_thunk,
-                                models,
-                                params_short_names,
-                                ripl_thunks)
-  
-    for test, model, params_short_name, ripl_thunk in unit_thunk_product:
-        yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
+  for test, model, params_short_name, ripl_thunk in unit_args:
+    yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
 
 
   # special case test that takes ripl_thunk and make_params_thunk
-  
-    for ripl_thunk, make_params_thunk in product( models, ripl_thunks, make_params_thunks):
+  args = [el for el in product( models, ripl_thunks, make_params_thunks)]
+  if random_mode:
+    args = [ rand_draw(args) ]
+  for model, ripl_thunk, make_params_thunk in args:
       yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
 
@@ -492,7 +485,7 @@ def run_nose_generative( test ):
 
 
       
-def run_all( quick_test = True):
+def run_all(kwargs = None):
   
   regular_tests =  ( test_make_features_dict, 
                      test_features_functions,
@@ -506,9 +499,8 @@ def run_all( quick_test = True):
     test_time = display_timeit_run( t, t )
     
     test_times[ t.__name__ ] = test_time
-
   
-  generative_tests = ( lambda: test_all_unit_params( quick_test = quick_test), )
+    generative_tests = ( lambda: test_all_unit_params( ), )
 
   for t in generative_tests:
     test_times.update( run_nose_generative( t ) )
