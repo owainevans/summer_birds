@@ -99,9 +99,11 @@ def loadObservations(ripl, dataset, name, years, days):
 # filename determined by *long_name* unit attribute
 # *observe_range* defaults to max range
 def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
-
-  unit.ensure_assumes()  # assumes need to be loaded to get observes
   
+  # assumes need to be loaded to get observes
+  unit.ensure_assumes()  
+ 
+  # check *observe_range* and fill in *None* values
   max_observe_range = unit.get_max_observe_range();
   if observe_range is None:
     observe_range = max_observe_range
@@ -116,30 +118,18 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   # Observed (noisy) and ground-truth bird counts
   observe_counts={}
   gtruth_counts={}
-  
-  # alternate way to get gtruth counts
-  bird_locs = unit.days_list_to_bird_locations( observe_range['years_list'],
-                                                observe_range['days_list'])
+  ripl = unit.ripl
 
-  year_day_cell_triples = product( *map( lambda k: observe_range[k],
-                                         ('years_list','days_list','cells_list') ) )
-  
-  for y,d,i in year_day_cell_triples:
-
-    gtruth_counts[(y,d,i)] = unit.ripl.predict('(count_birds %i %i %i)'%(y,d,i))
-    observe_counts[(y,d,i)] = unit.ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
+  for y,d,i in observe_range.get_year_day_cell_product():
+    gtruth_counts[(y,d,i)] = ripl.predict('(count_birds %i %i %i)'%(y,d,i))
+    observe_counts[(y,d,i)] = ripl.predict('(observe_birds %i %i %i)'%(y,d,i))
     
     # (observe_birds y d i) is (poisson epsilon) if count for (y,d,i)=0.
     # (See Venture programs)
     if gtruth_counts[(y,d,i)] == 0 and observe_counts[(y,d,i)] > 0:
       assert False, 'gtruth_counts[%s] == 0 and observe_counts[%s] > 0' % str((y,d,i) )
 
-    # Check that *get_bird_locations* matches results from using *predict* directly
-    # to get ground-truth bird counts      
-    assert int( gtruth_counts[(y,d,i)] )==int( bird_locs[y][d][i] )
   
-
-
   # PICKLE AND STORE COUNTS
 
   # Generate filenames based on *unit.parameters.long_name*.
@@ -151,18 +141,11 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   store_dict_filename = full_directory + params['long_name'] + '.dat'
   draw_bird_filename =  full_directory + params['long_name'] + '.png'
 
-  title = 'fig for: ',unit.short_name
-  fig_ax = plot_save_bird_locations(unit,
-                                    title,
-                                    observe_range['years_list'],
-                                    observe_range['days_list'],
-                                    plot=True,
-                                    save=True,
-                                    order='F',
-                                    verbose=True,
-                                    directory_filename = (full_directory,
-                                                          draw_bird_filename) )
-
+  years = observe_range['years_list']
+  days = observe_range['days_list']
+  directory_filename = (full_directory, draw_bird_filename)
+  fig_ax = plot_save_bird_locations(unit, years, days, plot=True, save=True, directory_filename)
+                                    
   # Build dict of parameters, *observe_range* and counts,
   # along with groundtruth *bird_locs* and pickle to file.
 
@@ -178,8 +161,6 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
   ## return filename for use running inference on synthetic data.
   return store_dict_filename, draw_bird_filename 
-
-
 
 
 
@@ -199,15 +180,9 @@ def load_observes(unit, load_observe_range,
   else:
     load_observe_range.assert_is_observe_sub_range(observe_range)
 
-
-  def unit_observe(unit, y, d, i, count_i):
+  for y,d,i in observe_range.get_year_day_cell_product:
+    count_i = observe_counts[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
-
-  year_day_cell_triples = product( *map( lambda k:load_observe_range[k],
-                                         ('years_list','days_list','cells_list') ) )
-
-  for y,d,i in year_day_cell_triples:
-    unit_observe(unit,y,d,i,observe_counts[(y,d,i)])
   
   print 'Loaded all observes'
 

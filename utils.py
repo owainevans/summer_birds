@@ -114,7 +114,9 @@ class Observe_range(dict):
     self['days_list'] = days_list
     self['years_list'] = years_list
     self['cells_list'] = cells_list
-    
+  def get_year_day_cell_product(self):
+    return product(self['years_list'], self['days_list'],self['cells_list'] )
+
   def assert_is_observe_sub_range(self, bigger_observe_range):
     for k,v in self.items():
       assert v is not None
@@ -149,8 +151,8 @@ def make_grid(height,width,top0=True,lst=None,order='F'):
     return grid_mat
 
 
-def plot_save_bird_locations(unit, title, years, days, save=True,
-                             plot=True, order=None, verbose=False, directory_filename=None):
+def plot_save_bird_locations(unit, years, days, title=None, save=True,
+                             plot=True, order='F', verbose=False, directory_filename=None):
 
   assert isinstance(years, list)
   assert isinstance(days, list)

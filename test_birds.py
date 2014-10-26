@@ -301,7 +301,7 @@ def _test_save_images(unit, del_images=True):
   directory = 'tmp_test_bird_moves_/'
   filename = directory + 'temp_test_save.png'
   #os.chdir('~/summer_birds')
-  plot_save_bird_locations(unit, 'test', years, days, save=True, order='F', verbose=True,
+  plot_save_bird_locations(unit, years, days, title='test', save=True, order='F', verbose=True,
                            directory_filename = (directory, filename) )
   assert os.path.exists( directory)
   if del_images: subprocess.call(['rm','-r',directory])
