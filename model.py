@@ -114,6 +114,7 @@ def computeScoreDay(d):
     
       return score
   
+
 def computeScore():
   infer_bird_moves = self.getBirdMoves()
   score = 0
@@ -376,8 +377,6 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
 
 # UTILS FOR MAKING INFER UNIT OBJECTS BASED ON SAVED OBSERVES
 
-
-
 def update_names(generated_data_params):  
   short_name = 'infer__' + generated_data_params['short_name']
   long_name = generated_data_params['long_name'].replace('gen','infer')
@@ -448,12 +447,10 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constru
   if observe_range is not None:
     assert isinstance(observe_range, Observe_range)
   
-  generate_data_params = generate_data_unit.params
-  
   generate_data_store_dict_filename, _ = store_observes(generate_data_unit, observe_range)
 
   ## NOTE THIS PRIOR MAKE HYPERS [1,0] easy to learn
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_params['num_features']
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
   infer_unit = make_infer_unit_and_observe_defaults( generate_data_store_dict_filename,
                                                      prior_on_hypers,
                                                      ripl_thunk,
@@ -462,6 +459,7 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constru
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
 
+
 def _default_test_inference():
   model_constructor = Multinomial
   ripl_thunk = mk_p_ripl
@@ -469,6 +467,22 @@ def _default_test_inference():
   generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
 
   observe_range = None ## for max range
+  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
+  
+  for _ in range(4):
+    infer_unit.ripl.infer(20)
+    print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
+  return infer_unit
+
+
+def _test_incremental():
+  model_constructor = Multinomial
+  ripl_thunk = mk_p_ripl
+  params_short_name = 'minimal_onestep_diag10'
+  generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+
+  cells = generate_data_unit.cells
+  observe_range = Observe_range(days_list=[0],years_list=[0],cells_list=range(cells))
   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
   
   for _ in range(4):
@@ -494,8 +508,32 @@ def compare_hypers(gtruth_unit,inferred_unit):
 
   return hypers,logscores,mse_pair
 
+
+def inference_prog( unit, year, day, cell):
+  unit.ripl.infer(3)
+
   
+def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False):
   
+  cells_list = observe_range['cells_list']
+  
+  for year in observe_range['years_list']:
+    for day in observe_range['days_list']:
+
+      if not infer_every_cell:
+        observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
+        load_observes( unit, observe_sub_range, False, observes_filename) # slow coz reading file every time
+        inference_prog( unit, year, day, 'all')
+
+      else:
+        for cell in observe_range['cells_list']:
+          observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=[cell])
+          load_observes( unit, observe_sub_range, False, observes_filename)
+          inference_prog( unit, year, day, cell)
+  
+def test_inc():
+  
+  incremental_observe_infer
 
 
 
