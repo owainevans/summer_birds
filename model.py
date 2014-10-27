@@ -12,6 +12,10 @@ import numpy as np
 
 ### PLAN NOTES
 
+## TODO get incremental working, have proper tests for incremental inference. only load from file once
+## for a suite of tests (for speed). 
+
+
 # keep in mind:
 # tasks: reconstruction of latent states, prediction, param inference (onebird / poisson)
 # params for inference: (depends on space of inference progs)
@@ -19,7 +23,7 @@ import numpy as np
 ## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
 ## EXP RUNNER AND BEING ABLE TO INTEGRATE WITH THAT
 
-## GET LOAD OBSERVATIONS FROM dataset WORKIN
+
 
 
 # verbosity
@@ -478,17 +482,20 @@ def _default_test_inference():
 def _test_incremental():
   model_constructor = Multinomial
   ripl_thunk = mk_p_ripl
-  params_short_name = 'minimal_onestep_diag10'
+  params_short_name = 'bigger_onestep_diag105'
   generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
 
+  full_observe_range = generate_data_unit.get_max_observe_range()
+  generate_data_filename, _ = store_observes(generate_data_unit, full_observe_range)
+  
   cells = generate_data_unit.cells
   observe_range = Observe_range(days_list=[0],years_list=[0],cells_list=range(cells))
-  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
+  prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
   
-  for _ in range(4):
-    infer_unit.ripl.infer(20)
-    print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
-  return infer_unit
+  infer_unit = make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor) 
+
+  incremental_observe_infer(infer_unit, generate_data_filename, observe_range, inference_prog, infer_every_cell=False)
+
 
 
 def compare_hypers(gtruth_unit,inferred_unit):
@@ -502,15 +509,17 @@ def compare_hypers(gtruth_unit,inferred_unit):
   logscores = []
   
   for r in (gtruth_unit.ripl, inferred_unit.ripl):
-    hypers.append( get_hypers(r, gtruth_unit.num_features))
+    hypers.append( get_hypers(r, gtruth_unit.params['num_features']))
     logscores.append( r.get_global_logscore() )
   mse_pair = mse(*hypers)
 
   return hypers,logscores,mse_pair
 
 
-def inference_prog( unit, year, day, cell):
-  unit.ripl.infer(3)
+def inference_prog( unit, year, day, cell, gtruth_unit=None):
+  unit.ripl.infer(10)
+  if gtruth_unit:
+    compare_hypers(gtruth_unit, unit)
 
   
 def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False):
@@ -531,9 +540,7 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
           load_observes( unit, observe_sub_range, False, observes_filename)
           inference_prog( unit, year, day, cell)
   
-def test_inc():
-  
-  incremental_observe_infer
+
 
 
 
