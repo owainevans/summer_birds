@@ -365,17 +365,17 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', sma
   random_mode = True if random_or_exhaustive=='random' else False
 
   # tests that take unit object (with ripl) as input
-  tests_unit =  (_test_model,
-                 _test_cell_to_prob_dist,
-                 _test_memoization_observe,
-                 _test_save_images, )
+  tests_one_ripl =  (_test_model,
+                     _test_cell_to_prob_dist,
+                     _test_memoization_observe,
+                     _test_save_images, )
   
   # tests that take unit object and a separate ripl_thunk
   # e.g. for loading saved observes onto a new ripl
   # -- allows for mixing up backends (which we don't test currently)
-  tests_unit_ripl_thunk = (_test_load_observations,
-                           _test_incremental_load_observations,
-                           _test_make_infer)
+  tests_two_ripls = (_test_load_observations,
+                     _test_incremental_load_observations,
+                     _test_make_infer)
 
   models = (Multinomial, Poisson)
   
@@ -393,26 +393,46 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', sma
 
   rand_draw = lambda seq: seq[ np.random.randint(len(seq)) ]
 
+  def get_test_unit_args(tests, models, params_short_names, ripl_thunks):
+    all_unit_args = [e for e in product(models, params_short_names, ripl_thunks)]
+    test_unit_args = []
 
+    for test in tests:
+      unit_args = [rand_draw(all_unit_args)] if random_mode else all_unit_args      
+      for model, params, ripl in unit_args:
+          test_unit_args.append((test, model, params, ripl))
+          
+    return test_unit_args
+                    
+  # run_tests('one_ripl', tests_one_ripl, models, params_short_names, ripl_thunks)
+  # run_tests('two_ripls', tests_two_ripls, models, params_short_names, ripl_thunks)
+  test_unit_args = get_test_unit_args(tests_one_ripl, models, params_short_names, ripl_thunks)
+  for test,model,params,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params)
 
-  ## Run tests_unit   
-  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
+  test_unit_args = get_test_unit_args(tests_two_ripls, models, params_short_names, ripl_thunks)
+  for test,model,params,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params), ripl
   
-  for test in tests_unit:
-    if random_mode:
-      unit_args = [ rand_draw(unit_args) ]
-    for model, params_short_name, ripl_thunk in unit_args:
-      yield test, make_unit_instance(model, ripl_thunk, params_short_name)
-
-
-  ## Run tests_unit_thunk
-  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
   
-  for test in tests_unit_ripl_thunk:
-    if random_mode:
-      unit_args = [ rand_draw(unit_args) ]
-    for model, params_short_name, ripl_thunk in unit_args:
-      yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
+  # ## Run tests_unit   
+  # unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
+  
+  # for test in tests_one_ripl:
+  #   if random_mode:
+  #     unit_args = [ rand_draw(unit_args) ]
+  #   for model, params_short_name, ripl_thunk in unit_args:
+  #     yield test, make_unit_instance(model, ripl_thunk, params_short_name)
+
+
+  # ## Run tests_unit_thunk
+  # unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
+  
+  # for test in tests_two_ripls:
+  #   if random_mode:
+  #     unit_args = [ rand_draw(unit_args) ]
+  #   for model, params_short_name, ripl_thunk in unit_args:
+  #     yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
 
 
   # special case test that takes ripl_thunk and make_params_thunk
@@ -422,7 +442,13 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', sma
   for model, ripl_thunk, make_params_thunk in args:
       yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
+  # run Poisson-only (big num_birds) datasets
+  many_birds_short_name = ('poisson_onestep_diag105', 'dataset2')
+  tests = (_test_incremental_load_observations,)
+  models = (Poisson,)
+  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
 
+  
 
 
 def _test_load_features_multinomial( ):

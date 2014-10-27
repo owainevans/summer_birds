@@ -50,7 +50,7 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'days': range(20),
                             'width':10,
                             'height':10,
-                            'num_birds': 30,  ## FIXME FIXME
+                            'num_birds': 1000, 
                             'num_features': 4,
                             'hypers': [5,10,10,10],
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,

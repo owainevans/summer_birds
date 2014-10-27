@@ -259,8 +259,6 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
                          params['max_years_for_experiment'], params['max_days_for_experiment'] )
     venture_features_dict, python_features_dict = out
 
-
-
   params['features'] = venture_features_dict  
   params['features_as_python_dict'] = python_features_dict
 
@@ -390,6 +388,7 @@ def make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_c
   infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
   return infer_unit
+
 
 
 
