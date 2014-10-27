@@ -360,7 +360,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', small_model = True):
+def test_all_unit_params( backends=('puma',), random_or_exhaustive='not', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
@@ -414,7 +414,15 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', sma
   for test,model,params,ripl in test_unit_args:
     yield test, make_unit_instance(model, ripl, params), ripl
   
+  # run Poisson-only (big num_birds) datasets  
+  many_birds_short_names = ('dataset2',) #('poisson_onestep_diag105',)# 'dataset2')
+  tests = (_test_load_observations,)
+  models = (Poisson,)
+  test_unit_args = get_test_unit_args(tests, models, many_birds_short_names, ripl_thunks)
+  for test,model,params,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params), ripl
   
+
   # ## Run tests_unit   
   # unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
   
@@ -442,14 +450,9 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='random', sma
   for model, ripl_thunk, make_params_thunk in args:
       yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
-  # run Poisson-only (big num_birds) datasets
-  many_birds_short_name = ('poisson_onestep_diag105', 'dataset2')
-  tests = (_test_incremental_load_observations,)
-  models = (Poisson,)
-  unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
 
   
-
+  
 
 def _test_load_features_multinomial( ):
   # verify that make_features generates equivalent strings and dicts
