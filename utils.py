@@ -38,7 +38,7 @@ def read_features(filename, max_year, max_day):
   
   for i,row in enumerate(csv[1:]):
     
-    ## FIXME: assumes keys are len 4
+    ## TODO: assumes keys are len 4
     ## NOTE converstion from MATLAB 1 indexing to zero indexing
     keys = tuple( int(k)-1 for k in row[:4])
     year, day = keys[:2]
@@ -59,14 +59,17 @@ def read_features(filename, max_year, max_day):
                                                                     
   return data
 
-def readObservations(filename):
+def read_observations(filename):
+  # structure of csv:
+  # row: year,day, observed_birds_cell0, observed_birds_cell1, etc.
+
   csv = loadCSV(filename)
   years = {}
-  
+
   for row in csv[1:]:
     [year, day] = map(int, row[:2])
     cells = map(float, row[2:])
-    update(years, year-1, (day-1, cells))
+    update(years, year-1, (day-1, cells)) ## 1 to 0-indexing
   
   return years
 

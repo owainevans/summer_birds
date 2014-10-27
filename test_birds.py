@@ -13,6 +13,8 @@ from synthetic import get_multinomial_params
 from model import *
 
 
+# venture value dicts (python/lib
+
 def test_make_grid():
   'Makes 2D grid from list using F or C order'
   mk_array = lambda ar: np.array(ar,np.int32)
@@ -250,7 +252,7 @@ def load_observations_vars(generate_data_unit, ripl_thunk):
 def register_observes( ripl ):
   ripl.infer(1)
 
-  
+
 def _test_load_observations( generate_data_unit, ripl_thunk ):
                                                                             
   observe_range, store_dict_filename, infer_unit = load_observations_vars( generate_data_unit,
@@ -292,6 +294,37 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
     compare_observes( generate_data_unit, infer_unit, year_day_cell_iter)
             
     
+
+def _test_dataset_load_observations(ripl_thunk):
+
+  def load_check_directives(unit, dataset_number, name, observe_sub_range, use_range_defaults):
+    dataset_load_observations(unit, dataset_number, name, observe_sub_range, use_range_defaults)
+    register_observes( unit.ripl)
+    last_directive = unit.ripl.list_directives()[-1]
+    eq_(last_directive['instruction'], 'observe')
+    assert isinstance(last_directive['value'], (float,int))
+
+  ## Dataset 1: Multinomial model
+  dataset_short_name = 'dataset1'
+  unit = Multinomial( ripl_thunk(), make_params(dataset_short_name))
+  name = 'onebird'
+  observe_sub_range = None
+  use_range_defaults = True
+  load_check_directives(unit, 1, name, observe_sub_range,
+                        use_range_defaults)
+
+ # FIXME TOO SLOW FOR NOW
+ # Dataset 2/3: Poisson model
+  # for dataset_short_name in ('dataset2',):
+  #   dataset_number = int(dataset_short_name[-1])
+  #   unit = Poisson( ripl_thunk(), make_params(dataset_short_name) )
+  #   name = '10x10x1000-train'
+  #   observe_sub_range = Observe_range(years_list=range(1), days_list=range(1),
+  #                                     cells_list=range(unit.cells))
+  #   use_range_defaults = False
+  #   load_check_directives(unit, dataset_number, name, observe_sub_range, use_range_defaults)
+
+
      
 def _test_save_images(unit, del_images=True):
   years = range(1)
@@ -360,7 +393,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma',), random_or_exhaustive='not', small_model = True):
+def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
@@ -385,13 +418,14 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='not', small_
     ripl_thunks.append( thunk )
 
   if small_model:
-    params_short_names = ('minimal_onestep_diag10',)#'dataset1')
+    params_short_names = ('minimal_onestep_diag10',) 
   else:
     params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
 
   make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
 
   rand_draw = lambda seq: seq[ np.random.randint(len(seq)) ]
+
 
   def get_test_unit_args(tests, models, params_short_names, ripl_thunks):
     all_unit_args = [e for e in product(models, params_short_names, ripl_thunks)]
@@ -404,53 +438,38 @@ def test_all_unit_params( backends=('puma',), random_or_exhaustive='not', small_
           
     return test_unit_args
                     
-  # run_tests('one_ripl', tests_one_ripl, models, params_short_names, ripl_thunks)
-  # run_tests('two_ripls', tests_two_ripls, models, params_short_names, ripl_thunks)
+  ## run *tests_one_ripl*
   test_unit_args = get_test_unit_args(tests_one_ripl, models, params_short_names, ripl_thunks)
   for test,model,params,ripl in test_unit_args:
     yield test, make_unit_instance(model, ripl, params)
 
+  ## run *tests_two_ripls*
   test_unit_args = get_test_unit_args(tests_two_ripls, models, params_short_names, ripl_thunks)
   for test,model,params,ripl in test_unit_args:
     yield test, make_unit_instance(model, ripl, params), ripl
   
+
+  ## FIXME: TOO SLOW, NOT RUNNING YET
   # run Poisson-only (big num_birds) datasets  
-  many_birds_short_names = ('dataset2',) #('poisson_onestep_diag105',)# 'dataset2')
-  tests = (_test_load_observations,)
-  models = (Poisson,)
-  test_unit_args = get_test_unit_args(tests, models, many_birds_short_names, ripl_thunks)
-  for test,model,params,ripl in test_unit_args:
-    yield test, make_unit_instance(model, ripl, params), ripl
+  # many_birds_short_names = ('poisson_onestep_diag105', 'dataset2')
+  # tests = (_test_incremental_load_observations,)
+  # models = (Poisson,)
+  # test_unit_args = get_test_unit_args(tests, models, many_birds_short_names, ripl_thunks)
+  # for test,model,params,ripl in test_unit_args:
+  #   yield test, make_unit_instance(model, ripl, params), ripl
   
 
-  # ## Run tests_unit   
-  # unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
-  
-  # for test in tests_one_ripl:
-  #   if random_mode:
-  #     unit_args = [ rand_draw(unit_args) ]
-  #   for model, params_short_name, ripl_thunk in unit_args:
-  #     yield test, make_unit_instance(model, ripl_thunk, params_short_name)
 
-
-  # ## Run tests_unit_thunk
-  # unit_args = [el for el in product( models, params_short_names, ripl_thunks)]
-  
-  # for test in tests_two_ripls:
-  #   if random_mode:
-  #     unit_args = [ rand_draw(unit_args) ]
-  #   for model, params_short_name, ripl_thunk in unit_args:
-  #     yield test, make_unit_instance(model, ripl_thunk, params_short_name), ripl_thunk
-
-
-  # special case test that takes ripl_thunk and make_params_thunk
+  ## special case test that takes ripl_thunk and make_params_thunk
   args = [el for el in product( models, ripl_thunks, make_params_thunks)]
   if random_mode:
     args = [ rand_draw(args) ]
   for model, ripl_thunk, make_params_thunk in args:
       yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
-
+  ## special case test that takes ripl_thunk only
+  for ripl_thunk in ripl_thunks:
+    yield _test_dataset_load_observations, ripl_thunk
   
   
 

@@ -77,16 +77,51 @@ def day_features(features,width,y=0,d=0):
   return lst
 
 
-def loadObservations(ripl, dataset, name, years, days):
+def dataset_load_observations(unit, dataset, name, load_observe_sub_range, use_range_defaults):
   'Load observations from Birds dataset'
+  
+  unit.ensure_assumes()
+
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
-  observations = readObservations(observations_file)
+  observations = read_observations(observations_file)
+
+  default_observe_range = unit.get_max_observe_range()
+
+  if use_range_defaults:
+    load_observe_sub_range = default_observe_range
+  else:
+    load_observe_sub_range.assert_is_observe_sub_range(default_observe_range)
+
+  years = load_observe_sub_range['years_list']
+  days = load_observe_sub_range['days_list']
 
   for y in years:
-    for (d, ns) in observations[y]:
+    for (d, bird_counts_list) in observations[y]:
       if d not in days: continue
-      for i, n in enumerate(ns):
-        ripl.observe('(observe_birds %d %d %d)' % (y, d, i), n)
+      for cell_index, bird_count in enumerate(bird_counts_list):
+        unit.ripl.observe('(observe_birds %d %d %d)'%(y,d,cell_index), bird_count)
+
+
+
+def computeScoreDay(d):
+  bird_moves = self.ripl.sample('(get_birds_moving3 %d)' % d)
+  score = 0
+    
+  for y in self.years:
+    for i in range(self.cells):
+      for j in range(self.cells):
+        score += (bird_moves[y][i][j] - self.ground[(y, d, i, j)]) ** 2
+    
+      return score
+  
+def computeScore():
+  infer_bird_moves = self.getBirdMoves()
+  score = 0
+    
+  for key in infer_bird_moves:
+    score += (infer_bird_moves[key] - self.ground[key]) ** 2
+
+  return score
 
 
 
