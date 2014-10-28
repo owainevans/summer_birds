@@ -52,7 +52,7 @@ import numpy as np
 
 
 
-# ASK AXCH, VLAD, ANTHONY
+# TODO
 # 1. better way of serializing figures (so you can unpickle and display the figure in figure window). ideally
 # we would just pickle one table containing observes, params, unit.ripl and figures. then loading is simply
 # one unpickling. anthony: can we use save/load methods to define a pickling method for ripls?
@@ -206,15 +206,18 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 def load_observes(unit, load_observe_sub_range,
-                  use_range_defaults, store_dict_filename):
+                  use_range_defaults, store_dict_filename, observe_counts=None):
 
   unit.ensure_assumes()
-  
-  with open(store_dict_filename,'r') as f:
-     store_dict = pickle.load(f)
+ 
+  if observe_counts is None:
+    with open(store_dict_filename,'r') as f:
+      store_dict = pickle.load(f)
     
-  observe_counts = store_dict['observe_counts']
-  default_observe_range = Observe_range(**store_dict['observe_range']) ## since we pickle dict, not instance
+      observe_counts = store_dict['observe_counts']
+      default_observe_range = Observe_range(**store_dict['observe_range']) ## since we pickle dict, not instance
+  else:
+    default_observe_range = unit.get_max_observe_range()
 
   if use_range_defaults:
     load_observe_sub_range = default_observe_range
@@ -489,12 +492,12 @@ def _test_incremental():
   generate_data_filename, _ = store_observes(generate_data_unit, full_observe_range)
   
   cells = generate_data_unit.cells
-  observe_range = Observe_range(days_list=[0],years_list=[0],cells_list=range(cells))
+  observe_range = Observe_range(days_list=range(2),years_list=[0],cells_list=range(cells))
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
   
   infer_unit = make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor) 
 
-  incremental_observe_infer(infer_unit, generate_data_filename, observe_range, inference_prog, infer_every_cell=False)
+  incremental_observe_infer(infer_unit, generate_data_filename, observe_range, inference_prog, infer_every_cell=True, gtruth_unit = generate_data_unit)
 
 
 
@@ -519,10 +522,10 @@ def compare_hypers(gtruth_unit,inferred_unit):
 def inference_prog( unit, year, day, cell, gtruth_unit=None):
   unit.ripl.infer(10)
   if gtruth_unit:
-    compare_hypers(gtruth_unit, unit)
+    print 'hypers, logscores, mse',compare_hypers(gtruth_unit, unit)
 
   
-def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False):
+def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False, gtruth_unit = None):
   
   cells_list = observe_range['cells_list']
   
@@ -530,15 +533,16 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
     for day in observe_range['days_list']:
 
       if not infer_every_cell:
+        print '\n inc,', year, day, gtruth_unit
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
         load_observes( unit, observe_sub_range, False, observes_filename) # slow coz reading file every time
-        inference_prog( unit, year, day, 'all')
+        inference_prog( unit, year, day, 'all', gtruth_unit)
 
       else:
         for cell in observe_range['cells_list']:
           observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=[cell])
           load_observes( unit, observe_sub_range, False, observes_filename)
-          inference_prog( unit, year, day, cell)
+          inference_prog( unit, year, day, cell, gtruth_unit)
   
 
 

@@ -252,7 +252,6 @@ def plot_save_bird_locations(unit, years, days, title=None, save=True,
       grid = grids[(y,d)]
       big_im = misc.imresize(grid,(200,200))
       misc.imsave(directory+'imsave_%02d.png'%d, big_im)
-      print '\n Saved bird location images in %s \n'%directory
 
   return (fig,ax) if plot else None
 
