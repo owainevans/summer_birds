@@ -388,8 +388,11 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   filename_more_infer = original_unit.save('temp_test_more_infer')
   copy_unit_more_infer = make_unit_with_predict().make_saved_model(filename_more_infer)
 
-  assert equality_unit( original_unit, copy_unit_more_infer, verbose), 'updated original!=loaded copy'
-  assert not equality_unit( copy_unit, copy_unit_more_infer, verbose), 'copy of updated original==non_updated copy'
+  assert equality_unit( original_unit, copy_unit_more_infer, verbose), 'updated original!=loaded copy of updated original'
+  ## inference will often (not always) produce diverging copies
+  ## (we don't assert this, but calling equality_unit allows us
+  ## to find different directives if they exist)
+  equality_unit( copy_unit, copy_unit_more_infer, verbose)
   
     
 

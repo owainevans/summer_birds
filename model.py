@@ -456,7 +456,7 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constru
   
   generate_data_store_dict_filename, _ = store_observes(generate_data_unit, observe_range)
 
-  ## NOTE THIS PRIOR MAKE HYPERS [1,0] easy to learn
+  ## NOTE THIS PRIOR MAKES HYPERS [1,0] easy to learn
   prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
   infer_unit = make_infer_unit_and_observe_defaults( generate_data_store_dict_filename,
                                                      prior_on_hypers,
@@ -466,13 +466,7 @@ def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constru
   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
 
-
-def _default_test_inference():
-  model_constructor = Multinomial
-  ripl_thunk = mk_p_ripl
-  params_short_name = 'bigger_onestep_diag105'
-  generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-
+def _test_inference_bigger_onestep():
   observe_range = None ## for max range
   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
   
@@ -482,22 +476,67 @@ def _default_test_inference():
   return infer_unit
 
 
-def _test_incremental():
+def _test_incremental_infer( params_short_name=None ):
+  params_short_name = 'bigger_onestep_diag105'
   model_constructor = Multinomial
   ripl_thunk = mk_p_ripl
-  params_short_name = 'bigger_onestep_diag105'
+  
   generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
 
-  full_observe_range = generate_data_unit.get_max_observe_range()
-  generate_data_filename, _ = store_observes(generate_data_unit, full_observe_range)
   
-  cells = generate_data_unit.cells
-  observe_range = Observe_range(days_list=range(2),years_list=[0],cells_list=range(cells))
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
+  load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                     cells_list=range( generate_data_unit.cells ) )
   
-  infer_unit = make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor) 
+  prior_on_hypers = ['(gamma 2 1)'] * generate_data_unit.params['num_features']
+  inference_prog = basic_inference_prog
+  infer_every_cell = False
 
-  incremental_observe_infer(infer_unit, generate_data_filename, observe_range, inference_prog, infer_every_cell=True, gtruth_unit = generate_data_unit)
+  score_function = lambda unit: unit.ripl.get_global_logscore()
+  
+  out = generate_unit_to_incremental_infer( generate_data_unit,
+                                            load_observe_range,
+                                            prior_on_hypers,
+                                            inference_prog,
+                                            infer_every_cell,
+                                            score_function)
+
+  infer_unit, score_before_inference, score_after_inference = out
+  
+  #assert score_after_inference > score_before_inference
+  print  '\n\n _test_incremental_infer: short_name', params_short_name
+  print 'score_before_inference', score_before_inference
+  print 'score_after_inference', score_after_inference,
+ 
+  
+
+  
+
+def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
+                                        prior_on_hypers, inference_prog, infer_every_cell,
+                                        score_function = None):
+
+  ## Store all possible observes
+  ## (could make this more flexible to save time generating observes)
+  full_observe_range = generate_data_unit.get_max_observe_range()
+  load_observe_range.assert_is_observe_sub_range(full_observe_range)
+  
+  assert len(prior_on_hypers) == generate_data_unit.params['num_features']
+
+  generate_data_filename, _ = store_observes(generate_data_unit, full_observe_range)
+  cells = generate_data_unit.cells
+  model_constructor = generate_data_unit.__class__
+  ripl_thunk = backend_to_ripl_thunk(generate_data_unit.ripl.backend())
+  
+  infer_unit = make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor)
+  score_before_inference = score_function(infer_unit)
+
+  incremental_observe_infer(infer_unit, generate_data_filename, load_observe_range, inference_prog, infer_every_cell)
+  score_after_inference = score_function(infer_unit)
+
+  infer_unit.ripl.infer(100)
+  score_after_more_inference = score_function(infer_unit)
+  print 'gen_to_inc_infer scores: ',  score_before_inference, score_after_inference, score_after_more_inference
+  return infer_unit, score_before_inference, score_after_inference
 
 
 
@@ -519,11 +558,13 @@ def compare_hypers(gtruth_unit,inferred_unit):
   return hypers,logscores,mse_pair
 
 
-def inference_prog( unit, year, day, cell, gtruth_unit=None):
-  unit.ripl.infer(10)
-  if gtruth_unit:
-    print 'hypers, logscores, mse',compare_hypers(gtruth_unit, unit)
+def basic_inference_prog( unit, year, day, cell, gtruth_unit=None):
+  unit.ripl.infer(100)
+  # if gtruth_unit:
+  #   print 'hypers, logscores, mse',compare_hypers(gtruth_unit, unit)
 
+
+## loop over range and add observes, interspersed with inference
   
 def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False, gtruth_unit = None):
   
@@ -533,7 +574,6 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
     for day in observe_range['days_list']:
 
       if not infer_every_cell:
-        print '\n inc,', year, day, gtruth_unit
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
         load_observes( unit, observe_sub_range, False, observes_filename) # slow coz reading file every time
         inference_prog( unit, year, day, 'all', gtruth_unit)
@@ -544,6 +584,7 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
           load_observes( unit, observe_sub_range, False, observes_filename)
           inference_prog( unit, year, day, cell, gtruth_unit)
   
+
 
 
 
