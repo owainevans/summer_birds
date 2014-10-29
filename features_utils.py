@@ -66,7 +66,7 @@ def ind_to_ij(height, width, index, order='F'):
   return map(int,np.where(grid==index))
 
   
-def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='string'):
+def make_features_dict(height, width, years, days, feature_functions_name='distance', dict_string='dict'):
 # NOTE: the argument *dict_string* indicates that we default to creating 
 # a Python string for the features_dict rather than a Venture dict.
 # Because of the slow parser, we might need to change this later. 

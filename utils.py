@@ -314,7 +314,7 @@ def venturedict_to_pythondict(venturedict):
   return strip_types_from_dict_values(remove_type_venturedict)
 
 
-def python_features_to_string_or_dict( python_features_dict, dict_string='string'):
+def python_features_to_string_or_dict( python_features_dict, dict_string='dict'):
   if dict_string=='string':
       return python_features_to_venture_exp(python_features_dict)
   else:
@@ -323,13 +323,14 @@ def python_features_to_string_or_dict( python_features_dict, dict_string='string
 
 def toVenture(thing):
   if isinstance(thing, dict):
-    return venturedicts.val("dict", {k:toVenture(v) for k, v in thing.iteritems()})
+    return venturedicts.val("dict", [(toVenture(k),toVenture(v)) for k, v in thing.iteritems()])
   if isinstance(thing, (list, tuple)):
     return venturedicts.val("array", [toVenture(v) for v in thing])
   if isinstance(thing, (int, float)):
     return venturedicts.number(thing)
   if isinstance(thing, str):
     return venturedicts.symbol(thing)
+
 
 # handles numbers, lists, tuples, and dicts
 def toExpr(thing):

@@ -12,9 +12,6 @@ import numpy as np
 
 ### PLAN NOTES
 
-## TODO get incremental working, have proper tests for incremental inference. only load from file once
-## for a suite of tests (for speed). 
-
 
 # keep in mind:
 # tasks: reconstruction of latent states, prediction, param inference (onebird / poisson)
@@ -22,8 +19,6 @@ import numpy as np
 
 ## NOTE we are using PREDICT for getting locations. Careful of predicts piling up. 
 ## EXP RUNNER AND BEING ABLE TO INTEGRATE WITH THAT
-
-
 
 
 # verbosity

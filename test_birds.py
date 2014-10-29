@@ -46,25 +46,35 @@ def test_ind_to_ij():
     ij = tuple( ind_to_ij(height,width,ind,'F') )
     eq_( grid[ij], ind )
 
-def test_make_features_dict():
+def _test_make_features_dict(ripl_thunk):
   '''Type and basic sanity checks for making one_step_not_diagonal
   features'''
   height, width = 3,2
   years,days = range(2), range(2)
   args = (height, width, years, days)
   name = 'one_step_and_not_diagonal'
+
+  # Create venture stack dict (*venture_dict*) and venture expression (*venture_exp*)
   venture_dict, python_dict = make_features_dict(*args, feature_functions_name=name, dict_string='dict' )
   venture_exp, _ = make_features_dict(*args, feature_functions_name=name, dict_string='string')
 
   eq_( len(python_dict), (height*width)**2 * ( len(years)*len(days) ) )
   assert isinstance( python_dict[ (0,0,0,0) ], (list,tuple) )
   eq_( venture_dict['type'], 'dict' )
-  assert isinstance(venture_dict['value'],dict)
 
-  ripls = ( mk_p_ripl(), mk_l_ripl() )
-  [ripl.assume('feature_dict', venture_exp) for ripl in ripls]
-  assert all( [ripl.sample('(is_dict feature_dict)') for ripl in ripls] )
-  assert all( [ripl.sample('(contains feature_dict (array 0 0 0 0) )') for ripl in ripls] )
+  ripl = ripl_thunk()
+  ripl.assume('feature_exp', venture_exp)
+  ripl.assume('feature_stack_dict', venture_dict)
+  
+  cell00 = []
+  cell01 = []
+
+  for var_name in ('feature_exp','feature_stack_dict'):
+    cell00.append( ripl.sample('(lookup %s (array 0 0 0 0))' % var_name)[0] )
+    cell01.append( ripl.sample('(lookup %s (array 0 0 0 1))' % var_name)[0] )
+    
+  eq_(*cell00)
+  eq_(*cell01)
 
   
 def test_features_functions():
@@ -400,6 +410,10 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
 
   random_mode = True if random_or_exhaustive=='random' else False
 
+  # tests that take a ripl_thunk
+  tests_ripl_thunk = (_test_dataset_load_observations,
+                      _test_make_features_dict)
+
   # tests that take unit object (with ripl) as input
   tests_one_ripl =  (_test_model,
                      _test_cell_to_prob_dist,
@@ -441,6 +455,13 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
           
     return test_unit_args
                     
+
+  ## tests that take ripl_thunk
+  for test in tests_ripl_thunk:
+    local_ripl_thunks = [rand_draw(ripl_thunks)] if random_mode else ripl_thunks
+    for ripl_thunk in local_ripl_thunks:
+      yield test, ripl_thunk
+
   ## run *tests_one_ripl*
   test_unit_args = get_test_unit_args(tests_one_ripl, models, params_short_names, ripl_thunks)
   for test,model,params,ripl in test_unit_args:
@@ -470,9 +491,7 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
   for model, ripl_thunk, make_params_thunk in args:
       yield _test_save_load_model, model, ripl_thunk, make_params_thunk 
 
-  ## special case test that takes ripl_thunk only
-  for ripl_thunk in ripl_thunks:
-    yield _test_dataset_load_observations, ripl_thunk
+
   
   
 
@@ -537,8 +556,7 @@ def run_nose_generative( test ):
       
 def run_all(kwargs = None):
   
-  regular_tests =  ( test_make_features_dict, 
-                     test_features_functions,
+  regular_tests =  ( test_features_functions,
                      test_ind_to_ij,
                      test_make_grid, )
   
