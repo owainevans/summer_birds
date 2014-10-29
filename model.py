@@ -476,23 +476,64 @@ def _test_inference_bigger_onestep():
   return infer_unit
 
 
-def _test_incremental_infer( params_short_name=None ):
-  params_short_name = 'bigger_onestep_diag105'
-  model_constructor = Multinomial
-  ripl_thunk = mk_p_ripl
-  
-  generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+def get_input_for_test_incremental_infer( index ):
 
-  
-  load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                     cells_list=range( generate_data_unit.cells ) )
-  
-  prior_on_hypers = ['(gamma 2 1)'] * generate_data_unit.params['num_features']
-  inference_prog = basic_inference_prog
-  infer_every_cell = False
+  def gtruth_unit_to_mse(gtruth_unit):
+    def score_function(infer_unit):
+      'mse hypers'
+      return compare_hypers(gtruth_unit, infer_unit)['mse']
+    return score_function
+    
+  if index==0:
+    params_short_name = 'bigger_onestep_diag105'
+    model_constructor = Multinomial
+    ripl_thunk = mk_p_ripl
+    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                       cells_list=range(generate_data_unit.cells))
+    num_features = generate_data_unit.params['num_features']
+    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+    inference_prog = transitions_to_mh_default(transitions=3)
+    infer_every_cell = True
+    score_function = gtruth_unit_to_mse(generate_data_unit)
 
-  score_function = lambda unit: unit.ripl.get_global_logscore()
-  
+  elif index==1:
+    params_short_name = 'poisson_onestep_diag105'
+    model_constructor = Poisson
+    ripl_thunk = mk_p_ripl
+    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                       cells_list=range(generate_data_unit.cells))
+    num_features = generate_data_unit.params['num_features']
+    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+    inference_prog = transitions_to_mh_default(transitions=30)
+    infer_every_cell = False
+    score_function = gtruth_unit_to_mse(generate_data_unit)
+
+  elif index==2:
+    params_short_name = 'dataset1'
+    model_constructor = Multinomial
+    ripl_thunk = mk_p_ripl
+    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(5),
+                                       cells_list=range(generate_data_unit.cells))
+    num_features = generate_data_unit.params['num_features']
+    prior_on_hypers = ['(uniform_continuous 1 20)'] * num_features
+    inference_prog = transitions_to_mh_default(transitions=15)
+    infer_every_cell = True
+    score_function = gtruth_unit_to_mse(generate_data_unit)
+    
+  else:
+    assert False
+    
+  return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+
+
+def check():
+  _test_incremental_infer( *get_input_for_test_incremental_infer( 2 ) )
+
+def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function):
+
   out = generate_unit_to_incremental_infer( generate_data_unit,
                                             load_observe_range,
                                             prior_on_hypers,
@@ -502,11 +543,11 @@ def _test_incremental_infer( params_short_name=None ):
 
   infer_unit, score_before_inference, score_after_inference = out
   
-  #assert score_after_inference > score_before_inference
-  print  '\n\n _test_incremental_infer: short_name', params_short_name
+  print  '\n\n _test_incremental_infer: short_name', generate_data_unit.params['short_name']
+  print 'score_function', score_function.__doc__
   print 'score_before_inference', score_before_inference
   print 'score_after_inference', score_after_inference,
- 
+  assert score_after_inference < score_before_inference
   
 
   
@@ -533,39 +574,34 @@ def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
   incremental_observe_infer(infer_unit, generate_data_filename, load_observe_range, inference_prog, infer_every_cell)
   score_after_inference = score_function(infer_unit)
 
-  infer_unit.ripl.infer(100)
-  score_after_more_inference = score_function(infer_unit)
-  print 'gen_to_inc_infer scores: ',  score_before_inference, score_after_inference, score_after_more_inference
   return infer_unit, score_before_inference, score_after_inference
 
 
-
-def compare_hypers(gtruth_unit,inferred_unit):
-  'Compare hypers across two different Birds unit objects'
-  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
-
-  def get_hypers(ripl,num_features):
-    return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
+def get_hypers(unit):
+  ripl = unit.ripl
+  num_features = unit.params['num_features']
+  return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
   
+def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
+
+
+def compare_hypers(gtruth_unit,infer_unit):
+  'Compare hypers across two different Birds unit objects'
+
   hypers = []
   logscores = []
   
-  for r in (gtruth_unit.ripl, inferred_unit.ripl):
-    hypers.append( get_hypers(r, gtruth_unit.params['num_features']))
-    logscores.append( r.get_global_logscore() )
-  mse_pair = mse(*hypers)
+  for unit in (gtruth_unit, infer_unit):
+    hypers.append( get_hypers(unit) )
+    logscores.append( unit.ripl.get_global_logscore() )
 
-  return hypers,logscores,mse_pair
-
-
-def basic_inference_prog( unit, year, day, cell, gtruth_unit=None):
-  unit.ripl.infer(100)
-  # if gtruth_unit:
-  #   print 'hypers, logscores, mse',compare_hypers(gtruth_unit, unit)
+  return dict(hypers=hypers, logscores=logscores, mse=mse(*hypers))
 
 
-## loop over range and add observes, interspersed with inference
-  
+def transitions_to_mh_default( transitions = 50 ):
+  return lambda unit, year, day, cell, gtruth_unit: unit.ripl.infer( transitions )
+
+## loop over range and add observes, interspersed with inference  
 def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False, gtruth_unit = None):
   
   cells_list = observe_range['cells_list']

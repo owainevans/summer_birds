@@ -19,7 +19,7 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'height': 3,
                             'width': 3,
                             'hypers':[1,0.5],
-                            'num_birds': 4 },
+                            'num_birds': 3 },
 
                             'poisson_onestep_diag105':
                            {'short_name': 'bigger_onestep_diag105',
@@ -42,7 +42,7 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'prior_on_hypers': ['(gamma 6 1)'] * 4,
                             'features_loaded_from': "data/input/dataset1/onebird-features.csv",
                             'max_years_for_experiment': 2, 
-                            'max_days_for_experiment': 2, },
+                            'max_days_for_experiment': 4, },
 
                            'dataset2':
                            {'short_name':'dataset2',
