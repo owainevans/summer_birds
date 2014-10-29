@@ -508,6 +508,8 @@ def get_input_for_test_incremental_infer( ):
     num_features = generate_data_unit.params['num_features']
     prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
     inference_prog = transitions_to_mh_default(transitions=30)
+    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10)
+
     infer_every_cell = False
     score_function = gtruth_unit_to_mse(generate_data_unit)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
@@ -535,8 +537,9 @@ def test_all_incremental_infer():
   for t in thunks:
     _test_incremental_infer( *t() )
 
-def check():
-  _test_incremental_infer( *get_input_for_test_incremental_infer( 2 ) )
+def test_one_incremental_infer( index ):
+  thunk = get_input_for_test_incremental_infer()[index]
+  _test_incremental_infer( *thunk() )
 
 
 def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function):
@@ -608,6 +611,20 @@ def compare_hypers(gtruth_unit,infer_unit):
 def transitions_to_mh_default( transitions = 50 ):
   return lambda unit, year, day, cell, gtruth_unit: unit.ripl.infer( transitions )
 
+  
+def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5):
+  
+  def cycle_filter_on_days( unit, year, day, cell, gtruth_unit):
+    args = transitions_latents,
+    hypers = '(mh hypers all %i)' % transitions_latents
+    latents = '(mh %i one %i)' % (day, transitions_hypers)
+    s = '(cycle ( %s %s ) 1 )' % (hypers, latents)
+    unit.ripl.infer(s)
+
+  return cycle_filter_on_days
+
+
+
 ## loop over range and add observes, interspersed with inference  
 def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False, gtruth_unit = None):
   
@@ -618,8 +635,11 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
 
       if not infer_every_cell:
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
-        load_observes( unit, observe_sub_range, False, observes_filename) # slow coz reading file every time
-        inference_prog( unit, year, day, 'all', gtruth_unit)
+        load_observes( unit, observe_sub_range, False, observes_filename) # slow because reading file every time
+
+        ## FIXME WORK OUT WAT'S GOING ON HERE
+        print '\n\n inc_obs_inc year, day, last directive, ', year, day, unit.ripl.list_directives()[-1]
+        if day > 0: inference_prog( unit, year, day-1, 'all', gtruth_unit)
 
       else:
         for cell in observe_range['cells_list']:
@@ -627,8 +647,6 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
           load_observes( unit, observe_sub_range, False, observes_filename)
           inference_prog( unit, year, day, cell, gtruth_unit)
   
-
-
 
 
 
@@ -977,27 +995,27 @@ class Poisson(Multinomial):
     # n = birdcount_i * normed_prob(i,j)
     # return: (lambda (j) (poisson n) )
 
-    if ripl.backend() == 'puma':
-      ripl.assume('bird_movements_loc', """
-      (mem (lambda (y d i)
-        (if (= (count_birds y d i) 0)
-          (lambda (j) 0)
+    ##if ripl.backend() == 'puma':
+    ripl.assume('bird_movements_loc', """
+    (mem (lambda (y d i)
+      (if (= (count_birds y d i) 0)
+        (lambda (j) 0)
           (mem (lambda (j)
             (if (= (phi y d i j) 0) 0
               (let ((n (* (count_birds y d i) (get_bird_move_prob y d i j))))
                 (scope_include d (array y d i j)
       (poisson n)))))))))""")
   
-    else:   ## FIXME HACK THAT SHOULD REPLACE WHEN LITE TAKES ARRAYS
-      ripl.assume('bird_movements_loc', """
-      (mem (lambda (y d i)
-        (if (= (count_birds y d i) 0)
-          (lambda (j) 0)
-          (mem (lambda (j)
-            (if (= (phi y d i j) 0) 0
-              (let ((n (* (count_birds y d i) (get_bird_move_prob y d i j))))
-                (scope_include d (+ (* 1000 y) (+ (* 100 d) (+ (* 10 i)  j)) )
-      (poisson n)))))))))""")
+    # else:   ## FIXME HACK THAT SHOULD REPLACE WHEN LITE TAKES ARRAYS
+    #   ripl.assume('bird_movements_loc', """
+    #   (mem (lambda (y d i)
+    #     (if (= (count_birds y d i) 0)
+    #       (lambda (j) 0)
+    #       (mem (lambda (j)
+    #         (if (= (phi y d i j) 0) 0
+    #           (let ((n (* (count_birds y d i) (get_bird_move_prob y d i j))))
+    #             (scope_include d (+ (* 1000 y) (+ (* 100 d) (+ (* 10 i)  j)) )
+    #   (poisson n)))))))))""")
     
     
     ripl.assume('observe_birds', '(mem (lambda (y d i) (poisson (+ (count_birds y d i) 0.00001))))')

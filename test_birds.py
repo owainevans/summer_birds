@@ -404,7 +404,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='not', small_model = True):
+def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
