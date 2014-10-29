@@ -79,29 +79,27 @@ def _test_make_features_dict(ripl_thunk):
   
 def test_features_functions():
   'Do *uniform*, *not_diagonal* behave as expected? Uses *make_features_dict*'
-  args_names = ( ('height',2), ('width',3), ('years',range(1)), ('days',range(1)), )
-  _, args = zip(*args_names)
-  num_cells = args[0] + args[1]
+
+  height = 2
+  width = 3
+  years = range(1)
+  days = range(2)
+  dict_string = 'dict'
 
   feature_functions_names = ('uniform', 'distance', 'not_diagonal')
   #  only one feature per set of functions, but we'll have singleton list of features
   
   feature_dicts = {}
   for name in feature_functions_names:
-    feature_dicts[name] = make_features_dict( *args, feature_functions_name = name)[1]
-
+    _, feature_dict = make_features_dict( height, width, years, days, dict_string, name)
+    feature_dicts[name] = feature_dict
+    
   is_constant = lambda seq: len( np.unique( seq) ) == 1
   assert is_constant( [v[0] for v in feature_dicts['uniform'].values()] )
-
   assert feature_dicts['not_diagonal'][(0,0,0,0)][0] == 0  # first cell is on diagonal
 
-  ## FIXME get this working, something funky with indices?
-  # def distances_from_i(i):
-  #   distance_dict = feature_dicts['distance']
-  #   return [distance_dict[(0,0,i,j)][0] for j in range(num_cells)]
-
-  # sum_distances = [sum(distances_from_i(i)) for i in (0, num_cells-1) ]  
-  # eq_( *sum_distances )
+  eq_( feature_dicts['distance'][(0,0,0,1)], feature_dicts['distance'][(0,0,1,0)] )
+  eq_( feature_dicts['distance'][(0,0,0,2)], feature_dicts['distance'][(0,0,1,3)] )
 
 
   
@@ -406,7 +404,7 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
+def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='not', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
