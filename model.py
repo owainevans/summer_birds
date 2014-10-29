@@ -534,11 +534,10 @@ def test_all_incremental_infer():
   thunks = get_input_for_test_incremental_infer()
   for t in thunks:
     _test_incremental_infer( *t() )
-    
-  
 
 def check():
   _test_incremental_infer( *get_input_for_test_incremental_infer( 2 ) )
+
 
 def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function):
 
