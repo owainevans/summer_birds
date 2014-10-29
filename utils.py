@@ -314,7 +314,7 @@ def venturedict_to_pythondict(venturedict):
   return strip_types_from_dict_values(remove_type_venturedict)
 
 
-def python_features_to_string_or_dict( python_features_dict, dict_string='dict'):
+def python_features_to_string_or_dict( python_features_dict, dict_string):
   if dict_string=='string':
       return python_features_to_venture_exp(python_features_dict)
   else:

@@ -21,6 +21,7 @@ import numpy as np
 ## EXP RUNNER AND BEING ABLE TO INTEGRATE WITH THAT
 
 
+
 # verbosity
 # should probably give everything a verbose mode which is off
 # by default. atm just storing produces lots of printing. 
@@ -287,7 +288,11 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
   
   # Generate features dicts
   if not params['features_loaded_from']:
-    args = params['height'], params['width'], params['years'], params['days']
+    ## Set whether we create Venture stack-dict (*'dict'*) or
+    # Venture string expression (*'string'*) for loading features
+    dict_string = 'dict'
+    
+    args = params['height'], params['width'], params['years'], params['days'], dict_string
     kwargs = dict( feature_functions_name = params['feature_functions_name'] )
     venture_features_dict, python_features_dict = make_features_dict(*args,**kwargs)
 
