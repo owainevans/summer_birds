@@ -476,7 +476,7 @@ def _test_inference_bigger_onestep():
   return infer_unit
 
 
-def get_input_for_test_incremental_infer( index ):
+def get_input_for_test_incremental_infer( ):
 
   def gtruth_unit_to_mse(gtruth_unit):
     def score_function(infer_unit):
@@ -484,20 +484,21 @@ def get_input_for_test_incremental_infer( index ):
       return compare_hypers(gtruth_unit, infer_unit)['mse']
     return score_function
     
-  if index==0:
-    params_short_name = 'bigger_onestep_diag105'
-    model_constructor = Multinomial
-    ripl_thunk = mk_p_ripl
-    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                       cells_list=range(generate_data_unit.cells))
-    num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-    inference_prog = transitions_to_mh_default(transitions=3)
-    infer_every_cell = True
-    score_function = gtruth_unit_to_mse(generate_data_unit)
+  def thunk0():
+      params_short_name = 'bigger_onestep_diag105'
+      model_constructor = Multinomial
+      ripl_thunk = mk_p_ripl
+      generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+      load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                         cells_list=range(generate_data_unit.cells))
+      num_features = generate_data_unit.params['num_features']
+      prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+      inference_prog = transitions_to_mh_default(transitions=3)
+      infer_every_cell = True
+      score_function = gtruth_unit_to_mse(generate_data_unit)
+      return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
-  elif index==1:
+  def thunk1():
     params_short_name = 'poisson_onestep_diag105'
     model_constructor = Poisson
     ripl_thunk = mk_p_ripl
@@ -509,25 +510,32 @@ def get_input_for_test_incremental_infer( index ):
     inference_prog = transitions_to_mh_default(transitions=30)
     infer_every_cell = False
     score_function = gtruth_unit_to_mse(generate_data_unit)
+    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
-  elif index==2:
+  def thunk2():
     params_short_name = 'dataset1'
     model_constructor = Multinomial
     ripl_thunk = mk_p_ripl
     generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(5),
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(4),
                                        cells_list=range(generate_data_unit.cells))
     num_features = generate_data_unit.params['num_features']
     prior_on_hypers = ['(uniform_continuous 1 20)'] * num_features
-    inference_prog = transitions_to_mh_default(transitions=15)
-    infer_every_cell = True
+    inference_prog = transitions_to_mh_default(transitions=200)
+    infer_every_cell = False
     score_function = gtruth_unit_to_mse(generate_data_unit)
-    
-  else:
-    assert False
-    
-  return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
+  return [thunk0, thunk1, thunk2]
+    
+  
+
+def test_all_incremental_infer():
+  thunks = get_input_for_test_incremental_infer()
+  for t in thunks:
+    _test_incremental_infer( *t() )
+    
+  
 
 def check():
   _test_incremental_infer( *get_input_for_test_incremental_infer( 2 ) )
