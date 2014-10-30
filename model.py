@@ -612,21 +612,25 @@ def transitions_to_mh_default( transitions = 50 ):
   return lambda unit, year, day, cell, gtruth_unit: unit.ripl.infer( transitions )
 
   
-def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5):
+def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5,
+                             number_of_cycles=1):
   
   def cycle_filter_on_days( unit, year, day, cell, gtruth_unit):
-    args = transitions_latents,
-    hypers = '(mh hypers all %i)' % transitions_latents
-    latents = '(mh %i one %i)' % (day, transitions_hypers)
-    s = '(cycle ( %s %s ) 1 )' % (hypers, latents)
-    unit.ripl.infer(s)
+
+    if day > 0:
+      args = transitions_latents,
+      hypers = '(mh hypers all %i)' % transitions_latents
+      latents = '(mh %i one %i)' % (day-1, transitions_hypers)
+      s = '(cycle ( %s %s ) %i )' % (hypers, latents, number_of_cycles)
+      unit.ripl.infer(s)
 
   return cycle_filter_on_days
 
 
 
 ## loop over range and add observes, interspersed with inference  
-def incremental_observe_infer( unit, observes_filename, observe_range, inference_prog, infer_every_cell=False, gtruth_unit = None):
+def incremental_observe_infer( unit, observes_filename, observe_range,
+                               inference_prog, infer_every_cell=False, gtruth_unit = None):
   
   cells_list = observe_range['cells_list']
   
@@ -635,11 +639,10 @@ def incremental_observe_infer( unit, observes_filename, observe_range, inference
 
       if not infer_every_cell:
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
-        load_observes( unit, observe_sub_range, False, observes_filename) # slow because reading file every time
+        # slow because reading file every time
+        load_observes( unit, observe_sub_range, False, observes_filename) 
 
-        ## FIXME WORK OUT WAT'S GOING ON HERE
-        print '\n\n inc_obs_inc year, day, last directive, ', year, day, unit.ripl.list_directives()[-1]
-        if day > 0: inference_prog( unit, year, day-1, 'all', gtruth_unit)
+        inference_prog( unit, year, day, 'all', gtruth_unit)
 
       else:
         for cell in observe_range['cells_list']:
@@ -994,6 +997,38 @@ class Poisson(Multinomial):
     # if no birds at cell i, no movement to any j from i
     # n = birdcount_i * normed_prob(i,j)
     # return: (lambda (j) (poisson n) )
+
+# what do scopes day here? if there are no birds at i, then no birds can move to j.
+# (note an asymmetry in model, where a bird can disappear but can't appear. martingale thing.)
+# moreover, if the prob of a bird moving from i to j is 0, the no birds move from i to j. 
+
+# these are deterministic functions, and so they won't be subject to inference. we don't
+# put them in the scope_include, but it wouldn't matter if they were in it. an alternate
+# model would make these latents stochastic, say with low prob of creating a bird. this 
+# would make the number of latents fixed over time, but would also make it much larger. 
+
+# however, note that a variable (bird_movements_loc y d i j) could become random if we change
+# whether bird is at i on this day. so we'd want this to shift in and out of the scope. would this work?
+# suppose we start with no bird at cell 1 on day 1, then we have 1 bird there. so initially we
+# have (bird_m_loc 0 1 1 j)=0 for all j. then we want this to be a poisson random var.
+
+# filtering: we observe birds on day 0, with count (poi num_birds) at cell 0 and (poi .0001) 
+# elsewhere. our model has uncertainty over hypers. but still assumes all birds at 0 
+# on first day. so we don't get any info here (we could get info about amount of noise
+# in observations --- if that was learnable in model). on day 0, the only random vars
+# should be (0 0 0 j) for j where (phi 0 j) is non-zero. here's the issue: on day 0, 
+# i don't observe anything that depends on (bird_moves_loc 0 0 0 j), so the 
+# array (0 0 0 j) won't be in the scope 0. instead it will be in scope 1. suppose
+# we then do infer on d-1 after observing for d. we can't do this on day 0 (but
+# needn't do any inference then anyway - as nothing can be learned on that day)
+
+# what about doing cell-wise incremental inference? if we observe count at i from
+# day d, that gives us info about (bird_moves_loc y d-1 source i) for each source.
+# in principle, observing one cell count for day d could activate every latent for
+# the previous day. but in our practical cases, most of those latents will be deterministically
+# zero. suppose i do inference on day d-1 by looping over cells in order. some cells
+# won't be in the scope, so we'll have an error. (vlad's point that when something 
+# is not in the block, you probably want it to do nothing). 
 
     ##if ripl.backend() == 'puma':
     ripl.assume('bird_movements_loc', """
