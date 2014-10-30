@@ -485,6 +485,10 @@ def compare_latents(gtruth_unit, infer_unit, observe_range):
   cells = observe_range['cells_list']
 
   year_day_i_j = product(years,days,cells,cells)
+
+  if gtruth_unit.get_model_name() == 'Poisson':
+    moves_string = 'get_birds_moving'
+    ##moves_string = 'count_birds
   
   for year,day,i,j in year_day_i_j:
     args = year,day,i,j
@@ -512,26 +516,35 @@ def get_input_for_test_incremental_infer( ):
       'mse hypers'
       return compare_hypers(gtruth_unit, infer_unit)['mse']
     return score_function
-    
 
-## pull out params and have thunk maker
-  def bigger_onestep_(ripl_thunk, load_observe_range, prior_string, transitions, infer_every_cell):
+  def gtruth_unit_to_mse_both(gtruth_unit,observe_range):
+    def score_function(infer_unit):
+      'mse latents, hypers'
+      return dict(latents=compare_latents(gtruth_unit, infer_unit, observe_range),
+                  hypers = compare_hypers(gtruth_unit, infer_unit))
 
-    def multinomial_size33_thunk():
+    return score_function
+
+        
+
+  def make_multinomial_size33(ripl_thunk, load_observe_range, prior_string, mh_transitions, infer_every_cell,
+                              score_function_constructor=None):
+    def thunk():
       params_short_name = 'multinomial_onestep_diag105_size33'
-      model_constructor = Multinomial
-      ripl_thunk = mk_p_ripl
-      generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+      generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
+      
       load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
                                          cells_list=range(generate_data_unit.cells))
-      num_features = generate_data_unit.params['num_features']
-      prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-      inference_prog = transitions_to_mh_default(transitions=3)
-      infer_every_cell = True
-      score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
+
+      prior_on_hypers = [prior_string] * generate_data_unit.params['num_features']
+      inference_prog = transitions_to_mh_default(transitions=mh_transitions)
+      if score_function_constructor is None:
+        score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range) 
       return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
-    return multinomial_size33_thunk
+    return thunk
+
+  thunk0 = make_multinomial_size33(mk_l_ripl, None, '(uniform_continuous 0.01 10)', 3, True)
 
   def thunk1():
     params_short_name = 'poisson_onestep_diag105'
@@ -591,8 +604,9 @@ def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hy
   print  '\n\n _test_incremental_infer: short_name', generate_data_unit.params['short_name']
   print 'score_function', score_function.__doc__
   print 'score_before_inference', score_before_inference
-  print 'score_after_inference', score_after_inference,
-  assert score_after_inference < score_before_inference
+  print 'score_after_inference', score_after_inference
+  if isinstance(score_before_inference, (int,float)):
+    assert score_after_inference < score_before_inference
   
 
   
