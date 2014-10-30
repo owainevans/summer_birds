@@ -476,27 +476,57 @@ def _test_inference_bigger_onestep():
   return infer_unit
 
 
+
+def compare_latents(gtruth_unit, infer_unit, observe_range):
+  
+  moves = {}
+  years = observe_range['years_list']
+  days = observe_range['days_list']
+  cells = observe_range['cells_list']
+
+  year_day_i_j = product(years,days,cells,cells)
+  
+  for year,day,i,j in year_day_i_j:
+    args = year,day,i,j
+    moves[args] = []
+    
+    for unit in (gtruth_unit, infer_unit):
+      moves[args].append(unit.ripl.predict('(get_birds_moving %i %i %i %i)'%args ))
+
+  mse = np.mean( [ (v[0]-v[1])**2 for k,v in moves.iteritems() ] )
+  print '\n\n mse latents, range, val', observe_range, ' mse ' , mse
+  return mse
+
+
+  
 def get_input_for_test_incremental_infer( ):
 
-  def gtruth_unit_to_mse(gtruth_unit):
+  def gtruth_unit_to_mse_latents(gtruth_unit,observe_range):
+    def score_function(infer_unit):
+      'mse latents'
+      return compare_latents(gtruth_unit, infer_unit, observe_range)
+    return score_function
+
+  def gtruth_unit_to_mse_hypers(gtruth_unit):
     def score_function(infer_unit):
       'mse hypers'
       return compare_hypers(gtruth_unit, infer_unit)['mse']
     return score_function
     
+
   def thunk0():
-      params_short_name = 'bigger_onestep_diag105'
-      model_constructor = Multinomial
-      ripl_thunk = mk_p_ripl
-      generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-      load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                         cells_list=range(generate_data_unit.cells))
-      num_features = generate_data_unit.params['num_features']
-      prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-      inference_prog = transitions_to_mh_default(transitions=3)
-      infer_every_cell = True
-      score_function = gtruth_unit_to_mse(generate_data_unit)
-      return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+    params_short_name = 'bigger_onestep_diag105'
+    model_constructor = Multinomial
+    ripl_thunk = mk_p_ripl
+    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                       cells_list=range(generate_data_unit.cells))
+    num_features = generate_data_unit.params['num_features']
+    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+    inference_prog = transitions_to_mh_default(transitions=3)
+    infer_every_cell = True
+    score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
+    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
   def thunk1():
     params_short_name = 'poisson_onestep_diag105'
@@ -507,11 +537,10 @@ def get_input_for_test_incremental_infer( ):
                                        cells_list=range(generate_data_unit.cells))
     num_features = generate_data_unit.params['num_features']
     prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-    inference_prog = transitions_to_mh_default(transitions=30)
-    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10)
+    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
 
     infer_every_cell = False
-    score_function = gtruth_unit_to_mse(generate_data_unit)
+    score_function = gtruth_unit_to_mse_latents(generate_data_unit, load_observe_range)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
   def thunk2():
@@ -525,7 +554,7 @@ def get_input_for_test_incremental_infer( ):
     prior_on_hypers = ['(uniform_continuous 1 20)'] * num_features
     inference_prog = transitions_to_mh_default(transitions=200)
     infer_every_cell = False
-    score_function = gtruth_unit_to_mse(generate_data_unit)
+    score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
   return [thunk0, thunk1, thunk2]
