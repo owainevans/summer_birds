@@ -88,8 +88,6 @@ def make_features_dict(height, width, years, days, dict_string, feature_function
       assert isinstance(feature_value,(int,float))
       feature_dict[(y,d,cell1,cell2)].append( feature_value )
 
-  ven_dict = python_features_to_string_or_dict(feature_dict, dict_string)
-  
       
   return python_features_to_string_or_dict(feature_dict, dict_string), feature_dict
 

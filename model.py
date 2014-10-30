@@ -187,6 +187,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   # along with groundtruth *bird_locs* and pickle to file.
 
   store_dict = {'generate_data_params':params,
+                'generate_data_backend': unit.ripl.backend(),
                 'observe_counts':observe_counts,
                 'observe_range':observe_range.copy_dict_only(), 
                 'bird_locs': gtruth_counts}
@@ -417,7 +418,7 @@ def make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_c
      Unit but with prior_on_hypers and either Poisson/Multinomial model.'''
 
   assert model_constructor in (Multinomial, Poisson)
-
+  
   with open(generate_data_filename,'r') as f:
     store_dict = pickle.load(f)
 
@@ -426,10 +427,12 @@ def make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_c
                                                       prior_on_hypers,
                                                       generate_data_filename)
 
+  if ripl_thunk is None:
+    ripl_thunk = backend_to_ripl_thunk(store_dict['generate_data_backend'])
+    
   infer_unit = model_constructor( ripl_thunk(), infer_params) 
 
   return infer_unit
-
 
 
 
@@ -448,257 +451,36 @@ def make_infer_unit_and_observe_defaults( generate_data_filename, prior_on_hyper
   return infer_unit
 
 
-def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor):
+# def _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor):
   
-  assert isinstance(generate_data_unit, (Multinomial,Poisson))
-  if observe_range is not None:
-    assert isinstance(observe_range, Observe_range)
+#   assert isinstance(generate_data_unit, (Multinomial,Poisson))
+#   if observe_range is not None:
+#     assert isinstance(observe_range, Observe_range)
   
-  generate_data_store_dict_filename, _ = store_observes(generate_data_unit, observe_range)
+#   generate_data_store_dict_filename, _ = store_observes(generate_data_unit, observe_range)
 
-  ## NOTE THIS PRIOR MAKES HYPERS [1,0] easy to learn
-  prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
-  infer_unit = make_infer_unit_and_observe_defaults( generate_data_store_dict_filename,
-                                                     prior_on_hypers,
-                                                     ripl_thunk,
-                                                     model_constructor)
+#   ## NOTE THIS PRIOR MAKES HYPERS [1,0] easy to learn
+#   prior_on_hypers = ['(gamma 1 1)'] * generate_data_unit.params['num_features']
+#   infer_unit = make_infer_unit_and_observe_defaults( generate_data_store_dict_filename,
+#                                                      prior_on_hypers,
+#                                                      ripl_thunk,
+#                                                      model_constructor)
                                 
-  return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
+#   return observe_range, generate_data_unit, generate_data_store_dict_filename, infer_unit
   
 
-def _test_inference_bigger_onestep():
-  observe_range = None ## for max range
-  _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
+# def _test_inference_bigger_onestep():
+#   observe_range = None ## for max range
+#   _,_,_, infer_unit = _test_inference(generate_data_unit, observe_range, ripl_thunk, model_constructor)
   
-  for _ in range(4):
-    infer_unit.ripl.infer(20)
-    print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
-  return infer_unit
+#   for _ in range(4):
+#     infer_unit.ripl.infer(20)
+#     print 'hypers,logsscores,mse:  ', compare_hypers(generate_data_unit, infer_unit)
+#   return infer_unit
 
 
 
-def compare_latents(gtruth_unit, infer_unit, observe_range):
-  
-  moves = {}
-  years = observe_range['years_list']
-  days = observe_range['days_list']
-  cells = observe_range['cells_list']
 
-  year_day_i_j = product(years,days,cells,cells)
-
-  if gtruth_unit.get_model_name() == 'Poisson':
-    moves_string = 'get_birds_moving'
-    ##moves_string = 'count_birds
-  
-  for year,day,i,j in year_day_i_j:
-    args = year,day,i,j
-    moves[args] = []
-    
-    for unit in (gtruth_unit, infer_unit):
-      moves[args].append(unit.ripl.predict('(get_birds_moving %i %i %i %i)'%args ))
-
-  mse = np.mean( [ (v[0]-v[1])**2 for k,v in moves.iteritems() ] )
-  print '\n\n mse latents, range, val', observe_range, ' mse ' , mse
-  return mse
-
-
-  
-def get_input_for_test_incremental_infer( ):
-
-  def gtruth_unit_to_mse_latents(gtruth_unit,observe_range):
-    def score_function(infer_unit):
-      'mse latents'
-      return compare_latents(gtruth_unit, infer_unit, observe_range)
-    return score_function
-
-  def gtruth_unit_to_mse_hypers(gtruth_unit):
-    def score_function(infer_unit):
-      'mse hypers'
-      return compare_hypers(gtruth_unit, infer_unit)['mse']
-    return score_function
-
-  def gtruth_unit_to_mse_both(gtruth_unit,observe_range):
-    def score_function(infer_unit):
-      'mse latents, hypers'
-      return dict(latents=compare_latents(gtruth_unit, infer_unit, observe_range),
-                  hypers = compare_hypers(gtruth_unit, infer_unit))
-
-    return score_function
-
-        
-
-  def make_multinomial_size33(ripl_thunk, load_observe_range, prior_string, mh_transitions, infer_every_cell,
-                              score_function_constructor=None):
-    def thunk():
-      params_short_name = 'multinomial_onestep_diag105_size33'
-      generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
-      
-      load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                         cells_list=range(generate_data_unit.cells))
-
-      prior_on_hypers = [prior_string] * generate_data_unit.params['num_features']
-      inference_prog = transitions_to_mh_default(transitions=mh_transitions)
-      if score_function_constructor is None:
-        score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range) 
-      return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
-
-    return thunk
-
-  thunk0 = make_multinomial_size33(mk_l_ripl, None, '(uniform_continuous 0.01 10)', 3, True)
-
-  def thunk1():
-    params_short_name = 'poisson_onestep_diag105'
-    model_constructor = Poisson
-    ripl_thunk = mk_p_ripl
-    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                       cells_list=range(generate_data_unit.cells))
-    num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
-
-    infer_every_cell = False
-    score_function = gtruth_unit_to_mse_latents(generate_data_unit, load_observe_range)
-    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
-
-  def thunk2():
-    params_short_name = 'dataset1'
-    model_constructor = Multinomial
-    ripl_thunk = mk_p_ripl
-    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(4),
-                                       cells_list=range(generate_data_unit.cells))
-    num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 1 20)'] * num_features
-    inference_prog = transitions_to_mh_default(transitions=200)
-    infer_every_cell = False
-    score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
-    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
-
-
-  return [thunk0, thunk1, thunk2]
-    
-  
-
-def test_all_incremental_infer():
-  thunks = get_input_for_test_incremental_infer()
-  for t in thunks:
-    _test_incremental_infer( *t() )
-
-def test_one_incremental_infer( index ):
-  thunk = get_input_for_test_incremental_infer()[index]
-  _test_incremental_infer( *thunk() )
-
-
-def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function):
-
-  out = generate_unit_to_incremental_infer( generate_data_unit,
-                                            load_observe_range,
-                                            prior_on_hypers,
-                                            inference_prog,
-                                            infer_every_cell,
-                                            score_function)
-
-  infer_unit, score_before_inference, score_after_inference = out
-  
-  print  '\n\n _test_incremental_infer: short_name', generate_data_unit.params['short_name']
-  print 'score_function', score_function.__doc__
-  print 'score_before_inference', score_before_inference
-  print 'score_after_inference', score_after_inference
-  if isinstance(score_before_inference, (int,float)):
-    assert score_after_inference < score_before_inference
-  
-
-  
-
-def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
-                                        prior_on_hypers, inference_prog, infer_every_cell,
-                                        score_function = None):
-
-  ## Store all possible observes
-  ## (could make this more flexible to save time generating observes)
-  full_observe_range = generate_data_unit.get_max_observe_range()
-  load_observe_range.assert_is_observe_sub_range(full_observe_range)
-  
-  assert len(prior_on_hypers) == generate_data_unit.params['num_features']
-
-  generate_data_filename, _ = store_observes(generate_data_unit, full_observe_range)
-  cells = generate_data_unit.cells
-  model_constructor = generate_data_unit.__class__
-  ripl_thunk = backend_to_ripl_thunk(generate_data_unit.ripl.backend())
-  
-  infer_unit = make_infer_unit(generate_data_filename, prior_on_hypers, ripl_thunk, model_constructor)
-  score_before_inference = score_function(infer_unit)
-
-  incremental_observe_infer(infer_unit, generate_data_filename, load_observe_range, inference_prog, infer_every_cell)
-  score_after_inference = score_function(infer_unit)
-
-  return infer_unit, score_before_inference, score_after_inference
-
-
-def get_hypers(unit):
-  ripl = unit.ripl
-  num_features = unit.params['num_features']
-  return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
-  
-def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
-
-
-def compare_hypers(gtruth_unit,infer_unit):
-  'Compare hypers across two different Birds unit objects'
-
-  hypers = []
-  logscores = []
-  
-  for unit in (gtruth_unit, infer_unit):
-    hypers.append( get_hypers(unit) )
-    logscores.append( unit.ripl.get_global_logscore() )
-
-  return dict(hypers=hypers, logscores=logscores, mse=mse(*hypers))
-
-
-def transitions_to_mh_default( transitions = 50 ):
-  return lambda unit, year, day, cell, gtruth_unit: unit.ripl.infer( transitions )
-
-  
-def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5,
-                             number_of_cycles=1):
-  
-  def cycle_filter_on_days( unit, year, day, cell, gtruth_unit):
-
-    if day > 0:
-      args = transitions_latents,
-      hypers = '(mh hypers all %i)' % transitions_latents
-      latents = '(mh %i one %i)' % (day-1, transitions_hypers)
-      s = '(cycle ( %s %s ) %i )' % (hypers, latents, number_of_cycles)
-      unit.ripl.infer(s)
-
-  return cycle_filter_on_days
-
-
-
-## loop over range and add observes, interspersed with inference  
-def incremental_observe_infer( unit, observes_filename, observe_range,
-                               inference_prog, infer_every_cell=False, gtruth_unit = None):
-  
-  cells_list = observe_range['cells_list']
-  
-  for year in observe_range['years_list']:
-    for day in observe_range['days_list']:
-
-      if not infer_every_cell:
-        observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
-        # slow because reading file every time
-        load_observes( unit, observe_sub_range, False, observes_filename) 
-
-        inference_prog( unit, year, day, 'all', gtruth_unit)
-
-      else:
-        for cell in observe_range['cells_list']:
-          observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=[cell])
-          load_observes( unit, observe_sub_range, False, observes_filename)
-          inference_prog( unit, year, day, cell, gtruth_unit)
-  
 
 
 
