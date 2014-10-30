@@ -514,19 +514,24 @@ def get_input_for_test_incremental_infer( ):
     return score_function
     
 
-  def thunk0():
-    params_short_name = 'bigger_onestep_diag105'
-    model_constructor = Multinomial
-    ripl_thunk = mk_p_ripl
-    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                       cells_list=range(generate_data_unit.cells))
-    num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
-    inference_prog = transitions_to_mh_default(transitions=3)
-    infer_every_cell = True
-    score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
-    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+## pull out params and have thunk maker
+  def bigger_onestep_(ripl_thunk, load_observe_range, prior_string, transitions, infer_every_cell):
+
+    def multinomial_size33_thunk():
+      params_short_name = 'multinomial_onestep_diag105_size33'
+      model_constructor = Multinomial
+      ripl_thunk = mk_p_ripl
+      generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+      load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                         cells_list=range(generate_data_unit.cells))
+      num_features = generate_data_unit.params['num_features']
+      prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+      inference_prog = transitions_to_mh_default(transitions=3)
+      infer_every_cell = True
+      score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
+      return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+
+    return multinomial_size33_thunk
 
   def thunk1():
     params_short_name = 'poisson_onestep_diag105'
@@ -556,6 +561,7 @@ def get_input_for_test_incremental_infer( ):
     infer_every_cell = False
     score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+
 
   return [thunk0, thunk1, thunk2]
     

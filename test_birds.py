@@ -435,7 +435,7 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
   if small_model:
     params_short_names = ('minimal_onestep_diag10',) 
   else:
-    params_short_names = ('minimal_onestep_diag10', 'dataset1', 'test_medium_onestep_diag105')
+    params_short_names = ('minimal_onestep_diag10', 'dataset1', 'multinomial_onestep_diag105_size33')
 
   make_params_thunks = [ lambda:make_params( name ) for name in params_short_names ]
 
@@ -472,13 +472,16 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
   
 
   ## FIXME: TOO SLOW, NOT RUNNING YET
-  # run Poisson-only (big num_birds) datasets  
-  # many_birds_short_names = ('poisson_onestep_diag105', 'dataset2')
-  # tests = (_test_incremental_load_observations,)
-  # models = (Poisson,)
-  # test_unit_args = get_test_unit_args(tests, models, many_birds_short_names, ripl_thunks)
-  # for test,model,params,ripl in test_unit_args:
-  #   yield test, make_unit_instance(model, ripl, params), ripl
+  # run Poisson-only (big num_birds) datasets
+  if small_model:
+    poisson_short_names = ('poisson_onestep_diag105_size33',)
+  else:
+    poisson_short_names = ('poisson_onestep_diag105_size33', 'dataset2')
+  tests = (_test_incremental_load_observations,)
+  models = (Poisson,)
+  test_unit_args = get_test_unit_args(tests, models, poisson_short_names, ripl_thunks)
+  for test,model,params,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params), ripl
   
 
 
