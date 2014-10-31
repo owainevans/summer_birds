@@ -1,6 +1,4 @@
 import numpy as np
-
-from timeit import timeit
 from itertools import product
 from nose.tools import eq_, assert_almost_equal
 
@@ -9,7 +7,7 @@ from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from utils import  Observe_range
 
 from model import *
-from test_birds import run_nose_generative
+from mytest_utils import *
 
 
 ## SCORE FUNCTIONS
@@ -23,8 +21,6 @@ def compare_hypers(gtruth_unit,infer_unit):
     num_features = unit.params['num_features']
     return np.array([ripl.sample('hypers%i'%i) for i in range(num_features)])
 
-  def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
-
   hypers = []
   logscores = []
   
@@ -35,29 +31,52 @@ def compare_hypers(gtruth_unit,infer_unit):
   return dict(hypers=hypers, logscores=logscores, mse=mse(*hypers))
 
 
+def mse(hypers1,hypers2): return np.mean((hypers1-hypers2)**2)
+
 
 def compare_latents(gtruth_unit, infer_unit, observe_range):
-  moves = {}
+  
   years = observe_range['years_list']
   days = observe_range['days_list']
   cells = observe_range['cells_list']
 
-  year_day_i_j = product(years,days,cells,cells)
+  model = gtruth_unit.get_model_name()
 
-  if gtruth_unit.get_model_name() == 'Poisson':
-    moves_string = 'get_birds_moving'
-    ##moves_string = 'count_birds
-  
-  for year,day,i,j in year_day_i_j:
-    args = year,day,i,j
-    moves[args] = []
+
+  def poisson_latents():
+    ## NB latents are num birds moving from i to j
+    year_day_i_j = product(years,days,cells,cells)
+    moves_ij = {}   
+    all_mses = []
+
+    for year,day,i,j in year_day_i_j:
+      args = year,day,i,j
+      moves_ij[args] = []
+
+      for unit in (gtruth_unit, infer_unit):
+        r = unit.ripl
+        moves_ij[args].append(r.predict('(get_birds_moving %i %i %i %i)'%args ))
+
+      all_mses.append( mse(*moves_ij[args]) )
+
+    return np.mean(all_mses)
+
+
+  def multinomial_latents():
+    ## NB latents are counts for birds at each position
+    gtruth_locs = gtruth_unit.days_list_to_bird_locations(years, days)
+    infer_locs =  infer_unit.days_list_to_bird_locations(years, days)
+
+    mse_part = []
+    for year,day in product(years,days):
+      mse_part.append( mse( gtruth_locs[year][day], infer_locs[year][day]) )
+    return np.mean(mse_part)
     
-    for unit in (gtruth_unit, infer_unit):
-      moves[args].append(unit.ripl.predict('(get_birds_moving %i %i %i %i)'%args ))
+  mse_latents = poisson_latents() if model=='Poisson' else multinomial_latents()
 
-  mse = np.mean( [ (v[0]-v[1])**2 for k,v in moves.iteritems() ] )
-  print '\n\n mse latents, range, val', observe_range, ' mse ' , mse
-  return mse
+  print '\n\n mse latents, range, val', observe_range, ' mse ' , mse_latents
+  return mse_latents
+
 
 
 ## INFERENCE PROGRAMS
@@ -149,10 +168,11 @@ def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hy
   
   print  '\n\n _test_incremental_infer: short_name', generate_data_unit.params['short_name']
   print 'score_function', score_function.__doc__
-  print 'score_before_inference', score_before_inference
-  print 'score_after_inference', score_after_inference
-  if isinstance(score_before_inference, (int,float)):
-    assert score_after_inference < score_before_inference
+  print '\n score_before_inference', score_before_inference
+  print '\n score_after_inference', score_after_inference
+  
+  for k,v in score_before_inference.items():
+    assert v < score_after_inference[k]
   
 
 
@@ -174,7 +194,7 @@ def get_input_for_incremental_infer( ):
     def score_function(infer_unit):
       'mse latents, hypers'
       return dict(latents=compare_latents(gtruth_unit, infer_unit, observe_range),
-                  hypers = compare_hypers(gtruth_unit, infer_unit))
+                  hypers = compare_hypers(gtruth_unit, infer_unit)['mse'])
 
     return score_function
 
@@ -195,14 +215,13 @@ def get_input_for_incremental_infer( ):
 
       if score_function_constructor is None:
         score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
-        score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
 
       return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
     return thunk
 
   
-  thunk0 = make_multinomial_size33(mk_p_ripl, None, '(uniform_continuous 0.01 10)', 10, True)
+  thunk0 = make_multinomial_size33(mk_p_ripl, None, '(uniform_continuous 0.01 20)', 3, True)
 
 
   def thunk1():
@@ -217,8 +236,9 @@ def get_input_for_incremental_infer( ):
     inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
 
     infer_every_cell = False
-    score_function = gtruth_unit_to_mse_latents(generate_data_unit, load_observe_range)
+    score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+
 
   def thunk2():
     params_short_name = 'dataset1'
@@ -252,7 +272,12 @@ def _test_one_incremental_infer( index ):
 
 
 
+def run_all():
+  regular_tests = ()
+  generative_tests = ( lambda: test_all_incremental_infer(), )
 
+  return run_regular_and_generative_tests( regular_tests, generative_tests)
+    
   
 
 

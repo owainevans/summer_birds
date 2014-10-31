@@ -13,6 +13,20 @@ import numpy as np
 ### PLAN NOTES
 
 
+# SMC:
+
+# --- note, we should probably implement the thing that integrates out moves. you compute birds at cell i by doing one poisson of some over all source cells.
+# --- note: for poisson, doing inference by hand should be fairly easy. should implement that using numpy/scipy. good exercise in understanding stuff here. 
+
+# Issue that no random choice for birds moving from i to j if none at sources of j. Worry is that you have some patch of the grid where there are no birds. Then there will always be no birds. So maybe need something that spawns birds with some probability. Problem is that this gives you lots of new random variables unless you control it in some way. (Note that if we are freezing older variables, then we'll have a large but fixed number of variables over time. So this should be ok). 
+
+# TODO tests
+# check coverage and improve (esp. type checking)
+# separate into fast and slow tests better
+# be more careful about filenames for tests that save/load
+
+
+
 # keep in mind:
 # tasks: reconstruction of latent states, prediction, param inference (onebird / poisson)
 # params for inference: (depends on space of inference progs)
@@ -646,7 +660,7 @@ class Multinomial(object):
     ripl.assume('move', """
       (mem (lambda (bird_id y d i)
         (let ((dist (get_bird_move_dist y d i)))
-          (scope_include (quote move) d
+          (scope_include (quote d) bird_id
             (categorical dist cell_array)))))""")
 
 # all birds at 0 on d=0
@@ -674,6 +688,8 @@ class Multinomial(object):
       (mem (lambda (y d i)
         (size (filter
                 (lambda (x) (= x i)) (all_bird_pos y d)))))""" )
+
+  
 ## note that count_birds_v2 seems to work faster. haven't looked at whether it harms inference.
 ## we memoize this, so that observes are fixed for a given run of the model
 

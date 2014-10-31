@@ -11,6 +11,7 @@ from utils import make_grid, Observe_range
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
 from synthetic import get_multinomial_params
 from model import *
+from mytest_utils import *
 
 
 # venture value dicts (python/lib
@@ -528,60 +529,15 @@ def _test_load_features_multinomial( ):
 
 
 
-
-def display_timeit_run( test_func, test_lambda ):
-  bar = '----------\n'
-  print '%s TEST: %s \n DOC: %s %s'% (test_func.__name__,
-                                      test_func.__doc__,
-                                      bar, bar)
-
-  return timeit( test_lambda, number=1 )
-
-
-
-def run_nose_generative( test ):
-
-  test_times = {}
-
-  for yield_args in test():
-    test_func, args = yield_args[0], yield_args[1:]
-    test_lambda =  lambda: test_func( *args )
-
-    test_time = display_timeit_run( test_func, test_lambda )
-
-    test_times[ test_func.__name__ + '__%s'%str(args) ] = test_time
-
-  return test_times
-
-
-      
-def run_all(kwargs = None):
-  
+def run_all():
   regular_tests =  ( test_features_functions,
                      test_ind_to_ij,
                      test_make_grid, )
   
-  test_times = {}
+  generative_tests = ( lambda: test_all_unit_params( ), )
   
-  for t in regular_tests:
-    
-    test_time = display_timeit_run( t, t )
-    
-    test_times[ t.__name__ ] = test_time
-  
-    generative_tests = ( lambda: test_all_unit_params( ), )
-
-  for t in generative_tests:
-    test_times.update( run_nose_generative( t ) )
-
-
-  print '\n\n\n-----------------------\n passed all tests'
-
-  return test_times
-
-
-
-
+  return run_regular_and_generative_tests(regular_tests,
+                                          generative_tests)
 
 
 
