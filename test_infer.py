@@ -171,8 +171,8 @@ def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hy
   print '\n score_before_inference', score_before_inference
   print '\n score_after_inference', score_after_inference
   
-  for k,v in score_before_inference.items():
-    assert v < score_after_inference[k]
+  for score_key, score_before_value in score_before_inference.items():
+    assert score_before_value > score_after_inference[score_key]
   
 
 
@@ -181,13 +181,13 @@ def get_input_for_incremental_infer( ):
   def gtruth_unit_to_mse_latents(gtruth_unit,observe_range):
     def score_function(infer_unit):
       'mse latents'
-      return compare_latents(gtruth_unit, infer_unit, observe_range)
+      return dict(latents=compare_latents(gtruth_unit, infer_unit, observe_range))
     return score_function
 
   def gtruth_unit_to_mse_hypers(gtruth_unit):
     def score_function(infer_unit):
       'mse hypers'
-      return compare_hypers(gtruth_unit, infer_unit)['mse']
+      return dict(hypers=compare_hypers(gtruth_unit, infer_unit)['mse'])
     return score_function
 
   def gtruth_unit_to_mse_both(gtruth_unit,observe_range):
@@ -232,7 +232,7 @@ def get_input_for_incremental_infer( ):
     load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
                                        cells_list=range(generate_data_unit.cells))
     num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 0.01 10)'] * num_features
+    prior_on_hypers = ['(uniform_continuous 0.01 20)'] * num_features
     inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
 
     infer_every_cell = False
@@ -254,9 +254,9 @@ def get_input_for_incremental_infer( ):
     score_function = gtruth_unit_to_mse_hypers(generate_data_unit)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
+## FIXME
+  return [thunk1] #[thunk0, thunk1] #, thunk2]
 
-  return [thunk0, thunk1] #, thunk2]
-    
   
 
 def test_all_incremental_infer():
@@ -276,7 +276,7 @@ def run_all():
   regular_tests = ()
   generative_tests = ( lambda: test_all_incremental_infer(), )
 
-  return run_regular_and_generative_tests( regular_tests, generative_tests)
+  return run_regular_and_generative_nosetests( regular_tests, generative_tests)
     
   
 

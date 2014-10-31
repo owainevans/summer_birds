@@ -13,6 +13,8 @@ import numpy as np
 ### PLAN NOTES
 
 
+
+
 # SMC:
 
 # --- note, we should probably implement the thing that integrates out moves. you compute birds at cell i by doing one poisson of some over all source cells.
@@ -20,11 +22,16 @@ import numpy as np
 
 # Issue that no random choice for birds moving from i to j if none at sources of j. Worry is that you have some patch of the grid where there are no birds. Then there will always be no birds. So maybe need something that spawns birds with some probability. Problem is that this gives you lots of new random variables unless you control it in some way. (Note that if we are freezing older variables, then we'll have a large but fixed number of variables over time. So this should be ok). 
 
-# TODO tests
-# check coverage and improve (esp. type checking)
-# separate into fast and slow tests better
-# be more careful about filenames for tests that save/load
+# KEY INFERENCE TESTS:
+# 1. Good MSE performance on onebird and dataset 2 reconstruction
+# 2. Compare Poisson model against numerical simulation (for small version). Use this 
+# As part of unit testing. (Plus, mb, thing that integrates out moves). 
 
+# GENERAL POINTS ABOUT TESTING
+# check coverage and improve (esp. type checking)
+# be more careful about filenames for tests that save/load
+# should have fast test that generates data once, then does 
+# everything with same infer unit, and does so on a random small model. 
 
 
 # keep in mind:

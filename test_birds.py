@@ -1,7 +1,7 @@
 import numpy as np
 import os, subprocess, sys
 import cPickle as pickle
-from timeit import timeit
+
 from itertools import product
 from nose.tools import eq_, assert_almost_equal
 
@@ -9,7 +9,7 @@ from venture.shortcuts import make_puma_church_prime_ripl as mk_p_ripl
 from venture.shortcuts import make_lite_church_prime_ripl as mk_l_ripl
 from utils import make_grid, Observe_range
 from features_utils import ind_to_ij, make_features_dict, cell_to_prob_dist
-from synthetic import get_multinomial_params
+
 from model import *
 from mytest_utils import *
 
@@ -37,6 +37,7 @@ def test_make_grid():
   for ar,grid in pairs:
     ar_eq_( mk_array(ar), grid)
 
+
   
 def test_ind_to_ij():
   '''Consistency of make_grid (which maps list to 2D grid) and ind_to_ij
@@ -46,6 +47,7 @@ def test_ind_to_ij():
   for ind in range(height*width):
     ij = tuple( ind_to_ij(height,width,ind,'F') )
     eq_( grid[ij], ind )
+
 
 def _test_make_features_dict(ripl_thunk):
   '''Type and basic sanity checks for making one_step_not_diagonal
@@ -104,7 +106,7 @@ def test_features_functions():
 
 
   
-def make_unit_instance( model_constructor, ripl_thunk, params_short_name = 'minimal_onestep_diag10'):
+def make_unit_instance( model_constructor, ripl_thunk, params_short_name):
 
   return model_constructor( ripl_thunk(), make_params( params_short_name) )
 
@@ -206,6 +208,7 @@ def _test_make_infer( generate_data_unit, ripl_thunk ):
   expressions = ('features', 'num_birds')
   for exp in expressions:
     eq_( generate_data_unit.ripl.sample(exp), infer_unit.ripl.sample(exp) )
+
 
 
 
@@ -405,7 +408,8 @@ def _test_save_load_model( model_constructor, ripl_thunk, make_params_thunk, ver
   
     
 
-def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random', small_model = True):
+def test_all_unit_params( backends=('puma',), #'lite'), ##FIXME
+                          random_or_exhaustive='random', small_model = True):
 
   random_mode = True if random_or_exhaustive=='random' else False
 
@@ -463,13 +467,13 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
 
   ## run *tests_one_ripl*
   test_unit_args = get_test_unit_args(tests_one_ripl, models, params_short_names, ripl_thunks)
-  for test,model,params,ripl in test_unit_args:
-    yield test, make_unit_instance(model, ripl, params)
+  for test, model, params_short_name, ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params_short_name)
 
   ## run *tests_two_ripls*
   test_unit_args = get_test_unit_args(tests_two_ripls, models, params_short_names, ripl_thunks)
-  for test,model,params,ripl in test_unit_args:
-    yield test, make_unit_instance(model, ripl, params), ripl
+  for test,model,params_short_name,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params_short_name), ripl
   
 
   ## FIXME: TOO SLOW, NOT RUNNING YET
@@ -481,10 +485,9 @@ def test_all_unit_params( backends=('puma','lite'), random_or_exhaustive='random
   tests = (_test_incremental_load_observations,)
   models = (Poisson,)
   test_unit_args = get_test_unit_args(tests, models, poisson_short_names, ripl_thunks)
-  for test,model,params,ripl in test_unit_args:
-    yield test, make_unit_instance(model, ripl, params), ripl
+  for test,model,params_short_name,ripl in test_unit_args:
+    yield test, make_unit_instance(model, ripl, params_short_name), ripl
   
-
 
   ## special case test that takes ripl_thunk and make_params_thunk
   args = [el for el in product( models, ripl_thunks, make_params_thunks)]
@@ -536,8 +539,8 @@ def run_all():
   
   generative_tests = ( lambda: test_all_unit_params( ), )
   
-  return run_regular_and_generative_tests(regular_tests,
-                                          generative_tests)
+  return run_regular_and_generative_nosetests(regular_tests,
+                                              generative_tests)
 
 
 
