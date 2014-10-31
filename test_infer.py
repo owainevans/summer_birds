@@ -182,6 +182,7 @@ def get_input_for_incremental_infer( ):
 
   def make_multinomial_size33(ripl_thunk, load_observe_range, prior_string, mh_transitions, infer_every_cell,
                               score_function_constructor=None):
+      
     def thunk():
       params_short_name = 'multinomial_onestep_diag105_size33'
       generate_data_unit = Multinomial( ripl_thunk(), make_params( params_short_name) )
@@ -200,7 +201,9 @@ def get_input_for_incremental_infer( ):
 
     return thunk
 
-  thunk0 = make_multinomial_size33(mk_l_ripl, None, '(uniform_continuous 0.01 10)', 3, True)
+  
+  thunk0 = make_multinomial_size33(mk_p_ripl, None, '(uniform_continuous 0.01 10)', 10, True)
+
 
   def thunk1():
     params_short_name = 'poisson_onestep_diag105_size33'
@@ -232,14 +235,16 @@ def get_input_for_incremental_infer( ):
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
 
-  return [thunk0, thunk1, thunk2]
+  return [thunk0, thunk1] #, thunk2]
     
   
 
 def test_all_incremental_infer():
   thunks = get_input_for_incremental_infer()
   for t in thunks:
-    _test_incremental_infer( *t() )
+    generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function = t()
+
+    yield  _test_incremental_infer,  generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
 def _test_one_incremental_infer( index ):
   thunk = get_input_for_incremental_infer()[index]
