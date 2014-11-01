@@ -98,6 +98,43 @@ def day_features(features,width,y=0,d=0):
   return lst
 
 
+
+def _load_observes(unit, observations, load_observe_sub_range, use_range_defaults):
+  
+  unit.ensure_assumes()
+  default_observe_range = unit.get_max_observe_range()
+
+  if use_range_defaults:
+    load_observe_sub_range = default_observe_range
+  else:
+    load_observe_sub_range.assert_is_observe_sub_range(default_observe_range)
+
+  for y,d,i in load_observe_sub_range.get_year_day_cell_product():
+    count_i = observe_counts[(y,d,i)]
+    unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
+  
+  print 'Loaded all observes'
+
+
+def dataset_load_observes(unit, dataset, name, load_observe_sub_range, use_range_defaults):
+  observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
+  observations = read_observations(observations_file)
+  cleaned_observations = {}
+
+  years = load_observe_sub_range['years_list']
+  days = load_observe_sub_range['days_list']
+
+  for y in years:
+    for (d, bird_counts_list) in observations[y]:
+      if d not in days: continue
+      for cell_index, bird_count in enumerate(bird_counts_list):
+        cleaned_observations[(y,d,cell_index)] = bird_count
+        
+  _load_observes(unit, observations, load_observe_sub_range, use_range_defaults)
+
+        
+ 
+
 def dataset_load_observations(unit, dataset, name, load_observe_sub_range, use_range_defaults):
   'Load observations from Birds dataset'
   
