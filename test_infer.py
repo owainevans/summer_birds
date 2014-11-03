@@ -139,7 +139,6 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
 
 
 def onebird():
-
   ## Get infer_unit for dataset1
   params = make_params( 'dataset1' )
   params['max_days_for_experiment'] = max( params['days'] )
@@ -200,8 +199,10 @@ def onebird():
              
   return scores
   
-
 if __name__ == '__main__':
+  print 'sys args:  name, None, days_list, mh_transitions, time.sleep(arg)\n'
+  print 'sys.argv', sys.argv, '\n\n'
+  
   import time
   time.sleep(int(sys.argv[4]))
   print '\n\n SCORES \n', onebird()

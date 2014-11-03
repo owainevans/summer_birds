@@ -119,7 +119,11 @@ def new_load_observes(unit, observations, load_observe_sub_range, use_range_defa
     count_i = observations[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
   
-  print 'Loaded all observes'
+  years = load_observe_sub_range['years_list']
+  days = load_observe_sub_range['days_list']
+  cells = load_observe_sub_range['cells_list']
+
+  print 'Loaded years: %s, days: %s, cells: %s' %(years,days,cells)
 
 
 
