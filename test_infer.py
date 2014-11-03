@@ -9,6 +9,8 @@ from utils import  Observe_range
 from model import *
 from mytest_utils import *
 
+import sys
+
 
 ## SCORE FUNCTIONS
 
@@ -148,13 +150,25 @@ def onebird():
   infer_unit = Multinomial( ripl_thunk(), infer_params)
   dataset = 1
   name = 'onebird'
-  load_observe_sub_range = Observe_range(years_list=range(1), days_list=range(4),
+
+  if len(sys.argv) > 2:
+    days_list = range(int(sys.argv[2]))
+  else:
+    days_list = range(4)
+
+  if len(sys.argv) > 3:
+    transitions = sys.argv[3]
+  else:
+    transitions = 100
+  
+  load_observe_sub_range = Observe_range(years_list=range(1), days_list=days_list,
                                          cells_list=range(infer_unit.cells) )
   use_range_defaults = False
 
   def mse_onebird_hypers(unit):    
     hypers = get_hypers(unit)
-    return {'hypers': mse(hypers,np.array([5,10,10,10]))}
+    return {'hyper_mse': mse(hypers,np.array([5,10,10,10])),
+            'hypers':hypers}
   
   observations = dataset_get_observes(dataset, name, load_observe_sub_range,
                                       use_range_defaults)
@@ -170,6 +184,10 @@ def onebird():
 
   return scores
   
+if __name__ == '__main__':
+  print sys.argv, '\n'
+  print onebird()
+
   
 
 def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
