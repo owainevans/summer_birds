@@ -141,9 +141,6 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
 def onebird():
   ## Get infer_unit for dataset1
   params = make_params( 'dataset1' )
-  params['max_days_for_experiment'] = max( params['days'] )
-  params['max_years_for_experiment'] = max( params['years'] )
-
   ripl_thunk = mk_p_ripl
   prior_on_hypers = ['(gamma 5 1)'] * 4
   generate_data_filename = None
@@ -199,6 +196,7 @@ def onebird():
              
   return scores
   
+## TEMP TESTING OF ONEBIRD, TODO NOSE-IFY
 if __name__ == '__main__':
   print 'sys args:  name, None, days_list, mh_transitions, time.sleep(arg)\n'
   print 'sys.argv', sys.argv, '\n\n'

@@ -156,7 +156,8 @@ def dataset_get_observes(dataset, name, load_observe_sub_range, use_range_defaul
   return cleaned_observations
         
 
-
+def synthetic_get_observes():
+  pass
         
  
 
