@@ -185,7 +185,8 @@ def onebird():
   return scores
   
 if __name__ == '__main__':
-  print sys.argv, '\n'
+  import time
+  time.sleep(sys.argv[4])
   print onebird()
 
   
