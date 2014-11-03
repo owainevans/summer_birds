@@ -102,7 +102,7 @@ def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5,
 ## INTERLEAVE OBSERVE AND INFERENCE PROGRAM
 def incremental_observe_infer( unit, observes_filename, observe_range,
                                inference_prog, infer_every_cell=False, gtruth_unit = None,
-                               score_function = None, observations):
+                               score_function = None, observations=None):
   temp=1
   scores = {}
   if not score_function:
@@ -117,12 +117,10 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
         
       if not infer_every_cell:
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
-        # slow because reading file every time
         
         if temp:
           use_range_defaults = False
-          _load_observes(unit, observations, load_observe_sub_range, use_range_defaults)
-    
+          new_load_observes(unit, observations, observe_sub_range, use_range_defaults)
         else:
           load_observes( unit, observe_sub_range, False, observes_filename) 
         
@@ -142,20 +140,36 @@ def onebird():
   params = make_params( 'dataset1' )
   params['max_day'] = 10
   ripl_thunk = mk_p_ripl
-  infer_unit = Multinomial( ripl_thunk(), params)
+  prior_on_hypers = ['(gamma 5 1)'] * 4
+  generate_data_filename = None
+  infer_params = generate_data_params_to_infer_params(params,
+                                                      prior_on_hypers,
+                                                      generate_data_filename)
+  infer_unit = Multinomial( ripl_thunk(), infer_params)
   dataset = 1
   name = 'onebird'
   load_observe_sub_range = Observe_range(years_list=range(1), days_list=range(4),
                                          cells_list=range(infer_unit.cells) )
-  use_range_default = False
+  use_range_defaults = False
 
   def mse_onebird_hypers(unit):    
     hypers = get_hypers(unit)
-    return {hypers: mse(hypers,np.array([5,10,10,10]))}
-    
-  incremental_observe_infer( infer_unit, observes_filename, observe_range,
-                             inference_prog, infer_every_cell=False, gtruth_unit = None,
-                             score_function = mse_onebird_hypers)
+    return {'hypers': mse(hypers,np.array([5,10,10,10]))}
+  
+  observations = dataset_get_observes(dataset, name, load_observe_sub_range,
+                                      use_range_defaults)
+  inference_prog = transitions_to_mh_default(transitions=100)
+
+  ## we should have an observations object that contains an observe_range
+
+  observes_filename = ''
+  scores = incremental_observe_infer( infer_unit, observes_filename, load_observe_sub_range,
+                                      inference_prog, infer_every_cell=False, gtruth_unit = None,
+                                      score_function = mse_onebird_hypers,
+                                      observations = observations)
+
+  return scores
+  
   
 
 def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,

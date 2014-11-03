@@ -92,9 +92,22 @@ import numpy as np
                                         
 #### Multinomials and Poisson Dataset Loading Functions
 
-def _load_observes(unit, observations, load_observe_sub_range, use_range_defaults):
+
+
+def new_load_observes(unit, observations, load_observe_sub_range, use_range_defaults):
   
+  # *observations* dict has form { (y,d,cell) : count }
+  first_key = observations.keys()[0]
+  first_value = observations[first_key]
+  assert isinstance(first_key, tuple)
+  assert len(first_key) == 3
+  assert isinstance(first_value, (int,float))
+  
+  # can only *observe* after all *assumes* are loaded
   unit.ensure_assumes()
+
+  ## check that *load_observe_sub_range* is within the max range
+  ## (if using *range_defaults*, over-write whatever is *load_observe_sub_range*)
   default_observe_range = unit.get_max_observe_range()
 
   if use_range_defaults:
@@ -103,15 +116,28 @@ def _load_observes(unit, observations, load_observe_sub_range, use_range_default
     load_observe_sub_range.assert_is_observe_sub_range(default_observe_range)
 
   for y,d,i in load_observe_sub_range.get_year_day_cell_product():
-    count_i = observe_counts[(y,d,i)]
+    count_i = observations[(y,d,i)]
     unit.ripl.observe('(observe_birds %i %i %i)'%(y,d,i), count_i )
   
   print 'Loaded all observes'
 
 
+
 def dataset_load_observes(unit, dataset, name, load_observe_sub_range, use_range_defaults):
+  cleaned_observations = dataset_get_observes(dataset, name,
+                                              load_observe_sub_range,
+                                              use_range_defaults)
+  new_load_observes(unit, cleaned_observations,
+                 load_observe_sub_range, use_range_defaults)
+
+
+
+def dataset_get_observes(dataset, name, load_observe_sub_range, use_range_defaults):
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
   observations = read_observations(observations_file)
+  
+  # need to convert *observations* from form { y: { d: [count_celli] } }
+  # to form { (y,d,cell_i): count_celli }
   cleaned_observations = {}
 
   years = load_observe_sub_range['years_list']
@@ -122,8 +148,10 @@ def dataset_load_observes(unit, dataset, name, load_observe_sub_range, use_range
       if d not in days: continue
       for cell_index, bird_count in enumerate(bird_counts_list):
         cleaned_observations[(y,d,cell_index)] = bird_count
+
+  return cleaned_observations
         
-  _load_observes(unit, observations, load_observe_sub_range, use_range_defaults)
+
 
         
  
@@ -169,7 +197,6 @@ def computeScoreDay(d):
 def computeScore():
   infer_bird_moves = self.getBirdMoves()
   score = 0
-    
   for key in infer_bird_moves:
     score += (infer_bird_moves[key] - self.ground[key]) ** 2
 
