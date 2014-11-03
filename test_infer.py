@@ -139,8 +139,12 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
 
 
 def onebird():
+
+  ## Get infer_unit for dataset1
   params = make_params( 'dataset1' )
-  params['max_day'] = 10
+  params['max_days_for_experiment'] = max( params['days'] )
+  params['max_years_for_experiment'] = max( params['years'] )
+
   ripl_thunk = mk_p_ripl
   prior_on_hypers = ['(gamma 5 1)'] * 4
   generate_data_filename = None
@@ -148,46 +152,59 @@ def onebird():
                                                       prior_on_hypers,
                                                       generate_data_filename)
   infer_unit = Multinomial( ripl_thunk(), infer_params)
+
+
+  ## Params for dataset_get_observes
+  ## ----------------------------
+  
   dataset = 1
   name = 'onebird'
 
-  if len(sys.argv) > 2:
-    days_list = range(int(sys.argv[2]))
-  else:
-    days_list = range(4)
-
   if len(sys.argv) > 3:
+    days_list = range(int(sys.argv[2]))
     transitions = sys.argv[3]
   else:
+    days_list = range(4)
     transitions = 100
-  
-  load_observe_sub_range = Observe_range(years_list=range(1), days_list=days_list,
-                                         cells_list=range(infer_unit.cells) )
+
+  years_list = range(1)  
+
+  load_observe_sub_range = Observe_range(days_list, years_list, range(infer_unit.cells) )
   use_range_defaults = False
 
+  observations = dataset_get_observes(dataset, name, load_observe_sub_range,
+                                      use_range_defaults)
+  ## we should have an observations object that contains an observe_range
+
+
+  ##  Params for Inference
+  ## ----------------------------
   def mse_onebird_hypers(unit):    
     hypers = get_hypers(unit)
     return {'hyper_mse': mse(hypers,np.array([5,10,10,10])),
             'hypers':hypers}
-  
-  observations = dataset_get_observes(dataset, name, load_observe_sub_range,
-                                      use_range_defaults)
+
   inference_prog = transitions_to_mh_default(transitions=100)
+  score_function = mse_onebird_hypers
+  observes_filename = None
 
-  ## we should have an observations object that contains an observe_range
-
-  observes_filename = ''
   scores = incremental_observe_infer( infer_unit, observes_filename, load_observe_sub_range,
                                       inference_prog, infer_every_cell=False, gtruth_unit = None,
-                                      score_function = mse_onebird_hypers,
+                                      score_function = score_function,
                                       observations = observations)
-
+  ## Print key params
+  ## ----------------------------
+  print '\n\n PARAMS: '
+  print dict(dataset=dataset, name=name,
+             days_list=days_list, mh_transitions=transitions)
+             
   return scores
   
+
 if __name__ == '__main__':
   import time
   time.sleep(int(sys.argv[4]))
-  print onebird()
+  print '\n\n SCORES \n', onebird()
 
   
 
