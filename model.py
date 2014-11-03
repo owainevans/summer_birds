@@ -578,7 +578,9 @@ class Multinomial(object):
     # For plotting and synthetic-data generation we use matrix
     # row-column indices (with 'C' order by default
     self.cells = self.params['width'] * self.params['height']
-    self.ripl.set_seed( self.params['venture_random_seed'] );
+
+    ## TODO THINK ABOUT SEED
+    #self.ripl.set_seed( self.params['venture_random_seed'] );
 
     if self.ripl.list_directives() != []:
       self.assumes_loaded = True # If ripl pre-loaded, don't load assumes
