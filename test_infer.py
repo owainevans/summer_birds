@@ -186,7 +186,7 @@ def onebird():
   
 if __name__ == '__main__':
   import time
-  time.sleep(sys.argv[4])
+  time.sleep(int(sys.argv[4]))
   print onebird()
 
   
