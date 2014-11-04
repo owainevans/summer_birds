@@ -106,36 +106,30 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
                                inference_prog, infer_every_cell=False, gtruth_unit = None,
                                score_function = None, observations=None):
   
-  ## FIXME FIXME GET RID OF TEMP
-  temp=0
+  if observes_filename is None:
+    load_observes_function = dataset_load_observes
+  else:
+    load_observes_function = synthetic_load_observes
+
   scores = {}
-  if not score_function:
-    score_function = lambda unit:None
   scores['before'] = score_function(unit)
     
+
   cells_list = observe_range['cells_list']
-  
+  use_range_defaults = False
+
   for year in observe_range['years_list']:
     for day in observe_range['days_list']:
 
-        
       if not infer_every_cell:
         observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=cells_list)
-        
-        if temp:
-          use_range_defaults = False
-          new_load_observes(unit, observations, observe_sub_range, use_range_defaults)
-        else:
-          load_observes( unit, observe_sub_range, False, observes_filename) 
-        
-
-        inference_prog( unit, year, day, 'all', gtruth_unit)
-
+        new_load_observes(unit, observations, observe_sub_range, use_range_defaults)
+        inference_prog( unit, year, day, 'all', gtruth_unit)  ## FIXME dubious 'all'
 
       else:
         for cell in observe_range['cells_list']:
           observe_sub_range = Observe_range(years_list=[year], days_list=[day], cells_list=[cell])
-          load_observes( unit, observe_sub_range, False, observes_filename)
+          new_load_observes( unit, observations, observe_sub_range, use_range_defaults)
           inference_prog( unit, year, day, cell, gtruth_unit)
 
   scores['after'] = score_function(unit)
@@ -232,13 +226,13 @@ def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
                                prior_on_hypers,
                                None,   # default to same ripl thunk
                                model_constructor)
+
+  observations = synthetic_get_observes(generate_data_filename, load_observe_range)
   
-
-
   scores = incremental_observe_infer(infer_unit, generate_data_filename,
                                      load_observe_range, inference_prog, infer_every_cell,
-                                     score_function = score_function)
-
+                                     score_function = score_function,
+                                     observations = observations)
 
   return infer_unit, scores
 
@@ -312,7 +306,7 @@ def get_input_for_incremental_infer( ):
     return thunk
 
   
-  thunk0 = make_multinomial_size33(mk_p_ripl, None, '(uniform_continuous 0.01 20)', 3, True)
+  thunk0 = make_multinomial_size33(mk_p_ripl, None, '(uniform_continuous 0.01 20)', 10, True)
 
 
   def thunk1():
@@ -330,24 +324,8 @@ def get_input_for_incremental_infer( ):
     score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
+
   def thunk2():
-    params_short_name = 'poisson_onestep_diag105_size33'
-    model_constructor = Poisson
-    ripl_thunk = mk_p_ripl
-    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
-    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
-                                       cells_list=range(generate_data_unit.cells))
-    num_features = generate_data_unit.params['num_features']
-    prior_on_hypers = ['(uniform_continuous 0.01 20)'] * num_features
-    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
-
-    infer_every_cell = False
-    score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
-    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
-
-
-
-  def thunk3():
     params_short_name = 'dataset1'
     model_constructor = Multinomial
     ripl_thunk = mk_p_ripl
@@ -362,7 +340,7 @@ def get_input_for_incremental_infer( ):
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
 ## FIXME
-  return [thunk2] #[thunk0, thunk1] #, thunk2]
+  return [thunk0, thunk1, thunk2]
 
   
 
