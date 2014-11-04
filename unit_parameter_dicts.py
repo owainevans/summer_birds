@@ -46,6 +46,22 @@ parameter_short_name_to_changes = {'minimal_onestep_diag10':
                             'max_days_for_experiment': 19,
                             'phi_constant_beta': 1},
 
+
+                          'dataset1_small':
+                           {'short_name':'dataset1',
+                            'years': range(30),
+                            'days': range(20),
+                            'width':4,
+                            'height':4,
+                            'num_birds': 1, 
+                            'num_features': 4,
+                            'hypers': [5,10,10,10],
+                            'prior_on_hypers': ['(gamma 6 1)'] * 4,
+                            'features_loaded_from': "data/input/dataset1/onebird-features.csv",
+                            'max_years_for_experiment': 2, 
+                            'max_days_for_experiment': 5,
+                            'phi_constant_beta': 1},
+
                            'dataset2':
                            {'short_name':'dataset2',
                             'years': range(3),

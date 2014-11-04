@@ -13,6 +13,8 @@ import numpy as np
 ### PLAN NOTES
 
 
+## IMMEDIATE TODO
+# get rid of load_observes and fully replace with get/load functions
 
 
 # SMC:
@@ -129,19 +131,19 @@ def new_load_observes(unit, observations, load_observe_sub_range, use_range_defa
 
 def dataset_load_observes(unit, dataset, name, load_observe_sub_range, use_range_defaults):
   cleaned_observations = dataset_get_observes(dataset, name,
-                                              load_observe_sub_range,
-                                              use_range_defaults)
+                                              load_observe_sub_range)
   new_load_observes(unit, cleaned_observations,
-                 load_observe_sub_range, use_range_defaults)
+                    load_observe_sub_range, use_range_defaults)
 
 
 
-def dataset_get_observes(dataset, name, load_observe_sub_range, use_range_defaults):
+def dataset_get_observes(dataset, name, load_observe_sub_range):
   observations_file = "data/input/dataset%d/%s-observations.csv" % (dataset, name)
   observations = read_observations(observations_file)
   
   # need to convert *observations* from form { y: { d: [count_celli] } }
   # to form { (y,d,cell_i): count_celli }
+  # NOTE: also remove any observation not in *load_observe_sub_range*
   cleaned_observations = {}
 
   years = load_observe_sub_range['years_list']
@@ -156,8 +158,26 @@ def dataset_get_observes(dataset, name, load_observe_sub_range, use_range_defaul
   return cleaned_observations
         
 
-def synthetic_get_observes():
-  pass
+def synthetic_get_observes(store_dict_filename, load_observe_sub_range):
+
+  with open(store_dict_filename,'r') as f:
+    store_dict = pickle.load(f)
+    observations = store_dict['observe_counts']
+  
+  filtered_observations = {}
+
+  for y,d,i in load_observe_sub_range.get_year_day_cell_product():
+    filtered_observations[(y,d,i)] = observations[(y,d,i)]
+
+  return filtered_observations
+
+
+def synthetic_load_observes(unit, load_observe_sub_range, use_range_defaults, store_dict_filename):
+
+  filtered_observations = synthetic_get_observes(store_dict_filename, load_observe_sub_range)
+  
+  new_load_observes(unit, filtered_observations, load_observe_sub_range, use_range_defaults)
+
         
  
 
@@ -184,6 +204,7 @@ def dataset_load_observations(unit, dataset, name, load_observe_sub_range, use_r
       if d not in days: continue
       for cell_index, bird_count in enumerate(bird_counts_list):
         unit.ripl.observe('(observe_birds %d %d %d)'%(y,d,cell_index), bird_count)
+
 
 
 
@@ -285,6 +306,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
 
 
 
+## TODO get rid of this entirely. remove from test_infer.py
 def load_observes(unit, load_observe_sub_range,
                   use_range_defaults, store_dict_filename, observe_counts=None):
 
@@ -326,9 +348,11 @@ def make_params( params_short_name = 'minimal_onestep_diag10' ):
     
     params_new = base_params.copy()
     params_new.update( changes )
+
     
     return params_new
   
+
   base_params = {
       'short_name': 'minimal_onestep_diag10',
       'years': range(1),

@@ -271,7 +271,7 @@ def _test_load_observations( generate_data_unit, ripl_thunk ):
                                                                            ripl_thunk )
 
   use_defaults = False
-  load_observes(infer_unit, observe_range, use_defaults, store_dict_filename)
+  synthetic_load_observes(infer_unit, observe_range, use_defaults, store_dict_filename)
   register_observes( infer_unit.ripl )
     
   year_day_cells = make_triples( observe_range )
@@ -299,7 +299,7 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
     updated_observe_range.update( dict(cells_list = [cell] ) )
     
     use_defaults = False
-    load_observes( infer_unit, updated_observe_range, use_defaults, store_dict_filename)
+    synthetic_load_observes( infer_unit, updated_observe_range, use_defaults, store_dict_filename)
     register_observes( infer_unit.ripl )
 
     year_day_cell_iter = make_triples(updated_observe_range)
@@ -310,18 +310,18 @@ def _test_incremental_load_observations( generate_data_unit, ripl_thunk):
 def _test_dataset_load_observations(ripl_thunk):
 
   def load_check_directives(unit, dataset_number, name, observe_sub_range, use_range_defaults):
-    dataset_load_observations(unit, dataset_number, name, observe_sub_range, use_range_defaults)
-    register_observes( unit.ripl)
+    dataset_load_observes(unit, dataset_number, name, observe_sub_range, use_range_defaults)
+    register_observes(unit.ripl)
     last_directive = unit.ripl.list_directives()[-1]
     eq_(last_directive['instruction'], 'observe')
     assert isinstance(last_directive['value'], (float,int))
 
   ## Dataset 1: Multinomial model
-  dataset_short_name = 'dataset1'
+  dataset_short_name = 'dataset1_small'
   unit = Multinomial( ripl_thunk(), make_params(dataset_short_name))
   name = 'onebird'
-  observe_sub_range = None
-  use_range_defaults = True
+  observe_sub_range = unit.get_max_observe_range()
+  use_range_defaults = False
   load_check_directives(unit, 1, name, observe_sub_range,
                         use_range_defaults)
 

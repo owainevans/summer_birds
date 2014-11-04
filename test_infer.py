@@ -105,7 +105,9 @@ def transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=5,
 def incremental_observe_infer( unit, observes_filename, observe_range,
                                inference_prog, infer_every_cell=False, gtruth_unit = None,
                                score_function = None, observations=None):
-  temp=1
+  
+  ## FIXME FIXME GET RID OF TEMP
+  temp=0
   scores = {}
   if not score_function:
     score_function = lambda unit:None
@@ -126,7 +128,9 @@ def incremental_observe_infer( unit, observes_filename, observe_range,
         else:
           load_observes( unit, observe_sub_range, False, observes_filename) 
         
+
         inference_prog( unit, year, day, 'all', gtruth_unit)
+
 
       else:
         for cell in observe_range['cells_list']:
@@ -196,14 +200,14 @@ def onebird():
              
   return scores
   
-## TEMP TESTING OF ONEBIRD, TODO NOSE-IFY
-if __name__ == '__main__':
-  print 'sys args:  name, None, days_list, mh_transitions, time.sleep(arg)\n'
-  print 'sys.argv', sys.argv, '\n\n'
+# ## TEMP TESTING OF ONEBIRD, TODO NOSE-IFY
+# if __name__ == '__main__':
+#   print 'sys args:  name, None, days_list, mh_transitions, time.sleep(arg)\n'
+#   print 'sys.argv', sys.argv, '\n\n'
   
-  import time
-  time.sleep(int(sys.argv[4]))
-  print '\n\n SCORES \n', onebird()
+#   import time
+#   time.sleep(int(sys.argv[4]))
+#   print '\n\n SCORES \n', onebird()
 
   
 
@@ -229,35 +233,36 @@ def generate_unit_to_incremental_infer( generate_data_unit, load_observe_range,
                                None,   # default to same ripl thunk
                                model_constructor)
   
-  score_before_inference = score_function(infer_unit)
 
-  incremental_observe_infer(infer_unit, generate_data_filename, load_observe_range, inference_prog, infer_every_cell)
-  score_after_inference = score_function(infer_unit)
 
-  return infer_unit, score_before_inference, score_after_inference
+  scores = incremental_observe_infer(infer_unit, generate_data_filename,
+                                     load_observe_range, inference_prog, infer_every_cell,
+                                     score_function = score_function)
+
+
+  return infer_unit, scores
 
 
 
 
 def _test_incremental_infer( generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function):
 
-  out = generate_unit_to_incremental_infer( generate_data_unit,
-                                            load_observe_range,
-                                            prior_on_hypers,
-                                            inference_prog,
-                                            infer_every_cell,
-                                            score_function)
-
-  infer_unit, score_before_inference, score_after_inference = out
+  infer_unit, scores = generate_unit_to_incremental_infer( generate_data_unit,
+                                                           load_observe_range,
+                                                           prior_on_hypers,
+                                                           inference_prog,
+                                                           infer_every_cell,
+                                                           score_function)
   
   print  '\n\n _test_incremental_infer: short_name', generate_data_unit.params['short_name']
   print 'score_function', score_function.__doc__
-  print '\n score_before_inference', score_before_inference
-  print '\n score_after_inference', score_after_inference
+  print '\n score_before_inference', scores['before']
+  print '\n score_after_inference', scores['after']
   
-  for score_key, score_before_value in score_before_inference.items():
-    assert score_before_value > score_after_inference[score_key]
+  for score_key, score_before_value in scores['before'].items():
+    assert score_before_value > scores['after'][score_key]
   
+
 
 
 def get_input_for_incremental_infer( ):
@@ -268,11 +273,13 @@ def get_input_for_incremental_infer( ):
       return dict(latents=compare_latents(gtruth_unit, infer_unit, observe_range))
     return score_function
 
+
   def gtruth_unit_to_mse_hypers(gtruth_unit):
     def score_function(infer_unit):
       'mse hypers'
       return dict(hypers=compare_hypers(gtruth_unit, infer_unit)['mse'])
     return score_function
+
 
   def gtruth_unit_to_mse_both(gtruth_unit,observe_range):
     def score_function(infer_unit):
@@ -323,8 +330,24 @@ def get_input_for_incremental_infer( ):
     score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
-
   def thunk2():
+    params_short_name = 'poisson_onestep_diag105_size33'
+    model_constructor = Poisson
+    ripl_thunk = mk_p_ripl
+    generate_data_unit = model_constructor( ripl_thunk(), make_params( params_short_name) )
+    load_observe_range = Observe_range(years_list=range(1), days_list=range(3),
+                                       cells_list=range(generate_data_unit.cells))
+    num_features = generate_data_unit.params['num_features']
+    prior_on_hypers = ['(uniform_continuous 0.01 20)'] * num_features
+    inference_prog = transitions_to_cycle_mh( transitions_latents=10, transitions_hypers=10, number_of_cycles=1)
+
+    infer_every_cell = False
+    score_function = gtruth_unit_to_mse_both(generate_data_unit, load_observe_range)
+    return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
+
+
+
+  def thunk3():
     params_short_name = 'dataset1'
     model_constructor = Multinomial
     ripl_thunk = mk_p_ripl
@@ -339,7 +362,7 @@ def get_input_for_incremental_infer( ):
     return generate_data_unit, load_observe_range, prior_on_hypers, inference_prog, infer_every_cell, score_function
 
 ## FIXME
-  return [thunk1] #[thunk0, thunk1] #, thunk2]
+  return [thunk2] #[thunk0, thunk1] #, thunk2]
 
   
 
