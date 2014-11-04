@@ -15,6 +15,9 @@ import numpy as np
 
 ## IMMEDIATE TODO
 # get rid of load_observes and fully replace with get/load functions
+# GO OVER THE 'get bird locs' in tests_infer and unit methods and make
+# sure we forget all the predicts after adding them
+
 
 
 # SMC:
