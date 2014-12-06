@@ -25,7 +25,7 @@ def print_directives(v):
       assert False, "Unknown directive type found: %s" % str(directive)
   return dirs
     
-
+## NOTE this is the generating not hypers learning. so we also need to fix the hypers to be gammas
 # display
 
 def disp():
