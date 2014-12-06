@@ -33,12 +33,22 @@ def disp():
   dirs = dirs[2:] # remove map and filter
   ## TODO CHANGE NUMBER BIRDS
   pref = ['[assume features <features_dict>]',
-          '[assume num_birds 1]' ]
+          '[assume num_birds 1]',
+          '[assume phi_constant_beta 1]' ]
+  
   dirs = pref + dirs[:]
   # filter
   new_dirs = []
+  
+  def filter_d(d):
+    disj=(len(d) > 600,
+          'fail' in d,
+          'single' in d,
+          'no_map' in d,)
+    return any(disj)
+          
   for d in dirs:
-    if len(d) > 600 or 'fail' in d or 'single' in d:
+    if filter_d(d):
       pass
     else:
       new_dirs.append(d)
