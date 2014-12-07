@@ -134,7 +134,7 @@ In this model (in contrast to the models for datasets 2 and 3) we can usually co
 ```
 
 #### Figure 1: Plot of synthetic Onebird bird movements generated from Multinomial Onebird model described above. 
-![img_onebird] (https://github.com/mit-probabilistic-computing-project/ppaml-cps/blob/master/cp2/image_onebird_small.png)
+![img_onebird] (https://github.com/owainevans/summer_birds/blob/master/writeup/image_onebird_small.png)
 
 ### Optimization For Onebird by Pre-processing
 
@@ -295,7 +295,7 @@ The second change is a more substantive conceptual change: we use a Poisson appr
 
 In the Multinomial model, the probability of a single bird moving from `i` to `j` is a single-trial multinomial over cells `j` reachable from `i`. Since individual bird moves are assumed to be i.i.d., the total number of birds moving from `i` to reachable `j` is a multi-trial multinomial: 
 
-![eqn] (https://github.com/mit-probabilistic-computing-project/ppaml-cps/blob/master/cp2/multin.gif)
+![eqn] (https://github.com/owainevans/summer_birds/blob/master/writeup/multin.gif)
 n_{t,t+1}(i,j) \sim Multinomial(n_{t}(i), \theta) 
 \end{equation}
 
@@ -303,7 +303,7 @@ Here $n_{t}(i)$ is the bird-count at $i$, and $\theta$ is a probability vector t
 
 We approximate this multinomial with a set of independent Poisson distributions, one for each pair of cells `(i,j)`. The Poisson intensity parameter for each pair is given by its expectation under the corresponding multinomial. For each `(i,j)`, we have:
 
-![eqn] (https://github.com/mit-probabilistic-computing-project/ppaml-cps/blob/master/cp2/poisson.gif)
+![eqn] (https://github.com/owainevans/summer_birds/blob/master/writeup/poisson.gif)
 \begin{equation}
 n_{t,t+1}(i,j) \sim Poisson( n_{t}(i) * \theta_{j} )
 \end{equation}
@@ -327,7 +327,7 @@ In the Multinomial model, we compute the probability of a bird moving from sourc
 ```
 
 #### Figure 2. Plot of synthetic data drawn from the Poisson Venture program. Features are not those in challenge problem. Total number of birds is 400. Lighter colors indicate more birds (as shown by color-bar on right). 
-![poisson_model] (https://github.com/mit-probabilistic-computing-project/ppaml-cps/blob/master/cp2/image_poisson.png)
+![poisson_model] (https://github.com/owainevans/summer_birds/blob/master/writeup/image_poisson.png)
 
 
 -------------
