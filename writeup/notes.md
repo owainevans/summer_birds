@@ -377,12 +377,19 @@ For this round, we combine SMC (particle-filtering with resampling) and sequenti
 
 ### Summary of Inference Methods
 
- Problem        | Variables     | Batch/Filter  |  Inf Prog
-| ------------- |:-------------:| -----:|
-| Onebird      | Betas | Batch | `(slice hypers one 0.5 100 10)`
+Here *Vars* are the target variables for the problem. In *Param Infer* we also do inference on the latent `move` variables. 
 
-| col 2 is      | centered      |   $12 |
-| zebra stripes | are neat      |    $1 |
+ Problem         | Vars   | Updates |   Venture Inf Prog
+|------------------------------------------------------------------|
+| Onebird         | Betas | Batch  | `(slice hypers one 0.5 100 10)`
+
+| Reconstruction  | Moves | Filter | `(mh <day> one 500)`
+
+| Prediction      | Moves | Filter | `(mh <day> one 500)`
+
+| Param Infer     | Betas | Filter | `(resample <particles>)`
+                                      `(mh <day> one 500)`
+
 
 ----
 ## Testing
