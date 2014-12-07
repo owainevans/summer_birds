@@ -26,11 +26,7 @@
 12. Possible Optimizations
 
 
-## TODO
-## INLINE IMAGES
-images are image_onebird.png and image_poisson.png
 
-## latex pics and eliminate
 ## Tables and inference programs simple summary and RN batch and filter.
 
 
@@ -304,7 +300,7 @@ We approximate this multinomial with a set of independent Poisson distributions,
 ![eqn] (https://github.com/owainevans/summer_birds/blob/master/writeup/poisson.gif)
 
 
-Here `theta_j` is the `j`-th component of `theta`. On the Poisson model, `n_{t,t+1}(i,j)` and `n_{t,t+1}(i,k)` are independent given `n_{t}(i)` and the features at time `t` for any `j != k`. So for any cell `i`, the sum over `n_{t,t+1}(i,j)` for all `j` (including the birds staying at `i`) may differ from `n_t(i)`. That is, the number of birds is not conserved over time. This cannot happen in the multinomial model. Lack of conservation is not a problem for the Birds task because bird-counts are observed at every time-step. Thus sequences where the total bird-count varies substantially over time are ruled out by our model as inconsistent with daily observed bird-counts. (A further issue with the Poisson model is that it will be comparatively more noisy and less accurate when the bird counts are very low, e.g. in the Onebird case). TODO/FIXME Poisson is deviation from the specification of the problem but makes it more realistic. 
+Here `theta_j` is the `j`-th component of `theta`. On the Poisson model, `n_{t,t+1}(i,j)` and `n_{t,t+1}(i,k)` are independent given `n_t(i)` and the features at time `t` for any `j != k`. So for any cell `i`, the sum over `n_{t,t+1}(i,j)` for all `j` (including the birds staying at `i`) may differ from `n_t(i)`. That is, the number of birds is not conserved over time. This cannot happen in the multinomial model. Lack of conservation is not a problem for the Birds task because bird-counts are observed at every time-step. Thus sequences where the total bird-count varies substantially over time are ruled out by our model as inconsistent with daily observed bird-counts. A further issue with the Poisson model is that it will be comparatively more noisy and less accurate when the bird counts are very low, e.g. in the Onebird case. (On the other hand, while the Poisson is a deviation from the specification of the problem, it might provide a more realistic model in some circumstances. Just as observers of birds get noisy counts of the true number of birds present, the overall number of birds (especially if it is on the other of one million) will only be known up to substantial noise. Moreover, bird numbers will not be constant over the space of years.) 
 
 
 ### The Poisson Approximation - Implementation
@@ -379,7 +375,14 @@ It is possible to use MH to do joint inference on the Betas and latent states. O
 
 For this round, we combine SMC (particle-filtering with resampling) and sequential MH. That is, we generate more than 100 particles, which we re-sample after each day of observations. We also run a comparately smaller number of MH transitions on the latent states of each particle. This provides comparable results to the pure MH solution, but with much less compute time. (Again we do inference only for the first few days). The Python code for inference is in `param_inf.py` and `train_birds_param.py`. 
 
-### TODO: more detail on inference programs
+### Summary of Inference Methods
+
+ Problem        | Variables     | Batch/Filter  |  Inf Prog
+| ------------- |:-------------:| -----:|
+| Onebird      | Betas | Batch | `(slice hypers one 0.5 100 10)`
+
+| col 2 is      | centered      |   $12 |
+| zebra stripes | are neat      |    $1 |
 
 ----
 ## Testing
