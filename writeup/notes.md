@@ -27,10 +27,6 @@
 
 
 
-## Tables and inference programs simple summary and RN batch and filter.
-
-
-
 ## Glossary
 **Betas** - the four Beta Parameters that we infer in the parameter estimation task. Ground-truth values for this round are [2,1,0,1].
 
@@ -377,10 +373,9 @@ For this round, we combine SMC (particle-filtering with resampling) and sequenti
 
 ### Summary of Inference Methods
 
-Here *Vars* are the target variables for the problem. In *Param Infer* we also do inference on the latent `move` variables.
 
 ```
- Problem         | Vars   | Updates |   Venture Inf Prog
+ Problem         | Vars   | Updates | Venture Inference Program
 |------------------------------------------------------------------|
 | Onebird         | Betas | Batch  | (slice hypers one 0.5 100 10)
 
@@ -388,9 +383,13 @@ Here *Vars* are the target variables for the problem. In *Param Infer* we also d
 
 | Prediction      | Moves | Filter | (mh <day> one 500)
 
-| Param Infer     | Betas | Filter | (resample <particles>)
+| Param Inference | Betas | Filter | (resample <particles>)
                                       (mh <day> one 500)
 ```
+
+Here *Vars* are the target variables for the problem. In *Param Inference* for Multibird we also do inference on the latent `move` variables. *Batch* updates means we load all observations at once and then do inference (TODO add reference). By *Filter*, we mean that inference is added incrementally and interspersed with inference. In all three cases, the inference in the latent states takes place only on the states from the latest day. Thus is an example of *sliding-window filtering* (TODO reference?). The *Venture Inference Program* is the Venture code for applying inference. Note that there are arguments for variables. These variables are added by the Python code that generates the Venture code (and also loops over observations to load them). 
+
+
 
 ----
 ## Testing
