@@ -288,7 +288,7 @@ def store_observes(unit, observe_range=None, synthetic_directory = 'synthetic'):
   years = observe_range['years_list']
   days = observe_range['days_list']
   directory_filename = (full_directory, draw_bird_filename)
-  fig_ax = plot_save_bird_locations(unit, years, days, plot=False, save=True,
+  fig_ax = plot_save_bird_locations(unit, years, days, plot=True, save=True,
                                     directory_filename = directory_filename)
                                     
   # Build dict of parameters, *observe_range* and counts,

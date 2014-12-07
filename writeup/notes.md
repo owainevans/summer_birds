@@ -296,19 +296,15 @@ The second change is a more substantive conceptual change: we use a Poisson appr
 In the Multinomial model, the probability of a single bird moving from `i` to `j` is a single-trial multinomial over cells `j` reachable from `i`. Since individual bird moves are assumed to be i.i.d., the total number of birds moving from `i` to reachable `j` is a multi-trial multinomial: 
 
 ![eqn] (https://github.com/owainevans/summer_birds/blob/master/writeup/multin.gif)
-n_{t,t+1}(i,j) \sim Multinomial(n_{t}(i), \theta) 
-\end{equation}
 
-Here $n_{t}(i)$ is the bird-count at $i$, and $\theta$ is a probability vector that results from normalizing $\phi_{t,t+1}(i,j)$ for each reachable $j$. 
+Here `n_t(i)` is the bird-count at `i`, and `theta` is a probability vector that results from normalizing `phi(i,j)` for each reachable `j`. 
 
 We approximate this multinomial with a set of independent Poisson distributions, one for each pair of cells `(i,j)`. The Poisson intensity parameter for each pair is given by its expectation under the corresponding multinomial. For each `(i,j)`, we have:
 
 ![eqn] (https://github.com/owainevans/summer_birds/blob/master/writeup/poisson.gif)
-\begin{equation}
-n_{t,t+1}(i,j) \sim Poisson( n_{t}(i) * \theta_{j} )
-\end{equation}
 
-\noindent Here $\theta_{j}$ is the $j$-th component of $\theta$. On the Poisson model, $n_{t,t+1}(i,j)$ and $n_{t,t+1}(i,k)$ are independent given $n_{t}(i)$ and the features at time $t$ for any $j \neq k$. So for any cell $i$, the sum over $n_{t,t+1}(i,j)$ for all $j$ (including the birds staying at $i$) may differ from $n_{t}(i)$. That is, the number of birds is not conserved over time. This cannot happen in the multinomial model. Lack of conservation is not a problem for the Birds task because bird-counts are observed at every time-step. Thus sequences where the total bird-count varies substantially over time are ruled out by our model as inconsistent with daily observed bird-counts. (A further issue with the Poisson model is that it will be comparatively more noisy and less accurate when the bird counts are very low, e.g. in the Onebird case). TODO/FIXME Poisson is deviation from the specification of the problem but makes it more realistic. 
+
+Here `theta_j` is the `j`-th component of `theta`. On the Poisson model, `n_{t,t+1}(i,j)` and `n_{t,t+1}(i,k)` are independent given `n_{t}(i)` and the features at time `t` for any `j != k`. So for any cell `i`, the sum over `n_{t,t+1}(i,j)` for all `j` (including the birds staying at `i`) may differ from `n_t(i)`. That is, the number of birds is not conserved over time. This cannot happen in the multinomial model. Lack of conservation is not a problem for the Birds task because bird-counts are observed at every time-step. Thus sequences where the total bird-count varies substantially over time are ruled out by our model as inconsistent with daily observed bird-counts. (A further issue with the Poisson model is that it will be comparatively more noisy and less accurate when the bird counts are very low, e.g. in the Onebird case). TODO/FIXME Poisson is deviation from the specification of the problem but makes it more realistic. 
 
 
 ### The Poisson Approximation - Implementation
