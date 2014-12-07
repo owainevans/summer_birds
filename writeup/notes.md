@@ -2,6 +2,9 @@
 
 *Owain Evans*, *Vlad Firoiu*, and *Venture Team* (09.2014)
 
+Web-version with images:
+https://github.com/owainevans/summer_birds/blob/master/writeup/notes.md
+
 
 -------------
 
