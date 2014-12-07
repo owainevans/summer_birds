@@ -341,10 +341,6 @@ For our inference, we do multiple independent MH runs in parallel. We take the l
 ## Manybird: Implementation and Inference
 
 
-## FIXME TODO table: variables, inference method, inference program
-
-
-
 ### Overview
 We used one inference strategy for Reconstruction and Prediction and a different one for Parameter Inference. In terms of Venture inference, the important distinction between these problems is whether we have to do inference on the Betas. Since all latents probabilistically depend on the Betas, computing likelihoods for the Betas requires computing a large constant for the first day which then grows linearly in the number of days. In Reconstruction and Prediction, we avoid any inference on the hypers and just assume the ground-truth Betas as part of the model (TODO: questionable).
 
@@ -402,21 +398,10 @@ In the Manybird case, parameter estimation requires some of amount of inference 
 
 ## References
 
-[1]
-@article{DBLP:journals/corr/MansinghkaSP14,
-  author    = {Vikash K. Mansinghka and
-               Daniel Selsam and
-               Yura N. Perov},
-  title     = {Venture: a higher-order probabilistic programming platform with programmable
-               inference},
-  journal   = {CoRR},
-  volume    = {abs/1404.0099},
-  year      = {2014},
-  url       = {http://arxiv.org/abs/1404.0099},
-  timestamp = {Thu, 01 May 2014 14:56:20 +0200},
-  biburl    = {http://dblp.uni-trier.de/rec/bib/journals/corr/MansinghkaSP14},
-  bibsource = {dblp computer science bibliography, http://dblp.org}
-}
+[1] Vikash K. Mansinghka, Daniel Selsam, Yura N. Perov,
+"Venture: a higher-order probabilistic programming platform with programmable inference"
+http://arxiv.org/abs/1404.0099
+
 
 
 ## Possible Optimizations
