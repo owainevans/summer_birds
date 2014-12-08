@@ -345,7 +345,8 @@ For our inference, we do multiple independent MH runs in parallel. We take the l
 
 
 ### Overview
-We used one inference strategy for Reconstruction and Prediction and a different one for Parameter Inference. In terms of Venture inference, the important distinction between these problems is whether we have to do inference on the Betas. Since all latents probabilistically depend on the Betas, computing likelihoods for the Betas requires computing a large constant for the first day which then grows linearly in the number of days. In Reconstruction and Prediction, we avoid any inference on the hypers and just assume the ground-truth Betas as part of the model (TODO: questionable).
+We used one inference strategy for Reconstruction and Prediction and a different one for Parameter Inference. In terms of Venture inference, the important distinction between these problems is whether we have to do inference on the Betas. Since all latents probabilistically depend on the Betas, computing likelihoods for the Betas requires computing a large constant for the first day which then grows linearly in the number of days. In Reconstruction and Prediction, we avoid any inference on the hypers and just assume the ground-truth Betas as part of the model.
+
 
 ### Reconstruction
 For the reconstruction task we implement a filtering inference program (FIXME add cite russell and norvig) on the latents (i.e. count of birds moving from `i` to `j` on a given day). On day `d`, we observe each count for that day via the function `observe_birds` above. We then run MH only on the latents for `d` (holding fixed the values of latents for all previous days). We implement filtering by annotating the Venture program with `scope_include`. The variable for latent which corresponds to the expression `(bird_movements_loc y t i j)` in the code above, is included in a scope named `d` for the number of the day.
@@ -397,6 +398,25 @@ No baselines were provided to which we could compare our solutions. For example,
 In both Onebird and Manybird, we got values for the parameters close to the ground-truth. In both cases we started in prior values with reasonable variance, and then improved our estimates as we sequentially added observations and inference. (In both cases, there is variance in our estimates over repeated independent runs. It is unclear how much this is Monte Carlo noise in our inference techniques vs. variation in the Bayesian posterior).
 
 In the Manybird case, parameter estimation requires some of amount of inference on the latents. Given that this inference was successful, we have increased confidence that the same inference techniques applied to the latents only (given the correct values for the Betas) will be reasonably successful. Again, it is not clear to us how much uncertainty there would be in the true Bayesian posterior on reconstruction and prediction. Moreover, our Poisson approximation means that we would not be able to recover the exact latents states, even if they were recovarable in principle. 
+
+
+## Optimizations
+
+### Phi as an External Procedure
+The generative model for birds involves a substantial amount of deterministic computation. To compute the bird moves from a single cell `i`, we need to compute a dot-product `phi(<year> <day> i j)` for each possible destination cell `j` and take a sum over all these quantities. In general, the number of `phi` values will grow quadratically in the grid size. In doing MH inference on the Betas, proposed MH changes to the values of a single Beta necessitate re-computing these `phi` quantities for the entire history.
+
+In the Venture code above, we show how `phi` can be computed within Venture. We can improve performance (in a way that could be significant for inference) by creating a foreign procedure (written in Python) that can be called from within Venture that computes `phi`. This is straightforward because computing `phi` depends only on the features (which are given as input to the problem and not computed by Venture) and the Betas (which are constants). So the computation of `phi` itself is not relevant to Venture's inference.
+
+(More explanation: When inference proposes changes to the Betas, the likelihood of the data will need to be recomputed by computing `phi` again. But the `phi` values are deterministic given the new values. The stochasticity in the model is due to the probabilistic bird moves that depend on `phi`). 
+
+#### Performance Improvement:
+
+We tested performance on the Onebird Multinomial model (above). We compute total wall-clock time over two runs on the complete dataset with slice sampling MH inference.
+
+Unoptimized (`phi` in Venture): 129s
+
+Optimized (`phi` in Python): 44s
+
 
 
 ## References
